@@ -24,9 +24,7 @@ PATH="$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 export PATH
 
 say() {
-    if command -v notify-send >/dev/null 2>&1; then
-        notify-send -a "$APP_NAME" -i dux-software-depot "$APP_NAME" "$1"
-    fi
+    dms notify -a "$APP_NAME" -i dux-software-depot "$APP_NAME" "$1"
     echo "$APP_NAME: $1" >&2
     exit 1
 }

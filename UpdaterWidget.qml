@@ -485,7 +485,7 @@ PluginComponent {
 
     // One desktop notification, from the two places that have something to
     // announce. Clicking the body (action "default") or the Open button opens
-    // the window: notify-send --action waits and prints the chosen action, and
+    // the window: dms notify --action waits and prints the chosen action, and
     // the detached shell turns that into the plugin's own IPC call.
     function notify(summary, body) {
         const iconFile = Qt.resolvedUrl("assets/icons/dux-software-depot-" + (Theme.isLightMode ? "light" : "dark") + ".svg").toString().replace("file://", "");
@@ -493,7 +493,7 @@ PluginComponent {
         // and naming a second one only added a duplicate button next to it.
         // The body line is optional — an empty argument would draw an empty
         // line, so the two shapes are separate calls.
-        Quickshell.execDetached(["sh", "-c", "if [ -n \"$4\" ]; then chosen=$(notify-send -a 'Dux Software Depot' -i \"$1\" -A default=\"$2\" \"$3\" \"$4\"); else chosen=$(notify-send -a 'Dux Software Depot' -i \"$1\" -A default=\"$2\" \"$3\"); fi; [ -n \"$chosen\" ] && dms ipc call dankSoftwareDepot open", "notify", iconFile, Tr.t("Open"), summary, body || ""]);
+        Quickshell.execDetached(["sh", "-c", "if [ -n \"$4\" ]; then chosen=$(dms notify -a 'Dux Software Depot' -i \"$1\" -A default=\"$2\" \"$3\" \"$4\"); else chosen=$(dms notify -a 'Dux Software Depot' -i \"$1\" -A default=\"$2\" \"$3\"); fi; [ -n \"$chosen\" ] && dms ipc call dankSoftwareDepot open", "notify", iconFile, Tr.t("Open"), summary, body || ""]);
     }
 
     // A new version of the plugin deserves the same courtesy as new packages:

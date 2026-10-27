@@ -75,13 +75,14 @@ PluginComponent {
     //
     // key -> {to: target version, at: ms}. With a target version only that
     // version is hidden: a newer one released since is a real update. A row
-    // that never named one (a Flatpak's is often "?") is hidden for a short
-    // while instead. An entry goes once a check after the run no longer
-    // reports it, or when it expires; it is persisted, because the DMS pass
-    // reloads the shell and with it this plugin.
+    // that never named one (a Flatpak's is often "?") is hidden until a check
+    // that finished after the run, and succeeded, has had its say — a fixed
+    // quarter of an hour let it come back while the daemon still answered
+    // from before. An entry goes once such a check no longer reports it, or
+    // after a day; it is persisted, because the DMS pass reloads the shell
+    // and with it this plugin.
     readonly property var _succeeded: Backend.replaying ? ({}) : (pluginData.justUpdated || {})
-    readonly property int _succeededKnownMs: 24 * 3600 * 1000
-    readonly property int _succeededUnknownMs: 15 * 60 * 1000
+    readonly property int _succeededMs: 24 * 3600 * 1000
 
     function _justUpdated(key, toVersion) {
         const entry = _succeeded[key];
@@ -91,28 +92,35 @@ PluginComponent {
         const want = noEpoch(entry.to);
         const offered = noEpoch(toVersion);
         if (want === "" || offered === "" || offered === "?")
-            return Date.now() - (entry.at || 0) < _succeededUnknownMs;
+            return (SystemUpdateService.lastCheckUnix || 0) * 1000 <= (entry.at || 0) || SystemUpdateService.hasError;
         return want === offered;
     }
 
     function _rememberSucceeded() {
-        if (Backend.replaying)
-            return;
-        const map = Object.assign({}, _succeeded);
-        const now = Date.now();
-        let added = false;
+        const done = [];
         for (const item of engine.runItems || []) {
             const state = engine.itemStates[item.key];
-            if (!state || state.status !== "done")
-                continue;
-            map[item.key] = {
-                to: (item.pkg && item.pkg.toVersion) || "",
-                at: now
-            };
-            added = true;
+            if (state && state.status === "done")
+                done.push({
+                    key: item.key,
+                    to: (item.pkg && item.pkg.toVersion) || ""
+                });
         }
-        if (added)
-            _saveSucceeded(map);
+        _addSucceeded(done, Date.now());
+    }
+
+    // [{key, to}] that arrived, as of `at` (ms): the end of the run, or for a
+    // run that ended in the shell's reload, the moment it handed over to it
+    function _addSucceeded(done, at) {
+        if (Backend.replaying || done.length === 0)
+            return;
+        const map = Object.assign({}, _succeeded);
+        for (const item of done)
+            map[item.key] = {
+                to: item.to || "",
+                at: at
+            };
+        _saveSucceeded(map);
     }
 
     // `present` holds the keys the daemon's latest list reports; null when
@@ -128,8 +136,7 @@ PluginComponent {
         const map = {};
         for (const key of keys) {
             const entry = _succeeded[key];
-            const ttl = entry.to ? _succeededKnownMs : _succeededUnknownMs;
-            if (now - (entry.at || 0) >= ttl)
+            if (now - (entry.at || 0) >= _succeededMs)
                 continue;
             const daemonKind = key.indexOf("system/") === 0 || key.indexOf("flatpak/") === 0;
             if (present && daemonKind && checkedMs > (entry.at || 0) && !present.has(key))
@@ -149,6 +156,38 @@ PluginComponent {
         repeat: true
         running: Object.keys(root._succeeded).length > 0
         onTriggered: root._pruneSucceeded(null)
+    }
+
+    // ── A list older than the last run ──────────────────────────────────────
+    // Every run ends by asking the daemon for a forced check, and usually
+    // that is the end of it. Not when the run updated the shell itself: the
+    // daemon is restarted with it, and it keeps its list on disk. Killed in
+    // the seconds between installing and clearing that list, it came back
+    // with the list from before the run, and with it a check time from
+    // before the run — real state, as far as anyone could tell, so nothing
+    // asked again until the daily check. Twelve hours later "Update all"
+    // ran the morning's updates a second time.
+    //
+    // So a list from a check older than the last run is stale by
+    // definition, and gets a check of its own. Not at once: the run's own
+    // check is usually on its way. And again a few times, because the daemon
+    // ignores a refresh while it is still finishing an upgrade.
+    readonly property bool _listOlderThanRun: !Backend.replaying && SystemUpdateService.lastCheckUnix > 0
+        && SystemUpdateService.lastCheckUnix < lastUpdateUnix
+    property int _staleChecks: 0
+
+    on_ListOlderThanRunChanged: _staleChecks = 0
+
+    Timer {
+        interval: 15000
+        repeat: true
+        running: root._listOlderThanRun && !engine.running && root._staleChecks < 8
+        onTriggered: {
+            if (SystemUpdateService.isChecking || SystemUpdateService.isUpgrading)
+                return;
+            root._staleChecks++;
+            DMSService.sysupdateRefresh(true, null);
+        }
     }
 
     // Held packages (dnf versionlock/excludes) never count as real updates
@@ -1186,6 +1225,20 @@ PluginComponent {
                     else if (it.status === "error")
                         failed++;
                 }
+                // The run's end never came — the reload took it — so what it
+                // installed is remembered here instead, under the keys the
+                // engine gives its rows: anything not of a kind of its own is
+                // a system package
+                const prefix = {
+                    flatpak: "flatpak/",
+                    appimage: "appimage/",
+                    brew: "brew/",
+                    dmsplugin: "plugin/"
+                };
+                root._addSucceeded(items.filter(it => it.status === "done" && it.repo !== "firmware").map(it => ({
+                    key: prefix[it.repo] ? prefix[it.repo] + (it.id || "") : "system/" + (it.base || store.stripArch(it.id || "")),
+                    to: it.to || ""
+                })), (stash.ts || 0) * 1000);
                 // The tail of a torn-down run can carry nothing at all. The
                 // normal writer already refuses that case; this one wrote it,
                 // which is where the stray "0 packages updated" came from.

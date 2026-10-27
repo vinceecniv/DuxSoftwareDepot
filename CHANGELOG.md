@@ -3,6 +3,38 @@
 Release notes per version. The section for the latest version is shown
 in-app when the plugin offers its own update.
 
+## 1.7.2 — 2026-10-27
+
+- **Updates you just installed no longer come back hours later.** A run
+  that also updated the shell restarts its update service, and that
+  service keeps its list on disk. Restarted at the wrong moment, it came
+  back with the list from before the run, and nothing asked again until
+  the daily check: "Update all" then ran the same updates a second time.
+  A list from a check older than the last run is now checked again by
+  itself, and what a run installed stays off the list also when the run
+  ended in the shell's reload.
+
+- **A failed check says so above the list.** "Check failed" used to appear
+  only when there was nothing to update. A check that fails halfway still
+  leaves a list on screen, and that list may be missing things — a banner
+  above the tabs now says so, with the reason and a button to check
+  again. Thanks to @gitblit for the report that led there: Dux Shell's
+  Flatpak check reported no updates at all as soon as one app needed a
+  new runtime, which Dux Shell has since fixed.
+
+- **Arch on CachyOS: updates no longer crash, and a crash no longer
+  leaves pacman locked.** CachyOS's pacman accepts the CPU's feature
+  levels (x86_64_v3) and ships most packages that way; the depot asked
+  libalpm to accept x86_64 alone, and pyalpm turns that refusal into a
+  crash. The accepted architectures now come from `pacman-conf`. A
+  request is first worked out in a separate process, so whatever pyalpm
+  still crashes on — a package conflict, for one — is reported with
+  pacman's reason and changes nothing. And a lock left behind by an
+  earlier crash is removed once nothing holds it, instead of blocking
+  every pacman command until it is deleted by hand. Thanks to
+  @Verilisity for the report, the analysis and the pull request this is
+  built on.
+
 ## 1.7.1 — 2026-10-26
 
 - **Arch: the update preview and the removal warning work.** Working out

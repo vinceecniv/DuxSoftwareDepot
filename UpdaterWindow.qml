@@ -4099,6 +4099,70 @@ FloatingWindow {
             }
         }
 
+        // ── Failed-check banner ─────────────────────────────────────────────
+        // With nothing pending, the Updates tab says "Check failed" itself.
+        // With a list on screen it said nothing, and a list from a check that
+        // failed halfway is the one most likely to be missing something: the
+        // daemon keeps the rows of the backends that answered and the last
+        // known rows of the one that did not. A Flatpak check that died on a
+        // prompt read as "no Flatpak updates" for weeks that way (#36).
+        Rectangle {
+            Layout.fillWidth: true
+            visible: SystemUpdateService.hasError && !SystemUpdateService.isChecking && win.pendingUpdates.length > 0
+            implicitHeight: checkFailedRow.implicitHeight + Theme.spacingM * 2
+            radius: Theme.cornerRadius
+            color: Theme.withAlpha(Theme.error, 0.12)
+
+            RowLayout {
+                id: checkFailedRow
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.margins: Theme.spacingM
+                spacing: Theme.spacingM
+
+                DankIcon {
+                    name: "error"
+                    size: 22
+                    color: Theme.error
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 2
+
+                    StyledText {
+                        Layout.fillWidth: true
+                        text: Tr.t("Check failed") + " · " + Tr.t("This list may be incomplete.")
+                        font.pixelSize: Theme.fontSizeMedium
+                        color: Theme.surfaceText
+                        wrapMode: Text.WordWrap
+                    }
+
+                    // The raw service error can be long — bounded, as in the
+                    // empty state
+                    StyledText {
+                        Layout.fillWidth: true
+                        visible: text !== ""
+                        text: SystemUpdateService.errorMessage || ""
+                        font.pixelSize: Theme.fontSizeSmall
+                        color: Ui.failColor
+                        wrapMode: Text.WordWrap
+                        maximumLineCount: 3
+                        elide: Text.ElideRight
+                    }
+                }
+
+                DankButton {
+                    buttonHeight: 32
+                    iconName: "refresh"
+                    iconSize: 15
+                    text: Tr.t("Check for updates")
+                    onClicked: SystemUpdateService.checkForUpdates()
+                }
+            }
+        }
+
         // ── Tabs ────────────────────────────────────────────────────────────
         DankTabBar {
             id: tabs

@@ -23,16 +23,19 @@ HELPER = Path(__file__).resolve().parent / "pacman_helper.py"
 # name -> (installed version, version in the repositories before a refresh,
 #          version in the repositories after one)
 STUB = '''
-import json, os
+import json, os, signal, sys
 
 error = Exception
 SCENARIO = json.loads(os.environ["PACMAN_STUB"])
 TRACE = os.environ["PACMAN_TRACE"]
+# A plan started by a transaction (the helper's preresolve) traces apart
+# from the transaction itself
+PRE = "pre " if (os.environ.get("PACMAN_STUB_ROOT") and sys.argv[1:2] == ["plan"]) else ""
 
 
 def _trace(what):
     with open(TRACE, "a") as fh:
-        fh.write(what + "\\n")
+        fh.write(PRE + what + "\\n")
 
 
 def vercmp(a, b):
@@ -40,9 +43,10 @@ def vercmp(a, b):
 
 
 class Pkg:
-    def __init__(self, name, version):
+    def __init__(self, name, version, arch="x86_64"):
         self.name = name
         self.version = version
+        self.arch = arch
         self.download_size = 1000
         self.isize = 2000
 
@@ -65,7 +69,7 @@ class SyncDB:
             return None
         version = entry["after"] if self.refreshed else entry["before"]
         _trace("resolve %s -> %s" % (name, version))
-        return Pkg(name, version)
+        return Pkg(name, version, entry.get("arch", "x86_64"))
 
 
 class LocalDB:
@@ -90,7 +94,14 @@ class Transaction:
         self.to_remove.append(pkg)
 
     def prepare(self):
-        pass
+        # pyalpm 0.12 on a conflict or a wrong architecture: not an
+        # exception, the process is gone (#39)
+        if SCENARIO.get("prepareCrashes"):
+            os.kill(os.getpid(), signal.SIGSEGV)
+        arch = self.handle.arch
+        for pkg in self.to_add:
+            if arch and pkg.arch not in arch and pkg.arch != "any":
+                os.kill(os.getpid(), signal.SIGSEGV)
 
     def commit(self):
         # What pyalpm really passes its download callback: the event where
@@ -116,9 +127,11 @@ class Handle:
             raise error("could not initialise the library")
         _trace("dbpath %s" % dbpath)
         # init_transaction takes db.lck here, which only root may create
-        if os.path.realpath(dbpath) == "/var/lib/pacman":
+        if os.path.realpath(dbpath) == os.path.realpath(os.environ["DSD_PACMAN_DBPATH"]):
             self._locked_out = True
         self._sync = [SyncDB()]
+        # pycman's guess; the helper replaces it with pacman-conf's answer
+        self.arch = ["x86_64"]
 
     def register_syncdb(self, name, level):
         pass
@@ -154,6 +167,53 @@ open(trace + ".refreshed", "w").close()
 '''
 
 
+# pacman-conf, when the scenario names the architectures this pacman
+# accepts. Without one there is no pacman-conf in front of the system's.
+FAKE_PACMAN_CONF = '''#!/usr/bin/env python3
+import os
+with open(os.environ["PACMAN_TRACE"], "a") as fh:
+    fh.write("pacman-conf Architecture\\n")
+for arch in os.environ["PACMAN_ARCHS"].split():
+    print(arch)
+'''
+
+LAST = {}
+
+
+def fake_proc(root, lock, shape):
+    """A /proc for the lock checks. `shape` is who else is there:
+
+    - "stale": a bystander, and nothing holding the lock
+    - "held": pacman, with the lock among its open files as libalpm keeps it
+    - "manager": paru running, the lock not open (yet)
+    - "sudo": this test process standing in for the sudo the helper runs
+      under, its command line naming pacman_helper.py — the helper's parent,
+      which must not count as another update
+    - "other-run": another helper run, which must
+    - "plan": a plan, which locks a directory of its own and does not count
+    """
+    def proc(pid, comm, argv, holds=False):
+        (root / str(pid) / "fd").mkdir(parents=True)
+        (root / str(pid) / "comm").write_text(comm + "\n")
+        (root / str(pid) / "cmdline").write_bytes(b"\0".join(w.encode() for w in argv) + b"\0")
+        (root / str(pid) / "status").write_text("Name:\t%s\nPPid:\t1\n" % comm)
+        if holds:
+            os.symlink(str(lock), root / str(pid) / "fd" / "3")
+
+    proc(4242, "sleep", ["sleep", "60"])
+    if shape == "held":
+        proc(4343, "pacman", ["pacman", "-Syu"], holds=True)
+    elif shape == "manager":
+        proc(4444, "paru", ["paru", "-Syu"])
+    elif shape == "sudo":
+        proc(os.getpid(), "sudo", ["sudo", "-n", "/usr/bin/python3", "/x/scripts/pacman_helper.py", "upgrade", "dolphin"])
+    elif shape == "other-run":
+        proc(4545, "python3", ["/usr/bin/python3", "/x/scripts/pacman_helper.py", "install", "sl"])
+    elif shape == "plan":
+        proc(4646, "python3", ["/usr/bin/python3", "/x/scripts/pacman_helper.py", "plan", "install", "sl"])
+    return root
+
+
 def run(scenario, *args):
     with tempfile.TemporaryDirectory() as tmp:
         (Path(tmp) / "pyalpm.py").write_text(STUB)
@@ -161,9 +221,25 @@ def run(scenario, *args):
         bindir.mkdir()
         (bindir / "pacman").write_text(FAKE_PACMAN)
         (bindir / "pacman").chmod(0o755)
+        if scenario.get("architectures") is not None:
+            (bindir / "pacman-conf").write_text(FAKE_PACMAN_CONF)
+            (bindir / "pacman-conf").chmod(0o755)
         trace = Path(tmp) / "trace"
         trace.write_text("")
         env = dict(os.environ)
+        # Stands in for /var/lib/pacman: where the lock lives, and what a
+        # plan must not open for a transaction
+        dbpath = Path(tmp) / "db"
+        dbpath.mkdir()
+        env["DSD_PACMAN_DBPATH"] = str(dbpath)
+        if scenario.get("architectures") is not None:
+            env["PACMAN_ARCHS"] = " ".join(scenario["architectures"])
+        lock = dbpath / "db.lck"
+        if scenario.get("lock"):
+            lock.touch()
+            # Old enough not to be a package manager that is just starting
+            os.utime(lock, (0, 0))
+            env["DSD_PROC"] = str(fake_proc(Path(tmp) / "proc", lock, scenario["lock"]))
         env["PATH"] = "%s:%s" % (bindir, env.get("PATH", ""))
         env["PYTHONPATH"] = tmp
         env["PACMAN_STUB"] = json.dumps(scenario)
@@ -181,7 +257,10 @@ def run(scenario, *args):
             except ValueError:
                 pass
         lines = [line for line in trace.read_text().splitlines()
-                 if not line.startswith(("dbpath ", "pacman "))]
+                 if not line.startswith(("dbpath ", "pacman ", "pre "))]
+        LAST.clear()
+        LAST["lockRemains"] = lock.exists()
+        LAST["dbpath"] = str(dbpath)
         return events, lines, proc, trace.read_text().splitlines()
 
 
@@ -208,6 +287,11 @@ def main():
     events, trace, proc, _ = run(behind, "upgrade", "dolphin")
     ok &= check("refresh happens before the package is resolved",
                 trace[:2] == ["refresh", "resolve dolphin -> 26.08.1-1"], str(trace))
+    _, _, _, raw = run(behind, "upgrade", "dolphin")
+    ok &= check("and the request is resolved ahead in a plan of its own, after the refresh",
+                "pre resolve dolphin -> 26.08.1-1" in raw
+                and raw.index("refresh") < raw.index("pre resolve dolphin -> 26.08.1-1")
+                and "pre commit" not in raw, str(raw))
     plan = event(events, "plan")
     ok &= check("the plan carries the version the refresh revealed",
                 plan is not None and plan["ops"][0]["evr"] == "26.08.1-1", json.dumps(plan))
@@ -324,6 +408,66 @@ def main():
                 proc.stdout + proc.stderr)
     ok &= check("and the reason libalpm gave travels with it",
                 any("could not initialise the library" in e.get("message", "") for e in events if e.get("event") == "error"))
+
+    # pyalpm 0.12 segfaults where libalpm refuses a transaction for a
+    # conflict or a wrong architecture, and a helper that dies inside its
+    # transaction leaves db.lck behind (#39). Resolving it ahead in a plan
+    # of its own lets that crash take nothing down.
+    crashing = dict(behind)
+    crashing["prepareCrashes"] = True
+    events, trace, proc, raw = run(crashing, "upgrade", "dolphin")
+    ok &= check("a request that crashes pyalpm is never started for real",
+                not any(line.startswith("add ") for line in trace) and "commit" not in trace, str(raw))
+    ok &= check("and the crash is the reason on the wire, not a dead helper",
+                proc.returncode == 1
+                and any(e.get("event") == "error" and "crashed pyalpm (SIGSEGV)" in e.get("message", "") for e in events)
+                and (event(events, "done") or {}).get("ok") is False, json.dumps(events))
+
+    # CachyOS: pacman accepts the CPU's feature levels, and most of its
+    # repositories ship x86_64_v3. pycman's handle accepts x86_64 alone.
+    v3 = {"architectures": ["x86_64", "x86_64_v2", "x86_64_v3"],
+          "packages": {"libsoup3": {"installed": "3.8.0-1", "before": "3.8.1-1.1",
+                                    "after": "3.8.1-1.1", "arch": "x86_64_v3"}}}
+    events, trace, proc, raw = run(v3, "upgrade", "libsoup3")
+    ok &= check("the accepted architectures are pacman-conf's",
+                "pacman-conf Architecture" in raw, str(raw))
+    ok &= check("so an x86_64_v3 package installs",
+                "add libsoup3-3.8.1-1.1" in trace and "commit" in trace, str(raw))
+    events, trace, proc, raw = run(v3, "plan", "upgrade", "libsoup3")
+    ok &= check("and a plan of one resolves too",
+                event(events, "plan") is not None, json.dumps(events))
+    narrow = dict(v3)
+    narrow["architectures"] = ["x86_64"]
+    events, trace, proc, raw = run(narrow, "plan", "upgrade", "libsoup3")
+    ok &= check("a level this pacman does not accept is refused before prepare()",
+                proc.returncode == 1 and any(
+                    e.get("event") == "error" and "architecture is not valid: libsoup3-3.8.1-1.1-x86_64_v3" in e.get("message", "")
+                    for e in events), json.dumps(events) + proc.stderr[-300:])
+
+    # A lock nothing holds is what a helper that died in its transaction
+    # leaves behind, and what every run after it failed on.
+    for shape, cleared, why in (("stale", True, ""),
+                                ("sudo", True, ""),
+                                ("plan", True, ""),
+                                ("held", False, "pacman is busy"),
+                                ("manager", False, "paru is running"),
+                                ("other-run", False, "another update is running")):
+        scenario = dict(behind)
+        scenario["lock"] = shape
+        events, trace, proc, raw = run(scenario, "upgrade", "dolphin")
+        if cleared:
+            ok &= check("a stale lock is removed and the run goes on (%s)" % shape,
+                        not LAST["lockRemains"] and "commit" in trace
+                        and any(e.get("event") == "warning" and "stale pacman lock" in e.get("message", "") for e in events),
+                        json.dumps(events))
+        else:
+            ok &= check("a lock is left alone while %s" % why,
+                        LAST["lockRemains"] and "commit" not in trace and "refresh" not in raw
+                        and any(e.get("event") == "error" and why in e.get("message", "") for e in events),
+                        json.dumps(events))
+    events, trace, proc, raw = run({"lock": "held", "packages": behind["packages"]}, "plan", "upgrade", "dolphin")
+    ok &= check("a plan neither needs nor touches the real lock",
+                LAST["lockRemains"] and (event(events, "done") or {}).get("ok") is True, json.dumps(events))
 
     print("\n" + ("all checks passed" if ok else "FAILURES"))
     return 0 if ok else 1

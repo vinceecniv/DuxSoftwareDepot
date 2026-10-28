@@ -16,7 +16,9 @@ Modes:
   --set-repo <id> [link]           set/clear the GitHub update source (JSON)
   --uninstall <id>                 remove file, desktop entry, icon and record
   --inspect <path>                 name/version/icon of a file, and the app it
-                                   would replace, without installing (JSON)
+                                   would replace, without installing (JSON);
+                                   a Flatpak bundle or .flatpakref is named as
+                                   such, for flatpak_helper.py to take over
   --replace <id> <path>            put this file in place of a registered app
   --handler-status                 are we the default for .appimage? (JSON)
   --handler-set / --handler-clear  become that default, or stop being it
@@ -28,6 +30,7 @@ import os
 import re
 import shutil
 import stat
+import struct
 import subprocess
 import sys
 import time
@@ -107,6 +110,51 @@ def save_records(records):
 def slugify(name):
     slug = re.sub(r"[^a-z0-9]+", "-", (name or "appimage").lower()).strip("-")
     return slug or "appimage"
+
+
+# What a file is, by its first bytes rather than its name (#41). Anything
+# the file manager or the picker hands over used to be taken for an AppImage:
+# a Flatpak bundle was copied into ~/Applications, marked executable and
+# given a desktop entry that could never start it.
+#
+# An AppImage is an ELF runtime: type 2 marks itself "AI\x02" at offset 8 (type
+# 1 "AI\x01"), and one built without the mark still has its squashfs right
+# behind the runtime. A Flatpak bundle is a GVariant that opens with
+# "flatpak\0"; a .flatpakref is a keyfile with a [Flatpak Ref] group.
+FLATPAK_BUNDLE_MAGIC = b"flatpak\0"
+
+
+def file_kind(path):
+    """"appimage", "flatpak-bundle", "flatpakref", or "" for anything else."""
+    try:
+        with open(path, "rb") as f:
+            head = f.read(4096)
+    except OSError:
+        return ""
+    if head.startswith(b"\x7fELF"):
+        if head[8:11] in (b"AI\x01", b"AI\x02"):
+            return "appimage"
+        try:
+            appimage_squashfs.payload_offset(path)
+            return "appimage"
+        except (OSError, appimage_squashfs.SquashfsError, struct.error):
+            return ""
+    if head.startswith(FLATPAK_BUNDLE_MAGIC):
+        return "flatpak-bundle"
+    for line in head.decode("utf-8", "replace").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#"):
+            return "flatpakref" if line == "[Flatpak Ref]" else ""
+    return ""
+
+
+def not_an_appimage(path, kind):
+    """The error for a file that is something else, naming what it is."""
+    if kind == "flatpak-bundle":
+        return "not an AppImage: %s is a Flatpak bundle" % os.path.basename(path)
+    if kind == "flatpakref":
+        return "not an AppImage: %s is a Flatpak reference" % os.path.basename(path)
+    return "not an AppImage: " + os.path.basename(path)
 
 
 def http_json(url, timeout=20):
@@ -423,11 +471,21 @@ def install_from(source, name, repo="", tag="", size_hint=0):
     emit({"event": "start", "id": app_id, "name": display})
     if re.match(r"^https?://", source):
         download(source, dest, size_hint)
+        kind = file_kind(dest)
+        if kind != "appimage":
+            # A link is only known for what it is once it is here
+            os.unlink(dest)
+            emit({"event": "error", "message": not_an_appimage(source.split("?")[0], kind)})
+            sys.exit(1)
     else:
         src = os.path.expanduser(source)
         if not os.path.isfile(src):
             emit({"event": "error", "message": "file not found: " + src})
             return
+        kind = file_kind(src)
+        if kind != "appimage":
+            emit({"event": "error", "message": not_an_appimage(src, kind)})
+            sys.exit(1)
         shutil.copyfile(src, dest)
     os.chmod(dest, os.stat(dest).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
     meta = extract_metadata(dest, app_id)
@@ -784,6 +842,12 @@ def run_inspect(path):
     if not os.path.isfile(src):
         json.dump({"ok": False, "error": "file not found: " + src}, sys.stdout)
         return
+    kind = file_kind(src)
+    if kind != "appimage":
+        # Not ours to describe. A Flatpak file is named as one, so the window
+        # can hand it to flatpak_helper.py instead of refusing it
+        json.dump({"ok": False, "kind": kind, "error": not_an_appimage(src, kind)}, sys.stdout)
+        return
 
     # Read, not run: the file stays exactly as it was found, executable bit
     # and all, and none of its code executes before someone presses Install
@@ -812,6 +876,10 @@ def run_replace(app_id, path):
     if not os.path.isfile(src):
         emit({"event": "error", "message": "file not found: " + src})
         return
+    kind = file_kind(src)
+    if kind != "appimage":
+        emit({"event": "error", "message": not_an_appimage(src, kind)})
+        sys.exit(1)
     records = load_records()
     record = next((r for r in records if r["id"] == app_id), None)
     adopted = False

@@ -209,6 +209,30 @@ check("a file that is no AppImage gives nothing",
       appimage.extract_metadata(junk, "junk"),
       {"icon": "", "desktopName": "", "categories": "", "version": ""})
 
+# ── What a file is, by its bytes (#41) ──────────────────────────────────────
+
+check("an ELF with a squashfs behind it is an AppImage", appimage.file_kind(image_path), "appimage")
+marked = os.path.join(tmp, "Marked.AppImage")
+with open(marked, "wb") as f:
+    head = bytearray(elf_header())
+    head[8:11] = b"AI\x02"
+    f.write(bytes(head) + b"\0" * 64)
+check("an ELF marked AI\\x02 is an AppImage", appimage.file_kind(marked), "appimage")
+bare_elf = os.path.join(tmp, "tool.AppImage")
+with open(bare_elf, "wb") as f:
+    f.write(elf_header() + b"\0" * 64)
+check("a plain ELF is not", appimage.file_kind(bare_elf), "")
+check("a script is not", appimage.file_kind(junk), "")
+bundle = os.path.join(tmp, "Some.App.flatpak")
+with open(bundle, "wb") as f:
+    f.write(b"flatpak\0\1\0\x89\xe5\0u\b\0ref\0\0\0\0\0app/org.example.App/x86_64/stable")
+check("a Flatpak bundle is named as one", appimage.file_kind(bundle), "flatpak-bundle")
+ref = os.path.join(tmp, "app.flatpakref")
+with open(ref, "w") as f:
+    f.write("# from a web page\n\n[Flatpak Ref]\nName=org.example.App\n")
+check("a .flatpakref is named as one", appimage.file_kind(ref), "flatpakref")
+check("a missing file is nothing", appimage.file_kind(os.path.join(tmp, "gone")), "")
+
 check("no process was started", started, [])
 check("the file is still not executable", bool(os.stat(image_path).st_mode & stat.S_IXUSR), False)
 

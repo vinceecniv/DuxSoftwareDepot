@@ -3,7 +3,7 @@
 Release notes per version. The section for the latest version is shown
 in-app when the plugin offers its own update.
 
-## Unreleased
+## 1.7.3 — 2026-10-28
 
 - **A newer build than the list named counts as updated.** The list is as
   old as its check, and the repositories can move on before you press

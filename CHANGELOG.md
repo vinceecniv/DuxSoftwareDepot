@@ -3,6 +3,16 @@
 Release notes per version. The section for the latest version is shown
 in-app when the plugin offers its own update.
 
+## Unreleased
+
+- **An old failure no longer keeps a row red for days.** Why a package
+  failed is kept across the shell's reload, so the row can still say
+  so. But it stayed for as long as the package was waiting to be
+  updated: "no newer build" from a mirror that was a day behind kept four
+  rows red two days later, when updating them would have worked. A reason
+  now goes away once a later check lists the package again, or when a
+  different version is offered than the one that failed.
+
 ## 1.7.2 — 2026-10-27
 
 - **Updates you just installed no longer come back hours later.** A run

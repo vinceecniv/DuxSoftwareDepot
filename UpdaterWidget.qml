@@ -1062,6 +1062,7 @@ PluginComponent {
             failures.push({
                 key: ri.key,
                 name: ri.pkg.name || "",
+                to: ri.pkg.toVersion || "",
                 detail: state.detail || "",
                 error: engine.runErrorDetails[ri.key] || ""
             });
@@ -1076,6 +1077,16 @@ PluginComponent {
     // Keys restored from a previous run — pruned once the package stops
     // being a pending update, never touched while a run is live
     property var _restoredKeys: []
+    // key -> target version the run failed on, "" when it named none
+    property var _restoredTargets: ({})
+    // When the run that failed them ended, in seconds
+    property double _restoredAt: 0
+    // The checks a run asks for itself — the forced one at its end, and the
+    // retries for a list older than the run — land within minutes. A
+    // restored reason has to outlive those, or it would be gone by the time
+    // the shell is back from the reload it was saved for. A check this long
+    // after the run is a new question, and it gets to answer it.
+    readonly property int _failureOutlivesChecksSec: 3600
 
     function _restoreFailures() {
         if (_restoredFailures || Object.keys(pluginData || {}).length === 0)
@@ -1088,6 +1099,7 @@ PluginComponent {
         const states = Object.assign({}, engine.itemStates);
         const details = Object.assign({}, engine.runErrorDetails);
         const keys = [];
+        const targets = {};
         for (const item of items) {
             states[item.key] = {
                 status: "error",
@@ -1097,21 +1109,41 @@ PluginComponent {
             if (item.error)
                 details[item.key] = item.error;
             keys.push(item.key);
+            targets[item.key] = item.to || "";
         }
         engine.itemStates = states;
         engine.runErrorDetails = details;
         _restoredKeys = keys;
+        _restoredTargets = targets;
+        _restoredAt = saved.ts || 0;
     }
 
     // A restored failure is only true until the package is updated by
-    // something else; once it is no longer pending, drop the verdict.
+    // something else; once it is no longer pending, drop the verdict. Nor
+    // does it outlast the situation it described: "no newer build" from a
+    // mirror that was behind, kept while the package stayed pending, turned
+    // two-day-old rows red that a run would by then have updated fine. So
+    // it also goes when the list offers a different version than the one
+    // that failed, or when a successful check well after the run has
+    // listed the package again.
     function _pruneRestoredFailures() {
         if (_restoredKeys.length === 0 || engine.running || !_serviceHasState)
             return;
-        const pending = new Set((pendingUpdates || []).map(pkg => store.keyFor(pkg)));
+        const noEpoch = v => String(v || "").replace(/^\d+:/, "");
+        const offered = {};
+        for (const pkg of pendingUpdates || [])
+            offered[store.keyFor(pkg)] = noEpoch(pkg.toVersion);
+        const rechecked = !SystemUpdateService.hasError
+            && (SystemUpdateService.lastCheckUnix || 0) - _restoredAt > _failureOutlivesChecksSec;
+        const changed = key => {
+            const failed = noEpoch(_restoredTargets[key]);
+            const now = offered[key];
+            return failed !== "" && now !== "" && now !== "?" && failed !== now;
+        };
         // Only system and flatpak keys are answerable from this list;
         // firmware and AppImages have their own sources
-        const stale = _restoredKeys.filter(key => (key.startsWith("system/") || key.startsWith("flatpak/")) && !pending.has(key));
+        const stale = _restoredKeys.filter(key => (key.startsWith("system/") || key.startsWith("flatpak/"))
+            && (!(key in offered) || rechecked || changed(key)));
         if (stale.length === 0)
             return;
         const states = Object.assign({}, engine.itemStates);
@@ -1122,7 +1154,7 @@ PluginComponent {
         }
         engine.itemStates = states;
         engine.runErrorDetails = details;
-        _restoredKeys = _restoredKeys.filter(key => pending.has(key));
+        _restoredKeys = _restoredKeys.filter(key => stale.indexOf(key) < 0);
         if (_restoredKeys.length === 0)
             PluginService.savePluginData("dankSoftwareDepot", "lastRunFailures", {});
     }
@@ -1612,6 +1644,7 @@ PluginComponent {
 
         function onLastCheckUnixChanged() {
             root._saveUpdatesSnapshot();
+            root._pruneRestoredFailures();
         }
     }
 

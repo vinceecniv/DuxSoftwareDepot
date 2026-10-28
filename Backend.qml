@@ -832,7 +832,7 @@ Item {
     readonly property string _legacyEntryCleanup: "rm -f \"$apps/" + legacyLauncherEntryName + "\" \"$icons/scalable/apps/dank-software-depot.svg\" \"$icons/symbolic/apps/dank-software-depot-symbolic.svg\""
 
     // Must match X-DSD-Entry-Version in the .desktop file
-    readonly property string launcherEntryVersion: "3"
+    readonly property string launcherEntryVersion: "4"
 
     property bool launcherEntryPresent: false
     // Until the first check answers, the UI should claim neither state

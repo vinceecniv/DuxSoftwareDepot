@@ -16,6 +16,11 @@ Usage:  flatpak_helper.py update [appid ...]
         flatpak_helper.py install <remote> <appid>
         (install from the named remote, system installation when the remote
         exists there, user installation otherwise; same event stream)
+        flatpak_helper.py inspect-file <path>
+        (what a .flatpak bundle or .flatpakref is, and whether it is
+        installed; one JSON object)
+        flatpak_helper.py install-file <path>
+        (install it, replacing the installed build; same event stream)
 
 System-installation updates authenticate through polkit (the DMS agent shows
 the prompt); no terminal is ever involved. SIGTERM/SIGINT abort the
@@ -23,6 +28,7 @@ transaction cleanly.
 """
 
 import json
+import os
 import shutil
 import signal
 import sys
@@ -243,13 +249,42 @@ def run_install(remote, appid):
         emit({"event": "error", "message": f"remote '{remote}' not found"})
         sys.exit(1)
 
+    def add(txn):
+        arch = Flatpak.get_default_arch()
+        try:
+            # Fast path: flathub apps nearly always live on the stable branch
+            txn.add_install(remote, f"app/{appid}/{arch}/stable", None)
+        except GLib.Error:
+            # Resolve the branch from the remote's published refs
+            refs = installation.list_remote_refs_sync(remote, runner.cancellable)
+            match = next((r for r in refs
+                          if r.get_kind() == Flatpak.RefKind.APP
+                          and r.get_name() == appid and r.get_arch() == arch), None)
+            if match is None:
+                raise GLib.Error(f"'{appid}' not found in remote '{remote}'")
+            txn.add_install(remote, match.format_ref(), None)
+
+    install_transaction(runner, installation, label, appid, add)
+
+
+def install_transaction(runner, installation, label, appid, add, reinstall=False):
+    """Run one install — `add(txn)` puts its operations in — with the event
+    stream and the delta-cap retry, then emit done and exit."""
+
     def attempt(no_deltas):
         """Runs the install once. True when it hit libostree's delta cap
         and deserves another go with the deltas switched off."""
         retry = []
-        txn = Flatpak.Transaction.new_for_installation(installation, runner.cancellable)
+        try:
+            txn = Flatpak.Transaction.new_for_installation(installation, runner.cancellable)
+        except GLib.Error as err:
+            emit({"event": "error", "message": err.message})
+            emit({"event": "done", "ok": False, "failed": [appid]})
+            sys.exit(1)
         if no_deltas:
             txn.set_disable_static_deltas(True)
+        if reinstall:
+            txn.set_reinstall(True)
 
         def on_ready(transaction):
             ops = [{
@@ -294,28 +329,25 @@ def run_install(remote, appid):
                   "message": message})
             return False
 
+        def on_add_new_remote(transaction, reason, from_id, suggested_name, url):
+            # A bundle or a .flatpakref naming the repository its runtime
+            # comes from — usually Flathub, on a machine that does not have
+            # it yet. `flatpak install` asks; installing the file was the
+            # question, so the answer is yes, said out loud.
+            emit({"event": "warning", "message": f"adding remote '{suggested_name}' ({url}) for {from_id}"})
+            return True
+
         txn.connect("ready", on_ready)
         txn.connect("new-operation", on_new_operation)
         txn.connect("operation-done", on_operation_done)
         txn.connect("operation-error", on_operation_error)
+        txn.connect("add-new-remote", on_add_new_remote)
 
-        arch = Flatpak.get_default_arch()
         try:
-            # Fast path: flathub apps nearly always live on the stable branch
-            txn.add_install(remote, f"app/{appid}/{arch}/stable", None)
-        except GLib.Error:
-            # Resolve the branch from the remote's published refs
-            try:
-                refs = installation.list_remote_refs_sync(remote, runner.cancellable)
-                match = next((r for r in refs
-                              if r.get_kind() == Flatpak.RefKind.APP
-                              and r.get_name() == appid and r.get_arch() == arch), None)
-                if match is None:
-                    raise GLib.Error(f"'{appid}' not found in remote '{remote}'")
-                txn.add_install(remote, match.format_ref(), None)
-            except GLib.Error as err:
-                emit({"event": "error", "message": err.message})
-                sys.exit(1)
+            add(txn)
+        except GLib.Error as err:
+            emit({"event": "error", "message": err.message})
+            sys.exit(1)
 
         try:
             txn.run(runner.cancellable)
@@ -339,6 +371,223 @@ def run_install(remote, appid):
 
     emit({"event": "done", "ok": not runner.failed, "failed": runner.failed})
     sys.exit(0 if not runner.failed else 1)
+
+
+# ── Installing from a file (#41) ─────────────────────────────────────────────
+# A .flatpak bundle carries the app itself; a .flatpakref names an app and
+# the repository to get it from. Both used to arrive at the AppImage
+# installer, which copied them into ~/Applications as if they were one.
+# appimage.py --inspect tells them apart by their bytes and hands them here.
+
+BUNDLE_MAGIC = b"flatpak\0"
+
+
+def file_kind(path):
+    """"bundle", "ref", or "" — the same test as appimage.file_kind, kept
+    here so this helper does not have to import that one."""
+    try:
+        with open(path, "rb") as f:
+            head = f.read(4096)
+    except OSError:
+        return ""
+    if head.startswith(BUNDLE_MAGIC):
+        return "bundle"
+    for line in head.decode("utf-8", "replace").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#"):
+            return "ref" if line == "[Flatpak Ref]" else ""
+    return ""
+
+
+def read_flatpakref(path):
+    """The [Flatpak Ref] group as a dict. GLib's keyfile parser, the one
+    libflatpak reads it with, so both see the same values."""
+    keyfile = GLib.KeyFile()
+    keyfile.load_from_file(path, GLib.KeyFileFlags.NONE)
+    group = "Flatpak Ref"
+    out = {}
+    for key in keyfile.get_keys(group)[0]:
+        out[key] = keyfile.get_string(group, key)
+    return out
+
+
+def _appstream_summary(data):
+    """Name and newest version out of a bundle's gzipped AppStream XML."""
+    import gzip
+    import xml.etree.ElementTree as ET
+    name = version = ""
+    try:
+        root = ET.fromstring(gzip.decompress(bytes(data)))
+    except Exception:
+        return name, version
+    components = [root] if root.tag == "component" else root.findall("component")
+    for component in components:
+        for node in component.findall("name"):
+            if not node.attrib:
+                name = (node.text or "").strip()
+                break
+        release = component.find("releases/release")
+        if release is not None:
+            version = release.get("version", "")
+        if name:
+            break
+    return name, version
+
+
+def _installed(ref_str):
+    """(installation, label, installed ref) holding this ref, or Nones."""
+    kind, name, arch, branch = (ref_str.split("/") + ["", "", "", ""])[:4]
+    ref_kind = Flatpak.RefKind.RUNTIME if kind == "runtime" else Flatpak.RefKind.APP
+    for installation, label in _installations():
+        try:
+            return installation, label, installation.get_installed_ref(ref_kind, name, arch, branch, None)
+        except GLib.Error:
+            continue
+    return None, None, None
+
+
+def _installations():
+    out = []
+    for make, label in ((Flatpak.Installation.new_system, "system"), (Flatpak.Installation.new_user, "user")):
+        try:
+            out.append((make(None), label))
+        except GLib.Error:
+            continue
+    return out
+
+
+def _target(ref_str, runtime):
+    """Where a file's app goes: where it already is; else where its runtime
+    is; else the system installation, as `flatpak install` does, unless it
+    has no remotes at all and the user installation does."""
+    installation, label, _ = _installed(ref_str)
+    if installation is not None:
+        return installation, label
+    candidates = _installations()
+    if runtime:
+        found = _installed("runtime/" + runtime)
+        if found[0] is not None:
+            return found[0], found[1]
+    def has_remotes(inst):
+        try:
+            return bool(inst.list_remotes(None))
+        except GLib.Error:
+            return False
+    for installation, label in candidates:
+        if label == "system" and has_remotes(installation):
+            return installation, label
+    for installation, label in candidates:
+        if has_remotes(installation):
+            return installation, label
+    return candidates[0] if candidates else (None, None)
+
+
+def _runtime_of_metadata(text):
+    for line in text.splitlines():
+        if line.startswith("runtime="):
+            return line[len("runtime="):].strip()
+    return ""
+
+
+def describe_file(path):
+    """What `inspect-file` prints and `install-file` acts on."""
+    kind = file_kind(path)
+    if kind == "bundle":
+        bundle = Flatpak.BundleRef.new(Gio.File.new_for_path(path))
+        ref_str = bundle.format_ref()
+        name, version = ("", "")
+        appstream = bundle.get_appstream()
+        if appstream is not None:
+            name, version = _appstream_summary(appstream.get_data())
+        metadata = bundle.get_metadata()
+        runtime = _runtime_of_metadata(bytes(metadata.get_data()).decode("utf-8", "replace")) if metadata else ""
+        info = {"kind": "bundle", "ref": ref_str, "appid": bundle.get_name(),
+                "name": name, "version": version, "commit": bundle.get_commit() or "",
+                "origin": bundle.get_origin() or "", "runtime": runtime,
+                "icon": bundle.get_icon(64), "url": ""}
+    elif kind == "ref":
+        fields = read_flatpakref(path)
+        appid = fields.get("Name", "")
+        if not appid:
+            raise GLib.Error("the .flatpakref names no app")
+        is_runtime = fields.get("IsRuntime", "").lower() == "true"
+        branch = fields.get("Branch") or "master"
+        ref_str = "%s/%s/%s/%s" % ("runtime" if is_runtime else "app", appid,
+                                   Flatpak.get_default_arch(), branch)
+        info = {"kind": "ref", "ref": ref_str, "appid": appid,
+                "name": fields.get("Title", ""), "version": "", "commit": "",
+                "origin": fields.get("SuggestRemoteName", ""), "runtime": "",
+                "icon": None, "iconUrl": fields.get("Icon", ""), "url": fields.get("Url", "")}
+    else:
+        raise GLib.Error("not a Flatpak bundle or .flatpakref")
+    info["bytes"] = open(path, "rb").read() if kind == "ref" else None
+    return info
+
+
+def run_inspect_file(path):
+    try:
+        info = describe_file(path)
+    except GLib.Error as err:
+        print(json.dumps({"ok": False, "error": err.message}), flush=True)
+        return
+    _, label, installed = _installed(info["ref"])
+    icon = ""
+    if info.get("icon") is not None:
+        cache = os.path.join(os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache")), "dankSoftwareDepot")
+        os.makedirs(cache, exist_ok=True)
+        # One per app, overwritten by the next file of it, not one per look
+        icon = os.path.join(cache, "flatpak-file-%s.png" % info["appid"].replace("/", "-"))
+        with open(icon, "wb") as f:
+            f.write(bytes(info["icon"].get_data()))
+    print(json.dumps({
+        "ok": True,
+        "kind": info["kind"],
+        "path": path,
+        "ref": info["ref"],
+        "appid": info["appid"],
+        "name": info["name"] or (installed.get_appdata_name() if installed else "") or info["appid"],
+        "version": info["version"],
+        "icon": icon,
+        "iconUrl": info.get("iconUrl", ""),
+        "url": info["url"],
+        "sizeBytes": os.path.getsize(path),
+        "installed": None if installed is None else {
+            "installation": label,
+            "version": installed.get_appdata_version() or "",
+            # Nothing to do: a bundle of the very build that is installed, or
+            # a .flatpakref, which names the app and not a build — libflatpak
+            # refuses one for an app already here, whose updates come in
+            # through the updater like any other
+            "current": info["kind"] == "ref" or installed.get_commit() == info["commit"],
+        },
+    }), flush=True)
+
+
+def run_install_file(path):
+    runner = Runner([])
+    signal.signal(signal.SIGTERM, lambda *_: runner.cancellable.cancel())
+    signal.signal(signal.SIGINT, lambda *_: runner.cancellable.cancel())
+    try:
+        info = describe_file(path)
+    except GLib.Error as err:
+        emit({"event": "error", "message": err.message})
+        emit({"event": "done", "ok": False, "failed": []})
+        sys.exit(1)
+    installation, label = _target(info["ref"], info["runtime"])
+    if installation is None:
+        emit({"event": "error", "message": "no Flatpak installation to install into"})
+        emit({"event": "done", "ok": False, "failed": []})
+        sys.exit(1)
+    # A newer build of an app that is already here is that app, replaced
+    reinstall = _installed(info["ref"])[2] is not None
+
+    def add(txn):
+        if info["kind"] == "bundle":
+            txn.add_install_bundle(Gio.File.new_for_path(path), None)
+        else:
+            txn.add_install_flatpakref(GLib.Bytes.new(info["bytes"]))
+
+    install_transaction(runner, installation, label, info["appid"], add, reinstall=reinstall)
 
 
 def _app_runtime(ref):
@@ -425,6 +674,12 @@ def main():
         return
     if len(sys.argv) >= 2 and sys.argv[1] == "eol":
         run_eol_check()
+        return
+    if len(sys.argv) >= 3 and sys.argv[1] == "inspect-file":
+        run_inspect_file(sys.argv[2])
+        return
+    if len(sys.argv) >= 3 and sys.argv[1] == "install-file":
+        run_install_file(sys.argv[2])
         return
     if len(sys.argv) >= 4 and sys.argv[1] == "install":
         run_install(sys.argv[2], sys.argv[3])

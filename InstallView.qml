@@ -325,9 +325,10 @@ Item {
         id: offerDialog
 
         parent: view.overlayParent || view
-        busy: view.appimageBusy !== ""
+        busy: view.appimageBusy !== "" || view.busyAction !== ""
 
         onInstallRequested: (args, label) => view.installAppimage(args, label)
+        onFlatpakInstallRequested: (path, label, appid, icon) => view.installFlatpakFile(path, label, appid, icon)
     }
 
     function offerAppimageFile(path) {
@@ -1030,6 +1031,33 @@ Item {
         return false;
     }
 
+    // A .flatpak bundle or .flatpakref picked or opened as a file: the same
+    // install as one from the catalog, with the file in place of a remote
+    function installFlatpakFile(path, label, appid, icon) {
+        if (busyAction !== "" || installProcess.running)
+            return;
+        _beginInstall("file:" + path, label, appid, "Flatpak", icon);
+        installProgress = Tr.t("Starting…");
+        installProcess.command = [Backend.python, scriptPath.replace("enrich.py", "flatpak_helper.py"), "install-file", path];
+        installProcess.running = true;
+    }
+
+    function _beginInstall(key, label, id, sourceLabel, icon) {
+        busyAction = key;
+        installIcon = icon || "";
+        lastInstallResult = "";
+        installProcess._label = label;
+        // The ref is what the log needs to lead back to this app later
+        installProcess._id = id || "";
+        installProcess._source = sourceLabel;
+        installStep = 0;
+        installFraction = 0.02;
+        _fpOpCount = 0;
+        _fpOpsDone = 0;
+        _helperError = "";
+        _staged = false;
+    }
+
     function install(source, itemName, itemIcon) {
         if (source.kind === "appimage") {
             if (source.repo)
@@ -1038,19 +1066,7 @@ Item {
                 Qt.openUrlExternally(source.download);
             return;
         }
-        busyAction = sourceKey(source);
-        installIcon = itemIcon || "";
-        lastInstallResult = "";
-        installProcess._label = itemName;
-        // The ref is what the log needs to lead back to this app later
-        installProcess._id = source.ref || "";
-        installProcess._source = source.kind === "flatpak" ? "Flatpak" : "System";
-        installStep = 0;
-        installFraction = 0.02;
-        _fpOpCount = 0;
-        _fpOpsDone = 0;
-        _helperError = "";
-        _staged = false;
+        _beginInstall(sourceKey(source), itemName, source.ref, source.kind === "flatpak" ? "Flatpak" : "System", itemIcon);
         if (source.kind === "flatpak") {
             // The flatpak CLI is silent when piped; the libflatpak helper
             // emits NDJSON progress events instead (same one updates use).

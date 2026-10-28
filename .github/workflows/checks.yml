@@ -98,6 +98,23 @@ jobs:
           DSD_APT_SANDBOX: '1'
         run: python3 scripts/test_apt_kept_back.py
 
+  flatpak-files:
+    name: A .flatpak or .flatpakref installs through libflatpak
+    runs-on: ubuntu-latest
+    container: ubuntu:24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      # The real libflatpak, in throwaway installations: the system Python,
+      # since that is the one the typelib is installed for
+      - name: flatpak and its typelib
+        run: |
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq flatpak gir1.2-flatpak-1.0 python3-gi
+
+      - name: Bundles, references, and files that are neither
+        run: python3 scripts/test_flatpak_files.py
+
   metadata:
     name: Release metadata
     runs-on: ubuntu-latest

@@ -6,7 +6,9 @@ import qs.Common
 import qs.Modals.FileBrowser
 import qs.Widgets
 
-// Installing an AppImage from a file, asked in one place.
+// Installing an AppImage from a file, asked in one place — and a Flatpak
+// file too, since the file manager and the picker hand over whatever they
+// are given (#41). What the file is comes from its bytes, not its name.
 Item {
     id: dialog
 
@@ -31,18 +33,36 @@ Item {
     property bool inspecting: false
     property bool failed: false
     property bool busy: false          // an install this dialog started
+    // "flatpak" once appimage.py has said the file is a bundle or a
+    // .flatpakref; it is then read and installed by flatpak_helper.py
+    property string fileKind: ""
+    readonly property bool isFlatpak: fileKind === "flatpak"
 
     // args for scripts/appimage.py, and the name to show while it runs
     signal installRequested(var args, string label)
+    signal flatpakInstallRequested(string path, string label, string appid, string icon)
 
     readonly property string scriptPath: Qt.resolvedUrl("scripts/appimage.py").toString().replace("file://", "")
+    readonly property string flatpakHelper: Qt.resolvedUrl("scripts/flatpak_helper.py").toString().replace("file://", "")
     readonly property bool sourceIsUrl: /^https?:\/\//.test(source.trim())
-    readonly property var installedMatch: (info && info.installed) ? info.installed : null
+    readonly property var installedMatch: (!isFlatpak && info && info.installed) ? info.installed : null
+    readonly property bool flatpakInstalled: isFlatpak && info !== null && !!info.installed
+    // The very build that is installed, or a .flatpakref for an app that is
+    // here already: nothing for Install to do
+    readonly property bool nothingToDo: flatpakInstalled && info.installed.current === true
+    readonly property string iconSource: {
+        if (!info)
+            return "";
+        if (info.icon)
+            return "file://" + info.icon;
+        return /^https?:\/\//.test(info.iconUrl || "") ? info.iconUrl : "";
+    }
 
     function open() {
         source = "";
         info = null;
         failed = false;
+        fileKind = "";
         closeTimer.stop();
         animActive = true;
         sourceField.text = "";
@@ -72,6 +92,15 @@ Item {
         if (target === "" || inspecting || failed || busy)
             return;
 
+        if (isFlatpak) {
+            if (!info || nothingToDo)
+                return;
+            // The progress line takes a bare path or a URL
+            dialog.flatpakInstallRequested(info.path, info.name || info.appid, info.appid || "", iconSource.replace(/^file:\/\//, ""));
+            dialog.close();
+            return;
+        }
+
         let label = "AppImage";
         if (info && info.name)
             label = info.name;
@@ -92,9 +121,15 @@ Item {
     // AppImage afterwards, so it is offered as it stands
     function inspect() {
         const path = source.trim();
+        // A reading under way answers for this file; clearing what it is
+        // about to fill in would leave a Flatpak's answer looking like an
+        // AppImage's
+        if (inspectProc.running || flatpakInspectProc.running)
+            return;
         info = null;
         failed = false;
-        if (path === "" || sourceIsUrl || inspectProc.running)
+        fileKind = "";
+        if (path === "" || sourceIsUrl)
             return;
         inspecting = true;
         inspectProc.command = [Backend.python, scriptPath, "--inspect", path];
@@ -119,10 +154,46 @@ Item {
                 } catch (e) {
                     result = null;
                 }
-                if (result && result.ok)
+                if (result && result.ok) {
+                    dialog.fileKind = "appimage";
                     dialog.info = result;
-                else
+                } else if (result && (result.kind === "flatpak-bundle" || result.kind === "flatpakref")) {
+                    dialog.fileKind = "flatpak";
+                    flatpakInspectProc.command = [Backend.python, dialog.flatpakHelper, "inspect-file", dialog.source.trim()];
+                    flatpakInspectProc.running = true;
+                } else {
                     dialog.failed = true;
+                }
+            }
+        }
+
+        onExited: (exitCode, exitStatus) => {
+            // Handed over: the second reading decides
+            if (dialog.isFlatpak)
+                return;
+            dialog.inspecting = false;
+            if (dialog.info === null)
+                dialog.failed = true;
+        }
+    }
+
+    Process {
+        id: flatpakInspectProc
+
+        stdout: StdioCollector {
+            onStreamFinished: {
+                let result = null;
+                try {
+                    result = JSON.parse(text);
+                } catch (e) {
+                    result = null;
+                }
+                if (result && result.ok) {
+                    dialog.fileKind = "flatpak";
+                    dialog.info = result;
+                } else {
+                    dialog.failed = true;
+                }
             }
         }
 
@@ -139,7 +210,7 @@ Item {
         sourceComponent: Component {
             FileBrowserModal {
                 browserTitle: Tr.t("Select an AppImage")
-                fileExtensions: ["*.AppImage", "*.appimage", "*.*"]
+                fileExtensions: ["*.AppImage", "*.appimage", "*.flatpak", "*.flatpakref", "*.*"]
                 onFileSelected: path => {
                     dialog.source = path;
                     sourceField.text = path;
@@ -213,7 +284,7 @@ Item {
                     color: Theme.withAlpha(Theme.primary, 0.15)
                     DankIcon {
                         anchors.centerIn: parent
-                        name: "note_add"
+                        name: dialog.isFlatpak ? "deployed_code" : "note_add"
                         size: 18
                         color: Theme.primary
                     }
@@ -221,7 +292,7 @@ Item {
 
                 StyledText {
                     Layout.fillWidth: true
-                    text: Tr.t("Install an AppImage")
+                    text: dialog.isFlatpak ? Tr.t("Install a Flatpak") : Tr.t("Install an AppImage")
                     font.pixelSize: Theme.fontSizeLarge
                     font.weight: Font.Bold
                     color: Theme.surfaceText
@@ -253,6 +324,7 @@ Item {
                         dialog.source = text;
                         dialog.info = null;
                         dialog.failed = false;
+                        dialog.fileKind = "";
                         inspectDebounce.restart();
                     }
                     onAccepted: dialog.accept()
@@ -292,7 +364,7 @@ Item {
                         id: appIcon
                         Layout.preferredWidth: 40
                         Layout.preferredHeight: 40
-                        source: (dialog.info && dialog.info.icon) ? "file://" + dialog.info.icon : ""
+                        source: dialog.iconSource
                         sourceSize.width: 80
                         sourceSize.height: 80
                         fillMode: Image.PreserveAspectFit
@@ -323,9 +395,9 @@ Item {
                             Layout.fillWidth: true
                             text: {
                                 if (dialog.failed)
-                                    return Tr.t("That file could not be read as an AppImage.");
+                                    return dialog.isFlatpak ? Tr.t("That file could not be read as a Flatpak.") : Tr.t("That file could not be read as an AppImage.");
                                 if (dialog.inspecting || !dialog.info)
-                                    return Tr.t("Reading the AppImage…");
+                                    return dialog.isFlatpak ? Tr.t("Reading the Flatpak…") : Tr.t("Reading the AppImage…");
                                 const version = dialog.info.version || "";
                                 return version !== "" ? (dialog.info.name || "") + " " + version : (dialog.info.name || "");
                             }
@@ -342,7 +414,22 @@ Item {
                                 if (!dialog.info)
                                     return "";
                                 const size = dialog.formatBytes(dialog.info.sizeBytes);
-                                const line = dialog.installedMatch ? Tr.t("You already have this one — replace it with this build?") : Tr.t("Install this AppImage into your AppImages folder?");
+                                let line;
+                                if (dialog.isFlatpak) {
+                                    // The repository a .flatpakref adds is said before it is added
+                                    const host = (dialog.info.url || "").replace(/^https?:\/\//, "").split("/")[0];
+                                    if (dialog.nothingToDo)
+                                        line = Tr.t("This one is already installed.");
+                                    else if (dialog.flatpakInstalled)
+                                        line = Tr.t("You already have this one — replace it with this build?");
+                                    else if (dialog.info.kind === "ref" && /^https?:/.test(dialog.info.url || "") && host !== "")
+                                        line = Tr.t("Install this Flatpak from %1?").arg(host);
+                                    else
+                                        line = Tr.t("Install this Flatpak?");
+                                    // A .flatpakref is a few lines of text; its size says nothing
+                                    return (size !== "" && dialog.info.kind === "bundle") ? line + " · " + size : line;
+                                }
+                                line = dialog.installedMatch ? Tr.t("You already have this one — replace it with this build?") : Tr.t("Install this AppImage into your AppImages folder?");
                                 return size !== "" ? line + " · " + size : line;
                             }
                             font.pixelSize: Theme.fontSizeSmall
@@ -418,7 +505,7 @@ Item {
 
                 Rectangle {
                     id: acceptBtn
-                    readonly property bool btnEnabled: dialog.source.trim() !== "" && !dialog.inspecting && !dialog.failed && !dialog.busy
+                    readonly property bool btnEnabled: dialog.source.trim() !== "" && !dialog.inspecting && !dialog.failed && !dialog.busy && !dialog.nothingToDo
                     width: acceptRow.implicitWidth + 24
                     height: 32
                     property bool isHovered: acceptMa.containsMouse && btnEnabled
@@ -447,13 +534,13 @@ Item {
                         spacing: 6
 
                         DankIcon {
-                            name: dialog.installedMatch ? "sync" : "download"
+                            name: (dialog.installedMatch || dialog.flatpakInstalled) ? "sync" : "download"
                             size: 14
                             color: Ui.buttonInk("filled")
                         }
 
                         StyledText {
-                            text: dialog.installedMatch ? Tr.t("Replace") : Tr.t("Install")
+                            text: (dialog.installedMatch || dialog.flatpakInstalled) ? Tr.t("Replace") : Tr.t("Install")
                             font.pixelSize: Theme.fontSizeSmall
                             font.weight: Font.Medium
                             color: Ui.buttonInk("filled")

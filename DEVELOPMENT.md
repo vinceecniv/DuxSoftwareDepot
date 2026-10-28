@@ -86,6 +86,12 @@ which reads every `sh -c` snippet in the QML for bash-only syntax, because
 `/bin/sh` is dash on Debian and Ubuntu and a bashism there produces no error,
 only wrong output.
 
+`test_flatpak_files.py` is the exception: installing a `.flatpak` or
+`.flatpakref` is tested against the real libflatpak, in throwaway
+installations and from a repository it builds itself, so it needs `flatpak`
+and its typelib (CI installs them in an Ubuntu container). Without them it
+skips.
+
 None of that reads the QML as QML, which is most of this plugin.
 `scripts/qmllint.sh` does, and it is a local tool rather than a CI step for a
 reason worth knowing: the `qs.*` imports are not modules on disk — Quickshell

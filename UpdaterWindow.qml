@@ -2578,9 +2578,9 @@ FloatingWindow {
         return null;
     }
 
-    // An AppImage opened from the file manager. It lands on the Install tab,
-    // which already owns installing one — the file only needs somewhere to
-    // be asked about.
+    // An AppImage — or a .flatpak or .flatpakref — opened from the file
+    // manager. It lands on the Install tab, which already owns installing
+    // one; the dialog there reads which of them it is.
     function openAppimageFile(path) {
         if (!path)
             return;

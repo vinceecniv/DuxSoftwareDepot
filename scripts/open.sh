@@ -9,7 +9,8 @@
 # Any output at all is the failure; silence is the success.
 #
 #   open.sh            open the window
-#   open.sh <file>     open it on the AppImage that was double-clicked
+#   open.sh <file>     open it on the AppImage or Flatpak file that was
+#                      double-clicked (the IPC call kept its old name)
 
 set -u
 

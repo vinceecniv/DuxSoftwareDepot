@@ -2338,7 +2338,7 @@ PluginComponent {
                                 readonly property int totalCount: root.popoutModel.length
                                 readonly property bool isFirst: index === 0
                                 readonly property bool isLast: index === totalCount - 1
-                                readonly property bool isActive: (updaterWindow && updaterWindow.updatesDialog && updaterWindow.updatesDialog.showing && updaterWindow.updatesDialog.rowData && updaterWindow.updatesDialog.rowData.pkg && updaterWindow.updatesDialog.rowData.pkg.name === modelData.name)
+                                readonly property bool isActive: !!(updaterWindow && updaterWindow.updatesDialog && updaterWindow.updatesDialog.showing && updaterWindow.updatesDialog.rowData && updaterWindow.updatesDialog.rowData.pkg && updaterWindow.updatesDialog.rowData.pkg.name === modelData.name)
 
                                 width: compactList.width
                                 height: 42

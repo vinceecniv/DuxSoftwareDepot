@@ -5,6 +5,14 @@ in-app when the plugin offers its own update.
 
 ## Unreleased
 
+- **A newer build than the list named counts as updated.** The list is as
+  old as its check, and the repositories can move on before you press
+  "Update all". The kernel went from 7.2.11 to 7.2.13 under rows that said
+  7.2.12, and all eight kernel packages were then reported as "not
+  updated — try again", though the run had installed them. A run now checks
+  that the installed version is at least the one listed, using rpm's own
+  version ordering.
+
 - **An old failure no longer keeps a row red for days.** Why a package
   failed is kept across the shell's reload, so the row can still say
   so. But it stayed for as long as the package was waiting to be

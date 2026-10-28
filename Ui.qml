@@ -169,6 +169,69 @@ Item {
     readonly property int busyCycle: 1000
     readonly property bool busyMotion: Theme.currentAnimationBaseDuration > 0 && SettingsData.reduceMotion !== true
 
+    // rpm's ordering of two version strings (rpmvercmp): runs of digits
+    // compare as numbers, runs of letters as text, a number beats a letter,
+    // and "~" sorts before anything, even the end of the string. Epochs are
+    // the caller's business. -1, 0 or 1.
+    function compareVersions(a, b) {
+        const x = String(a || "");
+        const y = String(b || "");
+        let i = 0;
+        let j = 0;
+        const sep = c => !/[A-Za-z0-9~^]/.test(c);
+        while (i < x.length || j < y.length) {
+            while (i < x.length && sep(x[i]))
+                i++;
+            while (j < y.length && sep(y[j]))
+                j++;
+            if (x[i] === "~" || y[j] === "~") {
+                if (x[i] !== "~")
+                    return 1;
+                if (y[j] !== "~")
+                    return -1;
+                i++;
+                j++;
+                continue;
+            }
+            if (x[i] === "^" || y[j] === "^") {
+                if (i >= x.length)
+                    return -1;
+                if (j >= y.length)
+                    return 1;
+                if (x[i] !== "^")
+                    return 1;
+                if (y[j] !== "^")
+                    return -1;
+                i++;
+                j++;
+                continue;
+            }
+            if (i >= x.length || j >= y.length)
+                break;
+            const numeric = /[0-9]/.test(x[i]);
+            const run = numeric ? /^[0-9]+/ : /^[A-Za-z]+/;
+            const p = (x.slice(i).match(run) || [""])[0];
+            const q = (y.slice(j).match(run) || [""])[0];
+            if (q === "")
+                return numeric ? 1 : -1;
+            i += p.length;
+            j += q.length;
+            if (numeric) {
+                const pn = p.replace(/^0+/, "");
+                const qn = q.replace(/^0+/, "");
+                if (pn.length !== qn.length)
+                    return pn.length > qn.length ? 1 : -1;
+                if (pn !== qn)
+                    return pn > qn ? 1 : -1;
+            } else if (p !== q) {
+                return p > q ? 1 : -1;
+            }
+        }
+        if (i >= x.length && j >= y.length)
+            return 0;
+        return i >= x.length ? -1 : 1;
+    }
+
     function versionLabel(version) {
         return version === develTarget ? Tr.t("latest commit") : (version || "");
     }

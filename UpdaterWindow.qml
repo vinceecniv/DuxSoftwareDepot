@@ -3388,7 +3388,7 @@ FloatingWindow {
                         id: headerSearchBtn
                         width: 36
                         height: 36
-                        readonly property bool isActive: palette.showing
+                        readonly property bool isActive: !!palette.showing
                         property bool isHovered: searchMa.containsMouse
                         z: (isActive || isHovered) ? 3 : 1
 

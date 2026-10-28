@@ -1436,7 +1436,11 @@ Item {
             judge = false;
         const noEpoch = v => (v || "").replace(/^\d+:/, "");
         // Rows carry the version they were going to; a row that never named
-        // one cannot be judged and keeps the transaction's verdict.
+        // one cannot be judged and keeps the transaction's verdict. A newer
+        // build than the row named counts as arrived: the list is as old as
+        // its check, and the repositories can move on before the run. The
+        // kernel went 7.2.11 -> 7.2.13 under a row that said 7.2.12, and all
+        // eight of its packages were reported as not updated.
         const wanted = {};
         for (const item of runItems)
             wanted[item.key] = noEpoch(item.pkg.toVersion || "");
@@ -1451,7 +1455,7 @@ Item {
                 continue;
             const want = wanted[key] || "";
             const arrived = !judge || want === ""
-                || (installed[bases[key]] || []).some(evr => noEpoch(evr) === want);
+                || (installed[bases[key]] || []).some(evr => Ui.compareVersions(noEpoch(evr), want) >= 0);
             if (!arrived) {
                 states[key] = Object.assign({}, states[key], {
                     status: "error",
@@ -1735,7 +1739,7 @@ Item {
                 const was = noEpoch(_daemonPreviousEvr[base] || "");
                 arrived = have.some(evr => noEpoch(evr) !== was);
             } else {
-                arrived = want === "" || have.some(evr => noEpoch(evr) === want);
+                arrived = want === "" || have.some(evr => Ui.compareVersions(noEpoch(evr), want) >= 0);
             }
             if (arrived) {
                 okCount++;

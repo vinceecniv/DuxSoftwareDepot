@@ -3,6 +3,21 @@
 Release notes per version. The section for the latest version is shown
 in-app when the plugin offers its own update.
 
+## 1.7.4 — 2026-10-29
+
+- **A .flatpak file installs as a Flatpak.** Opening a downloaded
+  `.flatpak` with the depot installed it as an AppImage: the file was
+  copied into your AppImages folder and given a menu entry that could
+  never start it. A `.flatpak` bundle or `.flatpakref` now installs as a
+  Flatpak, as in GNOME Software: the dialog shows the app's name and icon,
+  the runtime it needs comes along from its remote, and a newer build
+  replaces the one you have. "Open with" offers the depot for both kinds
+  of file. Thanks to @QuesoFresho for the report.
+
+- **Only an AppImage is installed as an AppImage.** What a file is now
+  comes from its contents, not its name. Anything else is turned away
+  with a clear message instead of being installed as something it is not.
+
 ## 1.7.3 — 2026-10-28
 
 - **A newer build than the list named counts as updated.** The list is as

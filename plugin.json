@@ -3,7 +3,7 @@
     "id": "dankSoftwareDepot",
     "name": "Dux Software Depot",
     "description": "Software center for DMS: updates with progress, release notes, app store with reviews, installed-software management, firmware and an action log.",
-    "version": "1.7.3",
+    "version": "1.7.4",
     "author": "Vincent Blok",
     "license": "MIT",
     "icon": "deployed_code_update",

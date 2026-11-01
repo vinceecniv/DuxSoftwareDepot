@@ -3,6 +3,22 @@
 Release notes per version. The section for the latest version is shown
 in-app when the plugin offers its own update.
 
+## 1.8.0 — 2026-11-01
+
+- **Upgrade to the next Fedora release from the banner.** The banner that
+  said a new Fedora release was out now does the upgrade, in Fedora's
+  documented steps. *Upgrade…* first shows what it involves: the download
+  size, the packages, what would have to be removed, and which
+  repositories have no build for the new release yet. *Download* then
+  fetches everything in the background while you keep working, and a
+  notification says when it is done. The banner then offers *Restart and
+  upgrade*, or *Cancel upgrade* to drop the download. Nothing changes
+  until that restart, and an upgrade downloaded from a terminal shows up
+  too. Checked with an upgrade from Fedora 44 to 45.
+
+- **Atomic Fedora** keeps *Learn more*, now pointing at the rebase docs.
+  RHEL and its rebuilds no longer get a banner meant for Fedora.
+
 ## 1.7.4 — 2026-10-29
 
 - **A .flatpak file installs as a Flatpak.** Opening a downloaded

@@ -82,8 +82,10 @@ and polkit prompts appear through the DMS agent.
   unread, kept in an archive afterwards
 - **Homebrew and DMS plugins** update in their own phases; DMS's own packages
   run last, because they reload the shell
-- **Reboot notice**, end-of-life Flatpaks, and a word when a newer Fedora
-  release is out
+- **Reboot notice** and end-of-life Flatpaks
+- **Upgrading to the next Fedora release** — what it involves (size,
+  packages, removals, repositories not ready yet) before anything is
+  downloaded, the download in the background, then restart and upgrade
 - **Automatic updates** — off, notify only, or auto-install Flatpaks
 - **A dashboard when there is nothing to do** — counts per source, system info,
   reclaimable space, and what the last year of the log adds up to

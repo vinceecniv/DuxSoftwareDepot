@@ -490,6 +490,18 @@ PluginComponent {
     // ── Newer Fedora release available? (Bodhi, cached daily)
     property var distroUpgrade: null
 
+    // …and going there: plan, background download, restart. Kept here, not
+    // in the window, so a download outlives the window that started it.
+    readonly property alias fedoraUpgrade: fedoraUpgradeState
+
+    FedoraUpgrade {
+        id: fedoraUpgradeState
+        target: root.distroUpgrade && root.distroUpgrade.available === true ? (root.distroUpgrade.latest || 0) : 0
+        // Three gigabytes take a while, and the window is likely closed by
+        // the time they are in
+        onDownloaded: releasever => root.notify(Tr.t("Fedora %1 is ready to install").arg(releasever), Tr.t("Restart from Dux Software Depot to upgrade."))
+    }
+
     Process {
         id: distroProcess
         command: [Backend.python, Qt.resolvedUrl("scripts/enrich.py").toString().replace("file://", ""), "--distro-upgrade"]

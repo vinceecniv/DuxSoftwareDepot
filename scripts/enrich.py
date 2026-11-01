@@ -1975,14 +1975,23 @@ def run_distro_upgrade():
         return
     import time
     current = 0
+    distro = ""
     try:
         with open("/etc/os-release") as f:
             for line in f:
-                m = re.match(r"VERSION_ID=(\d+)", line.strip())
+                m = re.match(r"VERSION_ID=\"?(\d+)", line.strip())
                 if m:
                     current = int(m.group(1))
+                m = re.match(r"ID=\"?([\w.-]+)", line.strip())
+                if m:
+                    distro = m.group(1)
     except OSError:
         pass
+    # RHEL 9 and its rebuilds are dnf systems too, and 9 is less than any
+    # Fedora release there will ever be
+    if distro != "fedora":
+        json.dump({}, sys.stdout)
+        return
     cache = _load_daily_cache(DISTRO_UPGRADE_CACHE)
     latest = cache["data"].get("latest")
     if latest is None:

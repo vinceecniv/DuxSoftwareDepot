@@ -486,6 +486,15 @@ FloatingWindow {
         anchors.fill: parent
     }
 
+    FedoraUpgradeDialog {
+        id: fedoraUpgradeDialog
+        anchors.fill: parent
+        upgrade: win.widgetRoot ? win.widgetRoot.fedoraUpgrade : null
+        // Only the system's own packages: Fedora's advice is about them, and
+        // a waiting Flatpak or firmware update has nothing to do with it
+        pendingSystem: win.pendingUpdates.filter(p => ["flatpak", "firmware", "appimage", "dmsplugin", "brew"].indexOf(p.repo) === -1).length
+    }
+
     CommandPalette {
         id: palette
         anchors.fill: parent
@@ -2465,6 +2474,10 @@ FloatingWindow {
             palette.close();
             Backend.checkLauncherEntry();
             Backend.checkAppimageHandler();
+            // A prepared upgrade can also be started or dropped from a
+            // terminal; the banner should say what dnf5 says now
+            if (win.widgetRoot && win.widgetRoot.fedoraUpgrade)
+                win.widgetRoot.fedoraUpgrade.refreshStatus();
         }
     }
 
@@ -4476,51 +4489,178 @@ FloatingWindow {
             }
         }
 
-        // ── Newer Fedora release available ──────────────────────────────────
+        // ── Newer Fedora release available, and going there ─────────────────
+        // One banner for the whole way: the release is out (Upgrade…), its
+        // download is under way, it failed and why, or it is downloaded and
+        // waits for the restart that installs it. The last state comes from
+        // dnf5's own record, so it is shown whoever started the download.
         Rectangle {
-            Layout.fillWidth: true
-            visible: win.currentTab === 0 && win.widgetRoot !== null && win.widgetRoot.distroUpgrade !== null && win.widgetRoot.distroUpgrade.available === true
-            implicitHeight: distroRow.implicitHeight + Theme.spacingM * 2
-            radius: Theme.cornerRadius
-            color: Theme.withAlpha(Theme.primary, 0.10)
+            id: distroBanner
 
-            RowLayout {
-                id: distroRow
+            readonly property var upgrade: win.widgetRoot ? win.widgetRoot.fedoraUpgrade : null
+            readonly property string phase: upgrade ? upgrade.phase : "idle"
+            readonly property bool offered: win.widgetRoot !== null && win.widgetRoot.distroUpgrade !== null && win.widgetRoot.distroUpgrade.available === true
+            readonly property int latest: offered ? win.widgetRoot.distroUpgrade.latest : 0
+            readonly property int release: phase === "ready" ? upgrade.preparedTarget : ((phase === "downloading" || phase === "failed") && upgrade.plan ? upgrade.plan.releasever : latest)
+            // Atomic Fedora rebases instead (rpm-ostree), which is not this
+            readonly property bool canUpgrade: !Backend.atomic && upgrade !== null && latest > 0
+            property bool confirmRestart: false
+
+            Timer {
+                id: distroConfirmTimer
+                interval: 6000
+                onTriggered: distroBanner.confirmRestart = false
+            }
+
+            Layout.fillWidth: true
+            visible: win.currentTab === 0 && (offered || phase === "downloading" || phase === "ready" || phase === "failed")
+            implicitHeight: distroColumn.implicitHeight + Theme.spacingM * 2
+            radius: Theme.cornerRadius
+            color: phase === "failed" ? Theme.withAlpha(Theme.error, 0.10) : Theme.withAlpha(Theme.primary, 0.10)
+
+            ColumnLayout {
+                id: distroColumn
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.leftMargin: Theme.spacingM
                 anchors.rightMargin: Theme.spacingM
-                spacing: Theme.spacingM
+                spacing: Theme.spacingS
 
-                DankIcon {
-                    name: "rocket_launch"
-                    size: 18
-                    color: Theme.primary
-                }
-
-                StyledText {
+                RowLayout {
+                    id: distroRow
                     Layout.fillWidth: true
-                    text: Tr.t("A new Fedora release is available: Fedora %1.").arg(win.widgetRoot && win.widgetRoot.distroUpgrade ? win.widgetRoot.distroUpgrade.latest : "")
-                    font.pixelSize: Theme.fontSizeSmall
-                    color: Theme.surfaceText
-                    wrapMode: Text.WordWrap
-                }
+                    spacing: Theme.spacingM
 
-                Item {
-                    Layout.preferredWidth: distroInfoButton.width
-                    Layout.preferredHeight: distroInfoButton.height
+                    DankIcon {
+                        name: distroBanner.phase === "ready" ? "restart_alt" : (distroBanner.phase === "failed" ? "error" : (distroBanner.phase === "downloading" ? "downloading" : "rocket_launch"))
+                        size: 18
+                        color: distroBanner.phase === "failed" ? Theme.error : Theme.primary
+                    }
+
+                    BusyText {
+                        Layout.fillWidth: true
+                        visible: distroBanner.phase === "downloading"
+                        text: {
+                            const u = distroBanner.upgrade;
+                            if (!u)
+                                return "";
+                            if (u.stage === "testing" || u.stage === "stored")
+                                return Tr.t("Checking the downloaded packages…");
+                            if (u.total === 0)
+                                return Tr.t("Preparing the download of Fedora %1…").arg(distroBanner.release);
+                            return Tr.t("Downloading Fedora %1…").arg(distroBanner.release);
+                        }
+                        pixelSize: Theme.fontSizeSmall
+                        color: Theme.surfaceText
+                    }
+
+                    StyledText {
+                        Layout.fillWidth: true
+                        visible: distroBanner.phase !== "downloading"
+                        text: {
+                            if (distroBanner.phase === "ready")
+                                return Tr.t("Fedora %1 is ready to install. Restarting installs it, which takes a while.").arg(distroBanner.release);
+                            if (distroBanner.phase === "failed")
+                                return Tr.t("The download of Fedora %1 failed: %2").arg(distroBanner.release).arg(distroBanner.upgrade.error);
+                            return Tr.t("A new Fedora release is available: Fedora %1.").arg(distroBanner.latest);
+                        }
+                        font.pixelSize: Theme.fontSizeSmall
+                        color: Theme.surfaceText
+                        wrapMode: Text.WordWrap
+                    }
+
+                    // Downloaded: drop it, or restart into it — asked twice,
+                    // as the window's other restart button is
+                    DankButton {
+                        visible: distroBanner.phase === "ready"
+                        enabled: !distroBanner.upgrade.busy
+                        buttonHeight: 28
+                        horizontalPadding: Theme.spacingM
+                        text: Tr.t("Cancel upgrade")
+                        backgroundColor: Ui.buttonFill("tonal", false)
+                        textColor: Ui.buttonInk("tonal")
+                        onClicked: distroBanner.upgrade.cancel()
+                    }
 
                     DankButton {
-                        id: distroInfoButton
+                        visible: distroBanner.phase === "ready"
+                        enabled: !distroBanner.upgrade.busy
+                        buttonHeight: 28
+                        horizontalPadding: Theme.spacingM
+                        iconName: "restart_alt"
+                        iconSize: 13
+                        text: distroBanner.confirmRestart ? Tr.t("Confirm restart?") : Tr.t("Restart and upgrade")
+                        backgroundColor: distroBanner.confirmRestart ? Theme.error : Theme.buttonBg
+                        textColor: distroBanner.confirmRestart ? Ui.onColor(Theme.error) : Theme.buttonText
+                        onClicked: {
+                            if (!distroBanner.confirmRestart) {
+                                distroBanner.confirmRestart = true;
+                                distroConfirmTimer.restart();
+                                return;
+                            }
+                            distroBanner.confirmRestart = false;
+                            distroBanner.upgrade.reboot();
+                        }
+                    }
+
+                    DankButton {
+                        visible: (distroBanner.phase === "idle" || distroBanner.phase === "planning" || distroBanner.phase === "planned" || distroBanner.phase === "failed") && distroBanner.canUpgrade
+                        buttonHeight: 28
+                        horizontalPadding: Theme.spacingM
+                        iconName: "rocket_launch"
+                        iconSize: 13
+                        text: distroBanner.phase === "failed" ? Tr.t("Try again…") : Tr.t("Upgrade…")
+                        backgroundColor: Theme.buttonBg
+                        textColor: Theme.buttonText
+                        onClicked: fedoraUpgradeDialog.open()
+                    }
+
+                    DankButton {
+                        visible: distroBanner.phase !== "downloading" && distroBanner.phase !== "ready"
                         buttonHeight: 28
                         horizontalPadding: Theme.spacingM
                         iconName: "open_in_new"
                         iconSize: 13
                         text: Tr.t("Learn more")
-                        backgroundColor: Theme.buttonBg
-                        textColor: Theme.buttonText
-                        onClicked: Qt.openUrlExternally("https://docs.fedoraproject.org/en-US/quick-docs/upgrading-fedora-offline/")
+                        backgroundColor: distroBanner.canUpgrade ? Ui.buttonFill("tonal", false) : Theme.buttonBg
+                        textColor: distroBanner.canUpgrade ? Ui.buttonInk("tonal") : Theme.buttonText
+                        onClicked: Qt.openUrlExternally(Backend.atomic ? "https://docs.fedoraproject.org/en-US/fedora-silverblue/updates-upgrades-rollbacks/" : "https://docs.fedoraproject.org/en-US/quick-docs/upgrading-fedora-offline/")
+                    }
+                }
+
+                // Progress, by bytes against the plan's total when there is one
+                RowLayout {
+                    Layout.fillWidth: true
+                    visible: distroBanner.phase === "downloading" && distroBanner.upgrade.total > 0
+                    spacing: Theme.spacingM
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 4
+                        radius: 2
+                        color: Theme.withAlpha(Theme.primary, 0.18)
+
+                        Rectangle {
+                            width: parent.width * (distroBanner.upgrade ? distroBanner.upgrade.fraction : 0)
+                            height: parent.height
+                            radius: parent.radius
+                            color: Theme.primary
+                            Behavior on width {
+                                NumberAnimation { duration: Theme.mediumDuration }
+                            }
+                        }
+                    }
+
+                    StyledText {
+                        text: {
+                            const u = distroBanner.upgrade;
+                            if (!u || u.total === 0)
+                                return "";
+                            return Math.round(u.fraction * 100) + "% · " + Tr.t("%1 of %2").arg(u.index).arg(u.total);
+                        }
+                        font.pixelSize: Theme.fontSizeSmall
+                        color: Theme.surfaceVariantText
                     }
                 }
             }

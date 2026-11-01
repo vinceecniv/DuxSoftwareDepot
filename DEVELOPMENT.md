@@ -39,7 +39,8 @@ selectable would stop being a card you can click.
 | `AppDetailsDialog.qml` | Shared app-details popup (info, reviews, actions) |
 | `SourcePickerDialog.qml` | Which source to install from, when an app has more than one |
 | `OriginComparison.qml` | The sources side by side — version, size, sandbox, who stands behind it, which one is installed. Used by both the picker and the details popup, so the two cannot disagree |
-| `AppimageOfferDialog.qml` | Installing an AppImage from a file or URL |
+| `AppimageOfferDialog.qml` | Installing from a file or URL: an AppImage, or a `.flatpak`/`.flatpakref` handed to the Flatpak helper |
+| `FedoraUpgrade.qml` · `FedoraUpgradeDialog.qml` | Upgrading to the next Fedora release: the state (plan, background download, ready to restart) kept in the widget, and the dialog that shows what the upgrade involves before anything is downloaded |
 | `NewsDialog.qml` | Arch Linux announcements: unread, plus the archive |
 | `RetrospectCard.qml` | The year the action log remembers, on the Updates dashboard |
 | `MetadataStore.qml` | Async enrichment cache + held-state persistence |
@@ -62,7 +63,8 @@ selectable would stop being a card you can click.
 | `scripts/ostree_helper.py` | rpm-ostree counterpart — atomic Fedora (layering, staged until reboot) |
 | `scripts/apt_helper.py` · `scripts/pacman_helper.py` | python-apt and pyalpm counterparts (Arch: official repos, no AUR) |
 | `scripts/pkg_backend.py` | Per-distro metadata backend (search, sizes, inventory, holds, changelogs); also which packages own a launchable desktop entry |
-| `scripts/flatpak_helper.py` | libflatpak transactions with exact byte progress, and end-of-life detection |
+| `scripts/flatpak_helper.py` | libflatpak transactions with exact byte progress, end-of-life detection, and installing a `.flatpak` bundle or `.flatpakref` |
+| `scripts/fedora_upgrade.py` | The next Fedora release: what upgrading involves (libdnf5, no root), `dnf5 system-upgrade download` as events, and whether an upgrade waits for its reboot |
 | `scripts/appimage.py` | AppImage catalog, install/replace/update/uninstall, GitHub update sources, folder scanning, the `.appimage` association |
 | `scripts/appimage_squashfs.py` | Reads the desktop entry and icon out of an AppImage's squashfs without running the image |
 | `scripts/repo_backend.py` | Software sources: repositories and Flatpak remotes, Copr, RPM Fusion, Flathub (dnf family only) |
@@ -80,8 +82,8 @@ Everything in CI runs on any distribution, with the network and the package
 managers stubbed: `check_translations.py` (the 15 catalogs against the QML),
 `test_dep11.py`, `test_gitnotes.py`, `test_plugin_notes.py`, `test_reconcile.py`, `test_ostree_helper.py`,
 `test_arch_news.py`, `test_brew_helper.py`, `test_pacman_helper.py`,
-`test_flatpak_helper.py`, `test_simulate.py`, `test_appimage_squashfs.py`, and
-`test_shell_portability.py` —
+`test_flatpak_helper.py`, `test_fedora_upgrade.py`, `test_simulate.py`,
+`test_appimage_squashfs.py`, and `test_shell_portability.py` —
 which reads every `sh -c` snippet in the QML for bash-only syntax, because
 `/bin/sh` is dash on Debian and Ubuntu and a bashism there produces no error,
 only wrong output.

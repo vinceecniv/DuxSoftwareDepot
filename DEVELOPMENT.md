@@ -83,10 +83,11 @@ managers stubbed: `check_translations.py` (the 15 catalogs against the QML),
 `test_dep11.py`, `test_gitnotes.py`, `test_plugin_notes.py`, `test_reconcile.py`, `test_ostree_helper.py`,
 `test_arch_news.py`, `test_brew_helper.py`, `test_pacman_helper.py`,
 `test_flatpak_helper.py`, `test_fedora_upgrade.py`, `test_simulate.py`,
-`test_appimage_squashfs.py`, and `test_shell_portability.py` —
+`test_appimage_squashfs.py`, `test_shell_portability.py` —
 which reads every `sh -c` snippet in the QML for bash-only syntax, because
 `/bin/sh` is dash on Debian and Ubuntu and a bashism there produces no error,
-only wrong output.
+only wrong output — and `test_hot_update.py`, which holds the entry files to
+the rule below about updates in place.
 
 `test_flatpak_files.py` is the exception: installing a `.flatpak` or
 `.flatpakref` is tested against the real libflatpak, in throwaway
@@ -180,7 +181,16 @@ instantiates it, the whole widget fails to load ("… is not a type", issue
 `UpdaterWidget.qml` as an inline component (`component Name: Item { … }`),
 as `FedoraUpgradeJob` does. New files used only by other files are fine:
 those files are still the old build until the restart, and do not ask for
-them.
+them. `scripts/test_hot_update.py` checks this for the widget and the
+settings page (the two files the shell rebuilds) against the folder as 1.0.0
+shipped it, and so does CI. A type name counts even inside a Loader that is
+not active, since names are resolved when the file is compiled: a newer
+file that only a development install loads goes in by path, as
+`ScreenshotDirector.qml` does.
+
+Reloads also explain why the widget's `IpcHandler`s are enabled one tick
+late: a reload builds the new widget before the old one is gone, and
+Quickshell keeps the first handler registered for a target.
 
 ## Screenshots
 

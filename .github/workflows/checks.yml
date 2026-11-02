@@ -75,6 +75,9 @@ jobs:
       - name: The shell snippets run under dash, not just bash
         run: python3 scripts/test_shell_portability.py
 
+      - name: An update in place loads without a shell restart
+        run: python3 scripts/test_hot_update.py
+
       - name: Everything else at least parses
         run: python3 -m compileall -q scripts
 

@@ -1702,8 +1702,23 @@ PluginComponent {
         estCheckSecs: root.estCheckSecs
     }
 
+    // The IPC targets register one event-loop tick late. A reload (the
+    // shell updating the plugin, or `dms ipc call plugins reload`) builds
+    // this widget before the previous one is destroyed, and Quickshell then
+    // keeps the old instance's handler and ignores this one ("Handler was
+    // registered but will not be used"), so every `dms ipc call
+    // dankSoftwareDepot …` went to a widget that was on its way out.
+    property bool _ipcReady: false
+
+    Timer {
+        interval: 0
+        running: true
+        onTriggered: root._ipcReady = true
+    }
+
     IpcHandler {
         target: "dankSoftwareDepot"
+        enabled: root._ipcReady
 
         function open(): void {
             // Always land on the Updates tab — also when the window was
@@ -1760,7 +1775,7 @@ PluginComponent {
     // that is false registers nothing at all, so there is nothing to find.
     IpcHandler {
         target: "dankSoftwareDepotDev"
-        enabled: Backend.developmentInstall
+        enabled: root._ipcReady && Backend.developmentInstall
 
         // Play a recorded run through the real interface. Here rather than
         // only behind the gear because the loop this exists for is: change
@@ -1845,9 +1860,12 @@ PluginComponent {
     Loader {
         id: screenshotLoader
         active: Backend.developmentInstall
-        sourceComponent: ScreenshotDirector {
-            window: updaterWindow
-        }
+        // By path, not by type name: the type is newer than 1.0, and a name
+        // is resolved when this file is compiled, active or not — which, in
+        // a shell that started on an older version, fails the whole widget.
+        // See scripts/test_hot_update.py.
+        source: Qt.resolvedUrl("ScreenshotDirector.qml")
+        onLoaded: item.window = updaterWindow
     }
 
     // Persist the current list (only when it comes from real daemon state)

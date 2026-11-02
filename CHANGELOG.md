@@ -3,6 +3,17 @@
 Release notes per version. The section for the latest version is shown
 in-app when the plugin offers its own update.
 
+## Unreleased
+
+- **Updating from 1.6 or older loads without a shell restart, too.** 1.8.2
+  fixed this for updates from 1.7 and 1.8, but the widget still used a
+  part that is new since 1.7, so an older installation hit the same kind
+  of error until the shell restarted.
+
+- **`dms ipc call dankSoftwareDepot …` reaches the plugin after an
+  update.** Until the shell restarted, the command went to the version
+  that had just been replaced.
+
 ## 1.8.2 — 2026-11-02
 
 - **The update to 1.8 no longer stops the plugin from loading.** After

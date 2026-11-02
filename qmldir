@@ -22,7 +22,6 @@ PaletteRow 1.0 PaletteRow.qml
 RepositoriesDialog 1.0 RepositoriesDialog.qml
 AppDetailsDialog 1.0 AppDetailsDialog.qml
 AppimageOfferDialog 1.0 AppimageOfferDialog.qml
-FedoraUpgrade 1.0 FedoraUpgrade.qml
 FedoraUpgradeDialog 1.0 FedoraUpgradeDialog.qml
 NewsDialog 1.0 NewsDialog.qml
 SelectableText 1.0 SelectableText.qml

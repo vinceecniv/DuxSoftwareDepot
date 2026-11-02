@@ -5,11 +5,12 @@ import qs.Widgets
 
 // What upgrading to the next Fedora release involves, asked before anything
 // is downloaded: how much, what has to go, which repositories have no build
-// for it yet. The banner's "Upgrade…" opens it; FedoraUpgrade does the work.
+// for it yet. The banner's "Upgrade…" opens it; FedoraUpgradeJob, in
+// UpdaterWidget.qml, does the work.
 Item {
     id: dialog
 
-    property var upgrade: null          // the widget's FedoraUpgrade
+    property var upgrade: null          // the widget's FedoraUpgradeJob
     // System updates still waiting. Fedora's advice is to install them
     // before upgrading, so it is said — but not enforced: an update held
     // back by a third-party package pinned to the old build (RPM Fusion's

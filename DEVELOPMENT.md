@@ -40,7 +40,7 @@ selectable would stop being a card you can click.
 | `SourcePickerDialog.qml` | Which source to install from, when an app has more than one |
 | `OriginComparison.qml` | The sources side by side — version, size, sandbox, who stands behind it, which one is installed. Used by both the picker and the details popup, so the two cannot disagree |
 | `AppimageOfferDialog.qml` | Installing from a file or URL: an AppImage, or a `.flatpak`/`.flatpakref` handed to the Flatpak helper |
-| `FedoraUpgrade.qml` · `FedoraUpgradeDialog.qml` | Upgrading to the next Fedora release: the state (plan, background download, ready to restart) kept in the widget, and the dialog that shows what the upgrade involves before anything is downloaded |
+| `FedoraUpgradeDialog.qml` (+ `FedoraUpgradeJob` in `UpdaterWidget.qml`) | Upgrading to the next Fedora release: the state (plan, background download, ready to restart) kept in the widget as an inline component, and the dialog that shows what the upgrade involves before anything is downloaded |
 | `NewsDialog.qml` | Arch Linux announcements: unread, plus the archive |
 | `RetrospectCard.qml` | The year the action log remembers, on the Updates dashboard |
 | `MetadataStore.qml` | Async enrichment cache + held-state persistence |
@@ -170,6 +170,17 @@ for the other files the widget instantiates — `MetadataStore.qml`, say: the
 reload builds the new `UpdaterWidget.qml` on the type compiled earlier, so a
 function added to the store does not exist yet, and a binding that calls it
 evaluates to `undefined` without a word in the log.
+
+That also holds for users, whenever the shell updates the plugin in place:
+until the shell restarts, only `UpdaterWidget.qml` is built anew, and the
+folder is the one the shell listed at startup. A QML file that is new in the
+update cannot be found, by type name or by path — so if the widget
+instantiates it, the whole widget fails to load ("… is not a type", issue
+#42). Anything new the widget itself instantiates therefore goes in
+`UpdaterWidget.qml` as an inline component (`component Name: Item { … }`),
+as `FedoraUpgradeJob` does. New files used only by other files are fine:
+those files are still the old build until the restart, and do not ask for
+them.
 
 ## Screenshots
 

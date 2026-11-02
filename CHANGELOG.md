@@ -3,7 +3,15 @@
 Release notes per version. The section for the latest version is shown
 in-app when the plugin offers its own update.
 
-## Unreleased
+## 1.8.3 — 2026-11-02
+
+- **After an update, the plugin asks for a shell restart when it needs
+  one.** An update installed from *Settings → Plugins* takes effect while
+  the shell keeps running, but until it restarts, part of the plugin is
+  still the previous version, and the two do not always agree. The popout
+  and a notification now say so, with a button that restarts the shell.
+  The update offered by the plugin itself already restarted it, and still
+  does.
 
 - **Updating from 1.6 or older loads without a shell restart, too.** 1.8.2
   fixed this for updates from 1.7 and 1.8, but the widget still used a

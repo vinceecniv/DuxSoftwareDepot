@@ -585,5 +585,8 @@
     "Center": "Centro",
     "Right": "Direita",
     "An unofficial community plugin by %1, not made or supported by Dux Labs.": "Um plugin comunitário não oficial de %1, não criado nem suportado pela Dux Labs.",
-    "This list may be incomplete.": "Esta lista pode estar incompleta."
+    "This list may be incomplete.": "Esta lista pode estar incompleta.",
+    "Restart the shell to finish the update": "Reinicie o shell para concluir a atualização",
+    "Until then, part of the plugin still runs the previous version.": "Até lá, parte do plugin ainda executa a versão anterior.",
+    "Restart shell": "Reiniciar o shell"
 }

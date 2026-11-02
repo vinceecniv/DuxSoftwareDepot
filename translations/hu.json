@@ -585,5 +585,8 @@
     "Center": "Közép",
     "Right": "Jobb",
     "An unofficial community plugin by %1, not made or supported by Dux Labs.": "%1 nem hivatalos közösségi bővítménye; nem a Dux Labs készítette, és nem is támogatja.",
-    "This list may be incomplete.": "Ez a lista hiányos lehet."
+    "This list may be incomplete.": "Ez a lista hiányos lehet.",
+    "Restart the shell to finish the update": "Indítsa újra a héjat a frissítés befejezéséhez",
+    "Until then, part of the plugin still runs the previous version.": "Addig a bővítmény egy része még az előző verziót futtatja.",
+    "Restart shell": "Héj újraindítása"
 }

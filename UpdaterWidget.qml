@@ -757,13 +757,73 @@ PluginComponent {
     // announce. Clicking the body (action "default") or the Open button opens
     // the window: notify-send --action waits and prints the chosen action, and
     // the detached shell turns that into the plugin's own IPC call.
-    function notify(summary, body) {
+    // ── Updated in place, shell not restarted yet
+    //
+    // The shell updates the plugin while it runs, and until it restarts,
+    // only this file is new: the window, the engine, the stores and the
+    // singletons are the versions it started with, while the helper scripts
+    // are already the new ones. Mostly that goes unnoticed; sometimes new
+    // code asks old code for something it does not have yet, and gets
+    // undefined without a word. So say so, and offer the restart.
+    //
+    // Backend (a singleton, kept until the restart) holds the version the
+    // session started with; plugin.json on disk holds the installed one.
+    // Watched, because an update the shell does not reload the plugin for
+    // still swaps the scripts. A Backend without sessionVersion is one from
+    // before 1.8.3, so it is older than this file by definition.
+    //
+    // Mind the singletons in this file: in that mixed session they are the
+    // old ones, so nothing here may depend on what they gained since.
+    property string installedVersion: ""
+
+    FileView {
+        path: Qt.resolvedUrl("plugin.json")
+        watchChanges: true
+        onFileChanged: reload()
+
+        onLoaded: {
+            try {
+                root.installedVersion = JSON.parse(text()).version || "";
+            } catch (e) {}
+        }
+    }
+
+    readonly property bool shellRestartNeeded: {
+        const session = Backend.sessionVersion;
+        if (session === undefined)
+            return true;
+        return session !== "" && installedVersion !== "" && session !== installedVersion;
+    }
+    // A restart ends whatever runs inside the shell: an update run, or the
+    // Fedora upgrade's download
+    readonly property bool shellRestartBlocked: engine.phase !== "idle" || (fedoraUpgrade && fedoraUpgrade.phase === "downloading")
+    property bool _shellRestartNotified: false
+
+    function restartShell() {
+        if (!shellRestartBlocked)
+            Quickshell.execDetached(["dms", "restart"]);
+    }
+
+    function _announceShellRestart() {
+        if (!shellRestartNeeded || _shellRestartNotified)
+            return;
+        _shellRestartNotified = true;
+        notify(Tr.t("Restart the shell to finish the update"), Tr.t("Until then, part of the plugin still runs the previous version."), "restart");
+    }
+
+    // (also called from Component.onCompleted, further down)
+    onShellRestartNeededChanged: _announceShellRestart()
+
+    function notify(summary, body, onClick) {
         const iconFile = Qt.resolvedUrl("assets/icons/dux-software-depot-" + (Theme.isLightMode ? "light" : "dark") + ".svg").toString().replace("file://", "");
         // One action, not two: `default` is what a click on the body triggers,
         // and naming a second one only added a duplicate button next to it.
         // The body line is optional — an empty argument would draw an empty
         // line, so the two shapes are separate calls.
-        Quickshell.execDetached(["sh", "-c", "if [ -n \"$4\" ]; then chosen=$(notify-send -a 'Dux Software Depot' -i \"$1\" -A default=\"$2\" \"$3\" \"$4\"); else chosen=$(notify-send -a 'Dux Software Depot' -i \"$1\" -A default=\"$2\" \"$3\"); fi; [ -n \"$chosen\" ] && dms ipc call dankSoftwareDepot open", "notify", iconFile, Tr.t("Open"), summary, body || ""]);
+        // A click opens the window, or with onClick "restart", restarts the
+        // shell
+        const restart = onClick === "restart";
+        Quickshell.execDetached(["sh", "-c", "if [ -n \"$4\" ]; then chosen=$(notify-send -a 'Dux Software Depot' -i \"$1\" -A default=\"$2\" \"$3\" \"$4\"); else chosen=$(notify-send -a 'Dux Software Depot' -i \"$1\" -A default=\"$2\" \"$3\"); fi; [ -n \"$chosen\" ] || exit 0; if [ \"$5\" = restart ]; then dms restart; else dms ipc call dankSoftwareDepot open; fi", "notify", iconFile, restart ? Tr.t("Restart shell") : Tr.t("Open"), summary, body || "", restart ? "restart" : ""]);
     }
 
     // A new version of the plugin deserves the same courtesy as new packages:
@@ -1898,6 +1958,7 @@ PluginComponent {
     }
 
     Component.onCompleted: {
+        _announceShellRestart();
         _applyPillVisibility();
         if (pendingUpdates.length > 0)
             store.refresh(pendingUpdates);
@@ -2445,6 +2506,34 @@ PluginComponent {
                                     }
                                 }
                             }
+                        }
+                    }
+                }
+
+                // Updated in place: the shell needs a restart to catch up
+                StyledRect {
+                    width: parent.width
+                    visible: root.shellRestartNeeded
+                    height: visible ? 40 : 0
+                    radius: Theme.cornerRadius
+                    color: Theme.withAlpha(Theme.primary, 0.14)
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: Theme.spacingS
+                        anchors.rightMargin: Theme.spacingXS
+                        spacing: Theme.spacingS
+
+                        DankIcon { name: "refresh"; size: 17; color: Theme.primary }
+                        StyledText { Layout.fillWidth: true; text: Tr.t("Restart the shell to finish the update"); font.pixelSize: Theme.fontSizeSmall; color: Theme.surfaceText; elide: Text.ElideRight }
+                        DankButton {
+                            buttonHeight: 26
+                            horizontalPadding: Theme.spacingM
+                            enabled: !root.shellRestartBlocked
+                            text: Tr.t("Restart shell")
+                            backgroundColor: Theme.buttonBg
+                            textColor: Theme.buttonText
+                            onClicked: root.restartShell()
                         }
                     }
                 }

@@ -1000,6 +1000,27 @@ Item {
         }
     }
 
+    // The plugin's version when this shell session first loaded it. A
+    // singleton is built once per session — reloading the plugin, which is
+    // what the shell does after updating it in place, keeps it — so the
+    // widget, which is rebuilt, can tell an update the session has not
+    // caught up with: see shellRestartNeeded there. Read once, on purpose
+    // not watched.
+    property string sessionVersion: ""
+
+    FileView {
+        path: Qt.resolvedUrl("plugin.json")
+        blockLoading: true
+
+        onLoaded: {
+            if (backend.sessionVersion !== "")
+                return;
+            try {
+                backend.sessionVersion = JSON.parse(text()).version || "";
+            } catch (e) {}
+        }
+    }
+
     // ostree creates this file when the system booted from a deployment. It
     // is the one answer that does not depend on what the image calls itself:
     // Silverblue says ID=fedora, Bazzite says ID=bazzite, and an ordinary

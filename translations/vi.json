@@ -585,5 +585,8 @@
     "Center": "Giữa",
     "Right": "Phải",
     "An unofficial community plugin by %1, not made or supported by Dux Labs.": "Một plugin cộng đồng không chính thức của %1, không do Dux Labs tạo ra hay hỗ trợ.",
-    "This list may be incomplete.": "Danh sách này có thể chưa đầy đủ."
+    "This list may be incomplete.": "Danh sách này có thể chưa đầy đủ.",
+    "Restart the shell to finish the update": "Khởi động lại shell để hoàn tất cập nhật",
+    "Until then, part of the plugin still runs the previous version.": "Cho đến lúc đó, một phần của plugin vẫn chạy phiên bản trước.",
+    "Restart shell": "Khởi động lại shell"
 }

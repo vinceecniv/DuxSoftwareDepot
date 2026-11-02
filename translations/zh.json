@@ -585,5 +585,8 @@
     "Center": "中",
     "Right": "右",
     "An unofficial community plugin by %1, not made or supported by Dux Labs.": "由 %1 开发的非官方社区插件，并非 Dux Labs 出品，也不受其支持。",
-    "This list may be incomplete.": "此列表可能不完整。"
+    "This list may be incomplete.": "此列表可能不完整。",
+    "Restart the shell to finish the update": "重启 shell 以完成更新",
+    "Until then, part of the plugin still runs the previous version.": "在此之前，插件的一部分仍在运行旧版本。",
+    "Restart shell": "重启 shell"
 }

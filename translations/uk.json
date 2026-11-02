@@ -585,5 +585,8 @@
     "Center": "По центру",
     "Right": "Праворуч",
     "An unofficial community plugin by %1, not made or supported by Dux Labs.": "Неофіційний плагін спільноти від %1; не створений і не підтримується Dux Labs.",
-    "This list may be incomplete.": "Цей список може бути неповним."
+    "This list may be incomplete.": "Цей список може бути неповним.",
+    "Restart the shell to finish the update": "Перезапустіть оболонку, щоб завершити оновлення",
+    "Until then, part of the plugin still runs the previous version.": "Доти частина плагіна працює в попередній версії.",
+    "Restart shell": "Перезапустити оболонку"
 }

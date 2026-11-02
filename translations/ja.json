@@ -585,5 +585,8 @@
     "Center": "中央",
     "Right": "右",
     "An unofficial community plugin by %1, not made or supported by Dux Labs.": "%1 による非公式のコミュニティプラグインです。Dux Labs が作成・サポートしているものではありません。",
-    "This list may be incomplete.": "この一覧は不完全な可能性があります。"
+    "This list may be incomplete.": "この一覧は不完全な可能性があります。",
+    "Restart the shell to finish the update": "更新を完了するにはシェルを再起動してください",
+    "Until then, part of the plugin still runs the previous version.": "それまでは、プラグインの一部が以前のバージョンのまま動作します。",
+    "Restart shell": "シェルを再起動"
 }

@@ -188,6 +188,15 @@ not active, since names are resolved when the file is compiled: a newer
 file that only a development install loads goes in by path, as
 `ScreenshotDirector.qml` does.
 
+The mixed session that leaves — a new widget on the old window, stores and
+singletons, with the helper scripts already new — is not checked by
+anything; the widget says so instead. `Backend.sessionVersion` is the
+version the session started with (a singleton is kept until the restart),
+and when it differs from `plugin.json` on disk the popout and a notification
+ask for a shell restart. In that session the singletons are the old ones,
+so the widget code doing the asking must not lean on anything they gained
+since.
+
 Reloads also explain why the widget's `IpcHandler`s are enabled one tick
 late: a reload builds the new widget before the old one is gone, and
 Quickshell keeps the first handler registered for a target.

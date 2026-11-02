@@ -585,5 +585,8 @@
     "Center": "Mitten",
     "Right": "Höger",
     "An unofficial community plugin by %1, not made or supported by Dux Labs.": "Ett inofficiellt communitytillägg av %1, inte skapat eller stött av Dux Labs.",
-    "This list may be incomplete.": "Listan kan vara ofullständig."
+    "This list may be incomplete.": "Listan kan vara ofullständig.",
+    "Restart the shell to finish the update": "Starta om skalet för att slutföra uppdateringen",
+    "Until then, part of the plugin still runs the previous version.": "Tills dess kör en del av tillägget fortfarande den tidigare versionen.",
+    "Restart shell": "Starta om skalet"
 }

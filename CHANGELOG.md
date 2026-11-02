@@ -3,6 +3,16 @@
 Release notes per version. The section for the latest version is shown
 in-app when the plugin offers its own update.
 
+## 1.8.1 — 2026-11-02
+
+- **A new Fedora release is announced on the day it ships.** The banner
+  offered Fedora 45 from 1 November, while 45 ships on 3 November: it
+  took a release for out as soon as Fedora's update system listed it,
+  which happens at its final freeze, a week or more before release day.
+  It now waits for the release date. If you upgraded early, nothing is
+  wrong: you got the release candidate that was approved as the final
+  release.
+
 ## 1.8.0 — 2026-11-01
 
 - **Upgrade to the next Fedora release from the banner.** The banner that

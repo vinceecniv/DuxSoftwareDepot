@@ -16,6 +16,7 @@ import tempfile
 from contextlib import redirect_stdout
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import enrich  # noqa: E402
 import fedora_upgrade as fu  # noqa: E402
 
 failures = []
@@ -28,6 +29,20 @@ def check(label, got, want):
         failures.append(label)
         print(f"  FAIL {label}\n       got:  {got!r}\n       want: {want!r}")
 
+
+print("Which release is out")
+# Bodhi's list on 2 November 2026, the day before Fedora 45 shipped
+bodhi = [
+    {"name": "EPEL-10.4", "version": "10.4", "id_prefix": "FEDORA-EPEL", "released_on": "2026-08-24"},
+    {"name": "F43", "version": "43", "id_prefix": "FEDORA", "released_on": None},
+    {"name": "F44", "version": "44", "id_prefix": "FEDORA", "released_on": "2026-04-28"},
+    {"name": "F45", "version": "45", "id_prefix": "FEDORA", "released_on": "2026-11-03"},
+    {"name": "F45F", "version": "45", "id_prefix": "FEDORA-FLATPAK", "released_on": "2026-11-03"},
+]
+check("a current release that ships tomorrow is not out", enrich.newest_fedora(bodhi, "2026-11-02"), 44)
+check("on the day it ships, it is", enrich.newest_fedora(bodhi, "2026-11-03"), 45)
+check("no released_on means long out", enrich.newest_fedora(bodhi[:2], "2026-11-02"), 43)
+check("nothing listed, nothing to go to", enrich.newest_fedora([], "2026-11-02"), 0)
 
 print("dnf5's lines")
 state = {"bytes": 0, "stored": False}

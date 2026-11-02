@@ -1968,6 +1968,23 @@ def run_update_sizes(arg):
 DISTRO_UPGRADE_CACHE = os.path.join(CACHE_DIR, "distro-upgrade.json")
 
 
+def newest_fedora(releases, today):
+    """The newest Fedora release that is out by `today` (an ISO date).
+
+    Bodhi lists a release as current from its final freeze on, a week or
+    more before it ships, with the day it ships as released_on. Older
+    releases have no released_on at all; they are out."""
+    versions = []
+    for r in releases:
+        if r.get("id_prefix") != "FEDORA" or not str(r.get("version", "")).isdigit():
+            continue
+        released = r.get("released_on")
+        if released and str(released)[:10] > today:
+            continue
+        versions.append(int(r["version"]))
+    return max(versions) if versions else 0
+
+
 def run_distro_upgrade():
     """Is a newer Fedora release available? (Bodhi, cached daily)"""
     if BACKEND != "dnf":
@@ -1993,15 +2010,15 @@ def run_distro_upgrade():
         json.dump({}, sys.stdout)
         return
     cache = _load_daily_cache(DISTRO_UPGRADE_CACHE)
-    latest = cache["data"].get("latest")
+    # "released", not "latest": a cache from before released_on was looked
+    # at may hold a release that is not out yet
+    latest = cache["data"].get("released")
     if latest is None:
         try:
             data = _http_json("https://bodhi.fedoraproject.org/releases/?state=current&rows_per_page=60", timeout=20)
-            versions = [int(r["version"]) for r in data.get("releases", [])
-                        if r.get("id_prefix") == "FEDORA" and str(r.get("version", "")).isdigit()]
-            latest = max(versions) if versions else 0
+            latest = newest_fedora(data.get("releases", []), time.strftime("%Y-%m-%d"))
             cache["ts"] = time.time()
-            cache["data"]["latest"] = latest
+            cache["data"]["released"] = latest
             os.makedirs(CACHE_DIR, exist_ok=True)
             with open(DISTRO_UPGRADE_CACHE, "w") as f:
                 json.dump(cache, f)

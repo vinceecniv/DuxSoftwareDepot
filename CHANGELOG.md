@@ -3,6 +3,16 @@
 Release notes per version. The section for the latest version is shown
 in-app when the plugin offers its own update.
 
+## 1.8.2 — 2026-11-02
+
+- **The update to 1.8 no longer stops the plugin from loading.** After
+  updating from an earlier version, the plugin failed with *FedoraUpgrade
+  is not a type* until the shell was restarted, and reinstalling did not
+  help. The shell rebuilds only part of a plugin when it updates it in
+  place, and the part that runs the Fedora upgrade was new in 1.8. It now
+  loads either way. If you are seeing that error now, `dms restart` (or
+  logging out and back in) clears it too.
+
 ## 1.8.1 — 2026-11-02
 
 - **A new Fedora release is announced on the day it ships.** The banner

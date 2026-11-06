@@ -694,6 +694,11 @@ FloatingWindow {
                 const localVersion = win.pluginManifest.version || "0";
                 if (!remote || !remote.version || !win._versionNewer(remote.version, localVersion))
                     return;
+                // `dms plugins update` is a git pull that does not read
+                // requires_dms, so this is what stands between an older shell
+                // and a release it cannot load
+                if (!PluginService.checkPluginCompatibility(remote.requires_dms))
+                    return;
                 win.selfUpdateLocalVersion = localVersion;
                 win.selfUpdateMarkdown = parts[1] || "";
                 win.selfUpdateVersion = remote.version;

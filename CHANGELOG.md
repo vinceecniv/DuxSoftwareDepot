@@ -3,6 +3,14 @@
 Release notes per version. The section for the latest version is shown
 in-app when the plugin offers its own update.
 
+## 1.8.4 — 2026-11-06
+
+- **The plugin no longer offers an update your shell cannot load.** The
+  update banner now checks which shell version a release needs first.
+  This matters for the coming 2.0, which needs Dux Shell 2.0 or newer. On
+  DMS 1.x, an update through *Settings → Plugins* or `dms plugins update`
+  is not checked, so hold off on those until the shell is upgraded.
+
 ## 1.8.3 — 2026-11-02
 
 - **After an update, the plugin asks for a shell restart when it needs

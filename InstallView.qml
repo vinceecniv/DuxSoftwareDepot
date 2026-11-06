@@ -5,6 +5,7 @@ import Quickshell
 import Quickshell.Io
 import qs.Common
 import qs.Services
+import qs.DCommon.Widgets
 import qs.Widgets
 
 // Install tab: live search across Fedora repos and Flathub (AppStream-based),
@@ -1503,7 +1504,7 @@ Item {
                 }
             }
 
-            DankActionButton {
+            DActionButton {
                 buttonSize: 34
                 iconName: "database"
                 iconSize: 18
@@ -1512,7 +1513,7 @@ Item {
                 onClicked: view.sourcesRequested()
             }
 
-            DankActionButton {
+            DActionButton {
                 buttonSize: 34
                 iconName: "note_add"
                 iconSize: 18
@@ -1525,7 +1526,7 @@ Item {
             // serve itself: browsing and installing plugins is DMS's own
             // screen, so the button opens that rather than pretending to be
             // a second registry client.
-            DankActionButton {
+            DActionButton {
                 buttonSize: 34
                 iconName: "extension"
                 iconSize: 18
@@ -1556,7 +1557,7 @@ Item {
                 scale: allSecMa.pressed ? 0.94 : 1.0
                 Behavior on scale { NumberAnimation { duration: Theme.mediumDuration; easing.type: Easing.OutBack } }
 
-                DankRipple {
+                DRipple {
                     id: allSecRip
                     anchors.fill: parent
                     cornerRadius: parent.radius
@@ -1568,7 +1569,7 @@ Item {
                     anchors.centerIn: parent
                     spacing: 6
 
-                    DankIcon {
+                    DIcon {
                         name: "arrow_back"
                         size: 16
                         color: Ui.buttonInk("tonal")
@@ -1592,7 +1593,7 @@ Item {
                 }
             }
 
-            DankButtonGroup {
+            DButtonGroup {
                 anchors.left: allSectionsBtn.visible ? allSectionsBtn.right : parent.left
                 anchors.leftMargin: allSectionsBtn.visible ? Theme.spacingM : 0
                 anchors.verticalCenter: parent.verticalCenter
@@ -1604,7 +1605,7 @@ Item {
                 }
             }
 
-            DankDropdown {
+            DDropdown {
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
                 visible: view.searchMode && !view.sectionMode
@@ -1636,7 +1637,7 @@ Item {
             }
 
             // More results may still arrive from the dnf name fallback
-            DankSpinner {
+            DSpinner {
                 visible: view.moreResultsPending
                 size: 14
             }
@@ -1697,7 +1698,7 @@ Item {
                             visible: status === Image.Ready
                         }
 
-                        DankIcon {
+                        DIcon {
                             anchors.centerIn: parent
                             visible: installProgressLogo.status !== Image.Ready
                             name: "apps"
@@ -1780,7 +1781,7 @@ Item {
                 width: parent.width
                 height: parent.height
 
-                DankListView {
+                DListView {
                     id: resultsList
                     anchors.fill: parent
                     clip: true
@@ -1878,7 +1879,7 @@ Item {
                             anchors.rightMargin: Theme.spacingM
                             spacing: Theme.spacingS
 
-                            DankIcon {
+                            DIcon {
                                 name: view.categoryIcon(rowData.category || rowData.label || "")
                                 size: 20
                                 color: Theme.primary
@@ -1911,7 +1912,7 @@ Item {
                                 }
                             }
 
-                            DankIcon {
+                            DIcon {
                                 visible: opens
                                 name: "chevron_right"
                                 size: 16
@@ -2027,7 +2028,7 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                             spacing: Theme.spacingS
 
-                            DankIcon {
+                            DIcon {
                                 name: view.categoryIcon(cardContainer.rowData.category || cardContainer.rowData.label || "")
                                 size: 20
                                 color: Theme.primary
@@ -2076,7 +2077,7 @@ Item {
                             scale: viewAllMa.pressed ? 0.94 : 1.0
                             Behavior on scale { NumberAnimation { duration: Theme.mediumDuration; easing.type: Easing.OutBack } }
 
-                            DankRipple {
+                            DRipple {
                                 id: viewAllRip
                                 anchors.fill: parent
                                 cornerRadius: parent.radius
@@ -2095,7 +2096,7 @@ Item {
                                     color: Ui.buttonInk("tonal")
                                 }
 
-                                DankIcon {
+                                DIcon {
                                     name: "chevron_right"
                                     size: 14
                                     color: Ui.buttonInk("tonal")
@@ -2162,7 +2163,7 @@ Item {
                     anchors.rightMargin: Theme.spacingS
                     spacing: Theme.spacingS
 
-                    DankIcon {
+                    DIcon {
                         name: "person"
                         size: 16
                         color: Theme.surfaceVariantText
@@ -2184,12 +2185,12 @@ Item {
                         wrapMode: Text.WordWrap
                     }
 
-                    DankSpinner {
+                    DSpinner {
                         visible: view.coprSearching
                         size: 16
                     }
 
-                    // Wrapper Item: DankButton sizes itself through `width`, which a layout does not read
+                    // Wrapper Item: DButton sizes itself through `width`, which a layout does not read
                     //
                     // The condition lives here rather than on the button: a
                     // wrapper that reads its child's `visible` is asking a
@@ -2213,7 +2214,7 @@ Item {
                             scale: coprSearchMa.pressed ? 0.94 : 1.0
                             Behavior on scale { NumberAnimation { duration: Theme.mediumDuration; easing.type: Easing.OutBack } }
 
-                            DankRipple {
+                            DRipple {
                                 id: coprSearchRip
                                 anchors.fill: parent
                                 cornerRadius: parent.radius
@@ -2225,7 +2226,7 @@ Item {
                                 anchors.centerIn: parent
                                 spacing: 4
 
-                                DankIcon {
+                                DIcon {
                                     name: "search"
                                     size: 14
                                     color: Ui.buttonInk("tonal")
@@ -2283,7 +2284,7 @@ Item {
                     anchors.rightMargin: Theme.spacingS
                     spacing: Theme.spacingS
 
-                    DankIcon {
+                    DIcon {
                         name: "local_drink"
                         size: 18
                         color: Theme.surfaceVariantText
@@ -2358,7 +2359,7 @@ Item {
                         scale: brewInstMa.pressed ? 0.94 : 1.0
                         Behavior on scale { NumberAnimation { duration: Theme.mediumDuration; easing.type: Easing.OutBack } }
 
-                        DankRipple {
+                        DRipple {
                             id: brewInstRip
                             anchors.fill: parent
                             cornerRadius: parent.radius
@@ -2370,7 +2371,7 @@ Item {
                             anchors.centerIn: parent
                             spacing: 4
 
-                            DankIcon {
+                            DIcon {
                                 name: "download"
                                 size: 13
                                 color: Ui.buttonInk("accent")
@@ -2427,7 +2428,7 @@ Item {
                     anchors.rightMargin: Theme.spacingS
                     spacing: Theme.spacingS
 
-                    DankIcon {
+                    DIcon {
                         name: "local_drink"
                         size: 16
                         color: Theme.surfaceVariantText
@@ -2449,7 +2450,7 @@ Item {
                         wrapMode: Text.WordWrap
                     }
 
-                    DankSpinner {
+                    DSpinner {
                         visible: view.brewSearching
                         size: 16
                     }
@@ -2471,7 +2472,7 @@ Item {
                             scale: brewSearchMa.pressed ? 0.94 : 1.0
                             Behavior on scale { NumberAnimation { duration: Theme.mediumDuration; easing.type: Easing.OutBack } }
 
-                            DankRipple {
+                            DRipple {
                                 id: brewSearchRip
                                 anchors.fill: parent
                                 cornerRadius: parent.radius
@@ -2483,7 +2484,7 @@ Item {
                                 anchors.centerIn: parent
                                 spacing: 4
 
-                                DankIcon {
+                                DIcon {
                                     name: "search"
                                     size: 14
                                     color: Ui.buttonInk("tonal")
@@ -2530,7 +2531,7 @@ Item {
                     anchors.bottomMargin: 2
                     spacing: Theme.spacingS
 
-                    DankIcon {
+                    DIcon {
                         name: view.categoryIcon(headerRoot.rowData.category || headerRoot.rowData.label || "")
                         size: 18
                         color: Theme.primary
@@ -2555,7 +2556,7 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                     }
 
-                    DankIcon {
+                    DIcon {
                         visible: headerRoot.opens
                         name: "chevron_right"
                         size: 14
@@ -2644,7 +2645,7 @@ Item {
                     }
                 }
 
-                DankRipple {
+                DRipple {
                     id: resultRip
                     anchors.fill: parent
                     cornerRadius: resultBg.tlrAnim
@@ -2689,7 +2690,7 @@ Item {
                             layer.effect: TintedIconEffect {}
                         }
 
-                        DankIcon {
+                        DIcon {
                             anchors.centerIn: parent
                             visible: resultLogo.status !== Image.Ready
                             name: "apps"
@@ -2723,7 +2724,7 @@ Item {
                                 Repeater {
                                     model: 5
 
-                                    delegate: DankIcon {
+                                    delegate: DIcon {
                                         required property int index
 
                                         name: {
@@ -2770,7 +2771,7 @@ Item {
                         }
                     }
 
-                    DankSpinner {
+                    DSpinner {
                         visible: resultRow.busy
                         size: 22
                     }
@@ -2826,7 +2827,7 @@ Item {
                             scale: instActionMa.pressed ? 0.94 : 1.0
                             Behavior on scale { NumberAnimation { duration: Theme.mediumDuration; easing.type: Easing.OutBack } }
 
-                            DankRipple {
+                            DRipple {
                                 id: instActionRip
                                 anchors.fill: parent
                                 cornerRadius: parent.radius
@@ -2838,7 +2839,7 @@ Item {
                                 anchors.centerIn: parent
                                 spacing: 4
 
-                                DankIcon {
+                                DIcon {
                                     name: instActionBtn.picks ? "download" : (modelData.kind === "appimage" && !modelData.repo ? "open_in_new" : "download")
                                     size: 13
                                     color: Ui.buttonInk(instActionBtn.isPrimary ? "accent" : "tonal")
@@ -2882,13 +2883,13 @@ Item {
                 anchors.centerIn: parent
                 spacing: Theme.spacingM
 
-                DankSpinner {
+                DSpinner {
                     anchors.horizontalCenter: parent.horizontalCenter
                     visible: view.awaitingResults
                     size: 36
                 }
 
-                DankIcon {
+                DIcon {
                     anchors.horizontalCenter: parent.horizontalCenter
                     visible: !view.awaitingResults
                     name: view.searchText.trim().length >= 2 ? "search_off" : "storefront"

@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Common
+import qs.DCommon.Widgets
 import qs.Widgets
 
 // Material stepper visualizing the update phases:
@@ -101,7 +102,7 @@ Item {
                         }
                     }
 
-                    DankIcon {
+                    DIcon {
                         anchors.centerIn: parent
                         name: element.isLine ? "" : root._steps[element.stepIndex].icon
                         size: root.circleSize * 0.55

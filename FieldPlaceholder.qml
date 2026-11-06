@@ -4,7 +4,7 @@ import qs.Widgets
 
 // The hint that stays while the field is empty.
 //
-// DMS's DankTextField hides its own placeholder the moment the field takes
+// DMS's DTextField hides its own placeholder the moment the field takes
 // focus — `visible: text.length === 0 && !textInput.activeFocus` — so clicking
 // into an empty field removes the one sentence explaining what belongs in it,
 // at exactly the moment somebody is deciding what to type. There is no
@@ -14,11 +14,11 @@ import qs.Widgets
 // The two never overlap, which is what makes the hint look continuous rather
 // than like a second label appearing.
 //
-// Dropped inside a DankTextField as a child, taking its padding, font and
+// Dropped inside a DTextField as a child, taking its padding, font and
 // colour from the field so the text lands in the same place the field's own
 // placeholder was standing:
 //
-//     DankTextField {
+//     DTextField {
 //         placeholderText: searchHint
 //         FieldPlaceholder { text: searchHint }
 //     }

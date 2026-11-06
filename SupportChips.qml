@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import qs.Common
+import qs.DCommon.Widgets
 import qs.Widgets
 
 // The three quiet links: vote for the plugin, star the repository, and the
@@ -22,7 +23,7 @@ GridLayout {
     // A layout computes its own implicit height and overwrites anything set
     // here, so a parent that sizes itself from implicitHeight cannot learn it
     // from us. Hosts that need the number take these and put them on a plain
-    // wrapper Item — the same trick this codebase uses for DankButton.
+    // wrapper Item — the same trick this codebase uses for DButton.
     readonly property int chipHeight: 26
     readonly property int chipCount: 3
 
@@ -93,7 +94,7 @@ GridLayout {
                 // Takes its own colour and fills in on
                 // hover — enough to feel alive, while the
                 // chip stays quiet at rest
-                DankIcon {
+                DIcon {
                     visible: supportChip.modelData.icon !== ""
                     name: supportChip.modelData.icon
                     size: 13

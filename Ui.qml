@@ -45,7 +45,7 @@ Item {
     //   icon         a standard icon button: no container
     //   iconSelected an icon button that is switched on
     //
-    // Hover is a state layer — the ink over the fill at 8%, as in DankButton
+    // Hover is a state layer — the ink over the fill at 8%, as in DButton
     // — not a different colour.
     function buttonFill(kind, hovered) {
         let fill;
@@ -355,7 +355,7 @@ Item {
         }
     }
 
-    // Make a DankListView/DankFlickable scrollbar semi-transparent. The bar
+    // Make a DListView/DFlickable scrollbar semi-transparent. The bar
     // is attached as a child of the view; duck-type it and re-bind its
     // handle opacity.
     // The scrollbar of each view, found while it is still the view's child:
@@ -405,7 +405,7 @@ Item {
     }
 
     // The smooth wheels in Installed, Install and the details dialog animate
-    // a mouse wheel's notches, which DankFlickable / DankListView jump
+    // a mouse wheel's notches, which DFlickable / DListView jump
     // through. Everything else — a touchpad, a high-resolution wheel — is the
     // shell's: its handler is where the momentum lives. #21 switched that
     // handler off and let the smooth wheel take every event, so each small
@@ -510,7 +510,7 @@ Item {
         return true;
     }
 
-    // Apply the caret behaviour to the TextInput inside a DankTextField
+    // Apply the caret behaviour to the TextInput inside a DTextField
     function steadyCursorFor(fieldRoot) {
         const stack = [fieldRoot];
         while (stack.length > 0) {

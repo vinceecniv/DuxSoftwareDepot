@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell.Io
 import qs.Common
+import qs.DCommon.Widgets
 import qs.Widgets
 
 // Which of them do you want?
@@ -195,7 +196,7 @@ Item {
                         layer.effect: TintedIconEffect {}
                     }
 
-                    DankIcon {
+                    DIcon {
                         anchors.centerIn: parent
                         visible: pickerLogo.status !== Image.Ready
                         name: "apps"
@@ -231,7 +232,7 @@ Item {
                             color: Theme.surfaceVariantText
                         }
 
-                        DankSpinner {
+                        DSpinner {
                             visible: picker.loading
                             size: 12
                         }
@@ -242,7 +243,7 @@ Item {
                     }
                 }
 
-                DankActionButton {
+                DActionButton {
                     Layout.alignment: Qt.AlignTop
                     buttonSize: 28
                     iconName: "close"
@@ -256,7 +257,7 @@ Item {
             // window, and a picker whose Install buttons are off the bottom
             // edge is worse than the two buttons it replaced. So the body
             // scrolls when it has to and the card stays inside the window.
-            DankFlickable {
+            DFlickable {
                 id: bodyView
 
                 Component.onCompleted: Ui.softenScrollbar(bodyView)
@@ -328,7 +329,7 @@ Item {
                                     width: primerColumn.width
                                     spacing: Theme.spacingS
 
-                                    DankIcon {
+                                    DIcon {
                                         Layout.alignment: Qt.AlignTop
                                         name: modelData === "flatpak" ? "deployed_code" : (modelData === "appimage" ? "note_add" : "package_2")
                                         size: 14

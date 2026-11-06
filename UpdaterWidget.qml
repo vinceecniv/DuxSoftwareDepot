@@ -6,6 +6,7 @@ import Quickshell
 import Quickshell.Io
 import qs.Common
 import qs.Services
+import qs.DCommon.Widgets
 import qs.Widgets
 import qs.Modules.Plugins
 
@@ -2210,7 +2211,7 @@ PluginComponent {
         Row {
             spacing: Theme.spacingXS
 
-            DankIcon {
+            DIcon {
                 id: hPillIcon
                 // Spins during a check: distance-field rendering survives
                 // rotation, the default pixel-grid hinting does not. Only
@@ -2250,7 +2251,7 @@ PluginComponent {
         Column {
             spacing: 2
 
-            DankIcon {
+            DIcon {
                 id: vPillIcon
                 // Spins during a check: distance-field rendering survives
                 // rotation, the default pixel-grid hinting does not. Only
@@ -2334,7 +2335,7 @@ PluginComponent {
                                 visible: status === Image.Ready
                             }
 
-                            DankIcon {
+                            DIcon {
                                 anchors.centerIn: parent
                                 visible: !popoutHeaderLogo.visible
                                 name: "system_update"
@@ -2426,9 +2427,9 @@ PluginComponent {
                                 scale: refreshMa.pressed ? 0.92 : 1.0
                                 Behavior on scale { NumberAnimation { duration: Theme.mediumDuration; easing.type: Easing.OutBack } }
 
-                                DankRipple { id: refreshRip; anchors.fill: parent; cornerRadius: parent.radius; rippleColor: Ui.buttonInk(headerRefreshBtn.kind) }
+                                DRipple { id: refreshRip; anchors.fill: parent; cornerRadius: parent.radius; rippleColor: Ui.buttonInk(headerRefreshBtn.kind) }
 
-                                DankIcon {
+                                DIcon {
                                     id: refreshBtnIcon
                                     name: "refresh"
                                     size: 20
@@ -2479,9 +2480,9 @@ PluginComponent {
                                 scale: openMa.pressed ? 0.92 : 1.0
                                 Behavior on scale { NumberAnimation { duration: Theme.mediumDuration; easing.type: Easing.OutBack } }
 
-                                DankRipple { id: openRip; anchors.fill: parent; cornerRadius: parent.radius; rippleColor: Ui.buttonInk("icon") }
+                                DRipple { id: openRip; anchors.fill: parent; cornerRadius: parent.radius; rippleColor: Ui.buttonInk("icon") }
 
-                                DankIcon {
+                                DIcon {
                                     id: openBtnIcon
                                     name: "open_in_new"
                                     size: 20
@@ -2524,9 +2525,9 @@ PluginComponent {
                         anchors.rightMargin: Theme.spacingXS
                         spacing: Theme.spacingS
 
-                        DankIcon { name: "refresh"; size: 17; color: Theme.primary }
+                        DIcon { name: "refresh"; size: 17; color: Theme.primary }
                         StyledText { Layout.fillWidth: true; text: Tr.t("Restart the shell to finish the update"); font.pixelSize: Theme.fontSizeSmall; color: Theme.surfaceText; elide: Text.ElideRight }
-                        DankButton {
+                        DButton {
                             buttonHeight: 26
                             horizontalPadding: Theme.spacingM
                             enabled: !root.shellRestartBlocked
@@ -2553,9 +2554,9 @@ PluginComponent {
                         anchors.rightMargin: Theme.spacingXS
                         spacing: Theme.spacingS
 
-                        DankIcon { name: "restart_alt"; size: 17; color: Theme.warning }
+                        DIcon { name: "restart_alt"; size: 17; color: Theme.warning }
                         StyledText { Layout.fillWidth: true; text: Tr.t("Computer restart recommended"); font.pixelSize: Theme.fontSizeSmall; color: Theme.surfaceText; elide: Text.ElideRight }
-                        DankButton {
+                        DButton {
                             buttonHeight: 26
                             horizontalPadding: Theme.spacingM
                             text: root.confirmReboot ? Tr.t("Confirm?") : Tr.t("Restart")
@@ -2643,7 +2644,7 @@ PluginComponent {
                             width: parent.width
                             spacing: Theme.spacingXS
 
-                            DankIcon { name: "system_update"; size: 14; color: Theme.surfaceText }
+                            DIcon { name: "system_update"; size: 14; color: Theme.surfaceText }
                             StyledText { text: Tr.t("Available Updates"); font.pixelSize: Theme.fontSizeSmall; font.weight: Font.Bold; color: Theme.surfaceText; Layout.fillWidth: true }
                             Rectangle {
                                 visible: root.effectiveCount > 0
@@ -2655,7 +2656,7 @@ PluginComponent {
                             }
                         }
 
-                        DankListView {
+                        DListView {
                             id: compactList
                             Component.onCompleted: Ui.softenScrollbar(compactList)
                             width: parent.width
@@ -2714,7 +2715,7 @@ PluginComponent {
                                     Behavior on color { ColorAnimation { duration: Theme.popoutAnimationDuration } }
                                 }
 
-                                DankRipple {
+                                DRipple {
                                     id: dlRip
                                     anchors.fill: parent
                                     cornerRadius: dlBg.topLeftRadius
@@ -2763,7 +2764,7 @@ PluginComponent {
                                             layer.effect: TintedIconEffect {}
                                         }
 
-                                        DankIcon {
+                                        DIcon {
                                             anchors.centerIn: parent
                                             visible: rowLogo.status !== Image.Ready
                                             name: compactRow.modelData.repo === "dmsplugin" ? (compactRow.modelData.icon || "extension") : (compactRow.modelData.repo === "flatpak" ? "apps" : Ui.sourceIcon(compactRow.modelData.repo))
@@ -2812,7 +2813,7 @@ PluginComponent {
                                             color: Theme.primary
                                         }
 
-                                        DankIcon {
+                                        DIcon {
                                             anchors.right: parent.right
                                             anchors.verticalCenter: parent.verticalCenter
                                             visible: compactRow.itemState && compactRow.itemState.status === "done"
@@ -2821,7 +2822,7 @@ PluginComponent {
                                             color: Theme.success
                                         }
 
-                                        DankIcon {
+                                        DIcon {
                                             anchors.right: parent.right
                                             anchors.verticalCenter: parent.verticalCenter
                                             visible: compactRow.itemState && compactRow.itemState.status === "error"
@@ -2900,7 +2901,7 @@ PluginComponent {
                                 visible: status === Image.Ready && (SystemUpdateService.isChecking || !emptyStateArea.containsMouse)
                             }
 
-                            DankIcon {
+                            DIcon {
                                 id: popoutEmptyIcon
                                 anchors.centerIn: parent
                                 visible: !popoutLogoImage.visible
@@ -2979,7 +2980,7 @@ PluginComponent {
                         scale: updateAllMa.pressed ? 0.94 : 1.0
                         Behavior on scale { NumberAnimation { duration: Theme.mediumDuration; easing.type: Easing.OutBack } }
 
-                        DankRipple { id: updateAllRip; anchors.fill: parent; cornerRadius: parent.radius; rippleColor: updateAllBtn.btnBaseColor }
+                        DRipple { id: updateAllRip; anchors.fill: parent; cornerRadius: parent.radius; rippleColor: updateAllBtn.btnBaseColor }
 
                         MouseArea {
                             id: updateAllMa
@@ -3000,7 +3001,7 @@ PluginComponent {
                             anchors.centerIn: parent
                             spacing: Theme.spacingXS
 
-                            DankIcon {
+                            DIcon {
                                 name: updateAllBtn.btnIcon
                                 size: 18
                                 color: updateAllBtn.btnBaseColor
@@ -3034,7 +3035,7 @@ PluginComponent {
                         scale: detailsMa.pressed ? 0.94 : 1.0
                         Behavior on scale { NumberAnimation { duration: Theme.mediumDuration; easing.type: Easing.OutBack } }
 
-                        DankRipple { id: detailsRip; anchors.fill: parent; cornerRadius: parent.radius; rippleColor: Ui.buttonInk("tonal") }
+                        DRipple { id: detailsRip; anchors.fill: parent; cornerRadius: parent.radius; rippleColor: Ui.buttonInk("tonal") }
 
                         MouseArea {
                             id: detailsMa
@@ -3052,7 +3053,7 @@ PluginComponent {
                             anchors.centerIn: parent
                             spacing: Theme.spacingXS
 
-                            DankIcon {
+                            DIcon {
                                 name: "open_in_new"
                                 size: 18
                                 color: Ui.buttonInk("tonal")

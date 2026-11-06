@@ -3,6 +3,14 @@
 Release notes per version. The section for the latest version is shown
 in-app when the plugin offers its own update.
 
+## Unreleased
+
+- **Requires Dux Shell 2.0 or newer.** The plugin now uses the shell's
+  current widget names, so it no longer fills the log with deprecation
+  errors on 2.x and keeps loading once the old names are removed
+  ([#43](https://github.com/vinceecniv/DuxSoftwareDepot/issues/43)). On
+  DMS 1.x, stay on 1.8.4 or upgrade the shell first.
+
 ## 1.8.4 — 2026-11-06
 
 - **The plugin no longer offers an update your shell cannot load.** The

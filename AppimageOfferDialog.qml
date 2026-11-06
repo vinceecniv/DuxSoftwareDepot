@@ -4,6 +4,7 @@ import QtQuick.Shapes
 import Quickshell.Io
 import qs.Common
 import qs.Modals.FileBrowser
+import qs.DCommon.Widgets
 import qs.Widgets
 
 // Installing an AppImage from a file, asked in one place — and a Flatpak
@@ -282,7 +283,7 @@ Item {
                     height: 32
                     radius: 10
                     color: Theme.withAlpha(Theme.primary, 0.15)
-                    DankIcon {
+                    DIcon {
                         anchors.centerIn: parent
                         name: dialog.isFlatpak ? "deployed_code" : "note_add"
                         size: 18
@@ -298,7 +299,7 @@ Item {
                     color: Theme.surfaceText
                 }
 
-                DankActionButton {
+                DActionButton {
                     buttonSize: 28
                     iconName: "close"
                     iconSize: 16
@@ -312,7 +313,7 @@ Item {
                 Layout.fillWidth: true
                 spacing: Theme.spacingS
 
-                DankTextField {
+                DTextField {
                     id: sourceField
                     Layout.fillWidth: true
                     placeholderText: Tr.t("Path or URL of an .AppImage…")
@@ -330,7 +331,7 @@ Item {
                     onAccepted: dialog.accept()
                 }
 
-                DankActionButton {
+                DActionButton {
                     buttonSize: 34
                     iconName: "folder_open"
                     iconSize: 18
@@ -379,7 +380,7 @@ Item {
                         color: dialog.failed ? Theme.withAlpha(Theme.error, 0.15) : Theme.withAlpha(Theme.primary, 0.15)
                         visible: !appIcon.visible
 
-                        DankIcon {
+                        DIcon {
                             anchors.centerIn: parent
                             name: dialog.failed ? "error" : "deployed_code"
                             size: 22
@@ -467,7 +468,7 @@ Item {
                     scale: cancelMa.pressed ? 0.94 : 1.0
                     Behavior on scale { NumberAnimation { duration: Theme.mediumDuration; easing.type: Easing.OutBack } }
 
-                    DankRipple {
+                    DRipple {
                         id: cancelRip
                         anchors.fill: parent
                         cornerRadius: parent.radius
@@ -479,7 +480,7 @@ Item {
                         anchors.centerIn: parent
                         spacing: 6
 
-                        DankIcon {
+                        DIcon {
                             name: "close"
                             size: 14
                             color: Ui.buttonInk("tonal")
@@ -521,7 +522,7 @@ Item {
                     Behavior on scale { NumberAnimation { duration: Theme.mediumDuration; easing.type: Easing.OutBack } }
                     Behavior on opacity { NumberAnimation { duration: Theme.mediumDuration } }
 
-                    DankRipple {
+                    DRipple {
                         id: acceptRip
                         anchors.fill: parent
                         cornerRadius: parent.radius
@@ -533,7 +534,7 @@ Item {
                         anchors.centerIn: parent
                         spacing: 6
 
-                        DankIcon {
+                        DIcon {
                             name: (dialog.installedMatch || dialog.flatpakInstalled) ? "sync" : "download"
                             size: 14
                             color: Ui.buttonInk("filled")

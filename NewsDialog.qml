@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell.Io
 import qs.Common
+import qs.DCommon.Widgets
 import qs.Widgets
 
 // Arch Linux news, which is the one distribution announcement stream in scope
@@ -137,7 +138,7 @@ Item {
                 Layout.fillWidth: true
                 spacing: Theme.spacingM
 
-                DankIcon {
+                DIcon {
                     name: "campaign"
                     size: 22
                     color: Theme.primary
@@ -151,7 +152,7 @@ Item {
                     color: Theme.surfaceText
                 }
 
-                DankActionButton {
+                DActionButton {
                     buttonSize: 28
                     iconName: "close"
                     iconSize: 16
@@ -178,7 +179,7 @@ Item {
                 color: Theme.surfaceVariantText
             }
 
-            DankListView {
+            DListView {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 Layout.preferredHeight: Math.min(420, contentHeight)
@@ -231,7 +232,7 @@ Item {
                                 color: Theme.surfaceVariantText
                             }
 
-                            DankIcon {
+                            DIcon {
                                 name: newsRow.expanded ? "expand_less" : "expand_more"
                                 size: 16
                                 color: Theme.surfaceVariantText
@@ -248,7 +249,7 @@ Item {
                             wrapMode: Text.WordWrap
                         }
 
-                        DankButton {
+                        DButton {
                             visible: newsRow.expanded && (newsRow.modelData.url || "") !== ""
                             buttonHeight: 26
                             horizontalPadding: Theme.spacingM
@@ -267,7 +268,7 @@ Item {
                 Layout.fillWidth: true
                 spacing: Theme.spacingS
 
-                DankButton {
+                DButton {
                     visible: !dialog.showAll
                     buttonHeight: 28
                     horizontalPadding: Theme.spacingM
@@ -283,7 +284,7 @@ Item {
                     Layout.fillWidth: true
                 }
 
-                DankButton {
+                DButton {
                     visible: dialog.unread > 0
                     buttonHeight: 28
                     horizontalPadding: Theme.spacingM

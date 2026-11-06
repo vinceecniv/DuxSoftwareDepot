@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import qs.Common
+import qs.DCommon.Widgets
 import qs.Widgets
 
 // One result slot with dynamic containerized first/middle/last rounded corners
@@ -74,7 +75,7 @@ Item {
         scale: rowArea.pressed ? 0.98 : (slot.selected ? 1.01 : 1.0)
         Behavior on scale { NumberAnimation { duration: Theme.mediumDuration; easing.type: Easing.OutQuad } }
 
-        DankRipple {
+        DRipple {
             id: rowRip
             anchors.fill: parent
             cornerRadius: parent.topLeftRadius
@@ -89,7 +90,7 @@ Item {
             anchors.rightMargin: Theme.spacingM
             spacing: Theme.spacingS
 
-            DankIcon {
+            DIcon {
                 name: slot.entry ? (slot.entry.icon || "chevron_right") : "chevron_right"
                 size: 18
                 color: slot.entry && slot.entry.colour ? slot.entry.colour : (slot.selected ? Theme.primary : Theme.surfaceVariantText)

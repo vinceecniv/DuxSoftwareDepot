@@ -99,12 +99,12 @@ None of that reads the QML as QML, which is most of this plugin.
 `scripts/qmllint.sh` does, and it is a local tool rather than a CI step for a
 reason worth knowing: the `qs.*` imports are not modules on disk — Quickshell
 synthesises them from the running shell's root under `$XDG_RUNTIME_DIR`, which
-no runner has. Without them qmllint cannot resolve `DankToggle`, `Theme` or
+no runner has. Without them qmllint cannot resolve `DToggle`, `Theme` or
 `PluginService` and answers with 2586 warnings about code that is fine; the
 script mirrors that root into a scratch tree with a generated `qmldir` per
 directory first, and the same run comes back with a couple of hundred, nearly
 all of them the same handful of unprovable shapes (`Loader.item`, a `view`
-property typed as `Item` that callers hand a `DankListView`).
+property typed as `Item` that callers hand a `DListView`).
 
 So: run it against a running DMS, and read it as a diff against that floor
 rather than as a list to empty. What it is good at is the declarative

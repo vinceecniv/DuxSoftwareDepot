@@ -4,6 +4,7 @@ import QtQuick.Layouts
 import Quickshell.Io
 import qs.Common
 import qs.Services
+import qs.DCommon.Widgets
 import qs.Widgets
 
 // Installed software tab: all Flatpak apps and rpm packages, live-searchable,
@@ -1363,7 +1364,7 @@ Item {
             implicitHeight: 34
             spacing: Theme.spacingM
 
-            DankButtonGroup {
+            DButtonGroup {
                 id: filterGroup
                 model: {
                     const labels = [Tr.t("All"), "Flatpak", Tr.t("System"), "AppImage", Tr.t("Plugins")];
@@ -1380,7 +1381,7 @@ Item {
 
             Item { Layout.fillWidth: true }
 
-            DankDropdown {
+            DDropdown {
                 Layout.preferredWidth: 170
                 Layout.alignment: Qt.AlignVCenter
                 dropdownWidth: 170
@@ -1415,7 +1416,7 @@ Item {
             color: Theme.surfaceVariantText
         }
 
-        DankListView {
+        DListView {
             id: installedList
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -1507,7 +1508,7 @@ Item {
                             anchors.rightMargin: Theme.spacingM
                             spacing: Theme.spacingS
 
-                            DankIcon {
+                            DIcon {
                                 name: view.sectionIcon(rowData.sectionLabel || "")
                                 size: 20
                                 color: Theme.primary
@@ -1567,7 +1568,7 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         spacing: Theme.spacingS
 
-                        DankIcon {
+                        DIcon {
                             name: view.sectionIcon(rowWrap.modelData.sectionLabel)
                             size: 20
                             color: Theme.primary
@@ -1600,7 +1601,7 @@ Item {
                         }
                     }
 
-                    DankButton {
+                    DButton {
                         anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
                         visible: (rowWrap.modelData.sectionAction || "") === "plugins"
@@ -1677,7 +1678,7 @@ Item {
                         }
                     }
 
-                    DankRipple {
+                    DRipple {
                         id: rowRip
                         anchors.fill: parent
                         cornerRadius: rowBg.tlrAnim
@@ -1715,7 +1716,7 @@ Item {
                                 color: Theme.withAlpha(Ui.chipSurface, 0.6)
                                 visible: rowLogo.status !== Image.Ready
 
-                                DankIcon {
+                                DIcon {
                                     anchors.centerIn: parent
                                     name: view.sectionIcon(rowWrap.modelData.sectionOf || "")
                                     size: 18
@@ -1795,7 +1796,7 @@ Item {
                 anchors.centerIn: parent
                 spacing: Theme.spacingM
 
-                DankSpinner {
+                DSpinner {
                     anchors.horizontalCenter: parent.horizontalCenter
                     size: 40
                 }

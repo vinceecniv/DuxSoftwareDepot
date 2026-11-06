@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import qs.Common
+import qs.DCommon.Widgets
 import qs.Widgets
 import qs.Modules.Plugins
 
@@ -84,7 +85,7 @@ PluginSettings {
                 Layout.fillWidth: true
                 spacing: Theme.spacingM
 
-                DankIcon {
+                DIcon {
                     name: "toolbar"
                     size: 20
                     color: Theme.primary
@@ -111,7 +112,7 @@ PluginSettings {
                 }
             }
 
-            DankButtonGroup {
+            DButtonGroup {
                 visible: !!barPlacement.mainBar
                 model: [Tr.t("Left"), Tr.t("Center"), Tr.t("Right")]
                 currentIndex: barPlacement.sideIndex
@@ -204,7 +205,7 @@ PluginSettings {
                 scale: openMa.pressed ? 0.94 : 1.0
                 Behavior on scale { NumberAnimation { duration: Theme.mediumDuration; easing.type: Easing.OutBack } }
 
-                DankRipple {
+                DRipple {
                     id: openRip
                     anchors.fill: parent
                     cornerRadius: parent.radius
@@ -216,7 +217,7 @@ PluginSettings {
                     anchors.centerIn: parent
                     spacing: 6
 
-                    DankIcon {
+                    DIcon {
                         name: "open_in_new"
                         size: 16
                         color: Ui.buttonInk("filled")
@@ -273,7 +274,7 @@ PluginSettings {
                                         anchors.rightMargin: Theme.spacingM
                                         spacing: Theme.spacingM
     
-                                        DankIcon {
+                                        DIcon {
                                             name: "visibility_off"
                                             size: 20
                                             color: Theme.primary
@@ -299,7 +300,7 @@ PluginSettings {
                                             }
                                         }
     
-                                        DankToggle {
+                                        DToggle {
                                             id: t1
                                             hideText: true
                                             checked: s_hide.value === true
@@ -334,7 +335,7 @@ PluginSettings {
                                         anchors.rightMargin: Theme.spacingM
                                         spacing: Theme.spacingM
     
-                                        DankIcon {
+                                        DIcon {
                                             name: "extension"
                                             size: 20
                                             color: Theme.primary
@@ -360,7 +361,7 @@ PluginSettings {
                                             }
                                         }
     
-                                        DankToggle {
+                                        DToggle {
                                             id: t2
                                             hideText: true
                                             checked: s_runtimes.value === true
@@ -395,7 +396,7 @@ PluginSettings {
                                         anchors.rightMargin: Theme.spacingM
                                         spacing: Theme.spacingM
     
-                                        DankIcon {
+                                        DIcon {
                                             name: "memory"
                                             size: 20
                                             color: Theme.primary
@@ -421,7 +422,7 @@ PluginSettings {
                                             }
                                         }
     
-                                        DankToggle {
+                                        DToggle {
                                             id: t3
                                             hideText: true
                                             checked: s_firmware.value === true
@@ -456,7 +457,7 @@ PluginSettings {
                                         anchors.rightMargin: Theme.spacingM
                                         spacing: Theme.spacingM
     
-                                        DankIcon {
+                                        DIcon {
                                             name: "check_circle"
                                             size: 20
                                             color: Theme.primary
@@ -482,7 +483,7 @@ PluginSettings {
                                             }
                                         }
     
-                                        DankToggle {
+                                        DToggle {
                                             id: t4
                                             hideText: true
                                             checked: s_confirm.value === true
@@ -517,7 +518,7 @@ PluginSettings {
                                         anchors.rightMargin: Theme.spacingM
                                         spacing: Theme.spacingM
     
-                                        DankIcon {
+                                        DIcon {
                                             name: "admin_panel_settings"
                                             size: 20
                                             color: Theme.primary
@@ -543,7 +544,7 @@ PluginSettings {
                                             }
                                         }
     
-                                        DankToggle {
+                                        DToggle {
                                             id: t5
                                             hideText: true
                                             checked: Backend.useSudo
@@ -578,7 +579,7 @@ PluginSettings {
                                         anchors.rightMargin: Theme.spacingM
                                         spacing: Theme.spacingM
     
-                                        DankIcon {
+                                        DIcon {
                                             name: "palette"
                                             size: 20
                                             color: Theme.primary
@@ -604,7 +605,7 @@ PluginSettings {
                                             }
                                         }
     
-                                        DankToggle {
+                                        DToggle {
                                             id: t6
                                             hideText: true
                                             checked: s_tint.value === true
@@ -639,7 +640,7 @@ PluginSettings {
                                         anchors.rightMargin: Theme.spacingM
                                         spacing: Theme.spacingM
     
-                                        DankIcon {
+                                        DIcon {
                                             name: "apps"
                                             size: 20
                                             color: Theme.primary
@@ -665,7 +666,7 @@ PluginSettings {
                                             }
                                         }
     
-                                        DankToggle {
+                                        DToggle {
                                             id: t7
                                             hideText: true
                                             checked: Backend.launcherEntryPresent
@@ -707,7 +708,7 @@ PluginSettings {
                                         anchors.rightMargin: Theme.spacingM
                                         spacing: Theme.spacingM
     
-                                        DankIcon {
+                                        DIcon {
                                             name: "insert_drive_file"
                                             size: 20
                                             color: Theme.primary
@@ -733,7 +734,7 @@ PluginSettings {
                                             }
                                         }
     
-                                        DankToggle {
+                                        DToggle {
                                             id: t8
                                             hideText: true
                                             checked: Backend.appimageHandlerDefault
@@ -774,7 +775,7 @@ PluginSettings {
                                         anchors.rightMargin: Theme.spacingM
                                         spacing: Theme.spacingM
     
-                                        DankIcon {
+                                        DIcon {
                                             name: "open_in_browser"
                                             size: 20
                                             color: Theme.primary
@@ -800,7 +801,7 @@ PluginSettings {
                                             }
                                         }
     
-                                        DankToggle {
+                                        DToggle {
                                             id: t9
                                             hideText: true
                                             checked: s_pill.value === true
@@ -839,7 +840,7 @@ PluginSettings {
                                             Layout.fillWidth: true
                                             spacing: Theme.spacingM
     
-                                            DankIcon {
+                                            DIcon {
                                                 name: "sync"
                                                 size: 20
                                                 color: Theme.primary
@@ -866,7 +867,7 @@ PluginSettings {
                                             }
                                         }
     
-                                        DankDropdown {
+                                        DDropdown {
                                             id: t10
                                             readonly property var autoMap: ({
                                                     "Off": "off",

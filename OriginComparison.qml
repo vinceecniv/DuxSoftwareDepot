@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Shapes
 import QtQuick.Layouts
 import qs.Common
+import qs.DCommon.Widgets
 import qs.Widgets
 
 // The same app, offered several ways, put side by side.
@@ -194,7 +195,7 @@ Column {
                     width: parent.width
                     spacing: Theme.spacingS
 
-                    DankIcon {
+                    DIcon {
                         name: modelData.kind === "flatpak" ? "deployed_code" : (modelData.kind === "appimage" ? "note_add" : "package_2")
                         size: 15
                         color: Theme.surfaceText
@@ -264,7 +265,7 @@ Column {
                         Layout.preferredHeight: pickButton.height
                         visible: root.showInstall && !here
 
-                        DankButton {
+                        DButton {
                             id: pickButton
 
                             buttonHeight: 26
@@ -299,7 +300,7 @@ Column {
                     width: parent.width
                     spacing: Theme.spacingXS
 
-                    DankIcon {
+                    DIcon {
                         name: modelData.sandbox === "flatpak" ? "shield" : "lock_open_right"
                         size: 13
                         color: modelData.sandbox === "flatpak" ? Theme.surfaceVariantText : Theme.warning

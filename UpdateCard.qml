@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Shapes
 import qs.Common
+import qs.DCommon.Widgets
 import qs.Widgets
 
 // Rich update entry: logo, name, version transition and a live progress bar
@@ -144,7 +145,7 @@ Rectangle {
         Behavior on color { ColorAnimation { duration: Theme.mediumDuration } }
     }
 
-    DankRipple {
+    DRipple {
         id: cardRip
         anchors.fill: parent
         cornerRadius: cardBg.topLeftRadius
@@ -199,7 +200,7 @@ Rectangle {
                     layer.effect: TintedIconEffect {}
                 }
 
-                DankIcon {
+                DIcon {
                     anchors.centerIn: parent
                     visible: logoImage.status !== Image.Ready
                     // A plugin has no icon file to fail to load — it names a
@@ -242,7 +243,7 @@ Rectangle {
                         Layout.maximumWidth: 200
                     }
 
-                    DankIcon {
+                    DIcon {
                         visible: (card.pkg.fromVersion || "") !== "" && card.toVersionDisplay !== ""
                         name: "arrow_forward"
                         size: 12
@@ -317,7 +318,7 @@ Rectangle {
                         anchors.centerIn: parent
                         spacing: 3
 
-                        DankIcon {
+                        DIcon {
                             name: "lock"
                             size: 11
                             color: Theme.warning
@@ -382,7 +383,7 @@ Rectangle {
                     Layout.preferredWidth: reserved ? 28 : 0
                     Layout.preferredHeight: 28
 
-                    DankActionButton {
+                    DActionButton {
                         anchors.centerIn: parent
                         visible: card.showUpdateButton && card.status === "pending" && !card.engineBusy && !card.isIgnored
                         buttonSize: 28
@@ -393,7 +394,7 @@ Rectangle {
                         onClicked: card.updateRequested()
                     }
 
-                    DankIcon {
+                    DIcon {
                         anchors.centerIn: parent
                         visible: card.status === "done"
                         name: "check_circle"
@@ -401,7 +402,7 @@ Rectangle {
                         color: Theme.success
                     }
 
-                    DankIcon {
+                    DIcon {
                         anchors.centerIn: parent
                         visible: card.status === "error"
                         name: "error"
@@ -480,7 +481,7 @@ Rectangle {
             visible: card.blockedReason !== ""
             spacing: Theme.spacingXS
 
-            DankIcon {
+            DIcon {
                 Layout.alignment: Qt.AlignTop
                 name: "power"
                 size: 14
@@ -506,7 +507,7 @@ Rectangle {
             visible: card.held && card.isSecurity
             spacing: Theme.spacingXS
 
-            DankIcon {
+            DIcon {
                 Layout.alignment: Qt.AlignTop
                 name: "warning"
                 size: 14

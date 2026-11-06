@@ -1,6 +1,6 @@
 import QtQuick
 import qs.Common
-import qs.Widgets
+import qs.DCommon.Widgets
 
 // The search bar at the top of a tab.
 //
@@ -12,7 +12,7 @@ import qs.Widgets
 // field meant every tab opened with a lit outline and icon, for a field nobody
 // had touched yet. The focus stays; the highlight waits for the first
 // character, and goes again when the field is cleared.
-DankTextField {
+DTextField {
     readonly property bool typing: text.length > 0
 
     cornerRadius: height / 2

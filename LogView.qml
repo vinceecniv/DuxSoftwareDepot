@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import QtQuick.Shapes
 import Quickshell.Io
 import qs.Common
+import qs.DCommon.Widgets
 import qs.Widgets
 
 // Log tab: chronological history of every action this plugin performed
@@ -278,7 +279,7 @@ Item {
                     spacing: Theme.spacingXS
                     Layout.alignment: Qt.AlignVCenter
 
-                    DankIcon {
+                    DIcon {
                         name: "date_range"
                         size: 16
                         color: Theme.primary
@@ -370,7 +371,7 @@ Item {
                     Layout.fillWidth: true
                     spacing: Theme.spacingS
 
-                    DankIcon {
+                    DIcon {
                         name: "help"
                         size: 18
                         color: Theme.warning
@@ -397,7 +398,7 @@ Item {
                         color: Theme.surfaceVariantText
                     }
 
-                    DankIcon {
+                    DIcon {
                         name: view.outsideExpanded ? "expand_less" : "expand_more"
                         size: 18
                         color: Theme.surfaceVariantText
@@ -451,7 +452,7 @@ Item {
             clip: true
             visible: view.visibleEntries.length > 0
 
-            DankListView {
+            DListView {
                 id: logList
                 anchors.fill: parent
                 anchors.margins: 0
@@ -481,7 +482,7 @@ Item {
                             anchors.rightMargin: Theme.spacingM
                             spacing: Theme.spacingS
 
-                            DankIcon {
+                            DIcon {
                                 name: "calendar_today"
                                 size: 20
                                 color: Theme.primary
@@ -523,7 +524,7 @@ Item {
                         anchors.bottom: parent.bottom
                         spacing: Theme.spacingXS
 
-                        DankIcon {
+                        DIcon {
                             name: "calendar_today"
                             size: 14
                             color: Theme.surfaceVariantText
@@ -631,7 +632,7 @@ Item {
                         }
                     }
 
-                    DankRipple {
+                    DRipple {
                         id: entryRip
                         anchors.fill: parent
                         cornerRadius: entryBg.tlrAnim
@@ -674,7 +675,7 @@ Item {
                             Layout.fillWidth: true
                             spacing: Theme.spacingM
 
-                            DankIcon {
+                            DIcon {
                                 name: view.iconFor(entryRow.modelData.type)
                                 size: 20
                                 color: view.colorFor(entryRow.modelData.type)
@@ -700,7 +701,7 @@ Item {
                                 }
                             }
 
-                            DankIcon {
+                            DIcon {
                                 visible: entryRow.entryItems.length > 0
                                 name: entryRow.expanded ? "expand_less" : "expand_more"
                                 size: 18
@@ -734,7 +735,7 @@ Item {
                                         Layout.fillWidth: true
                                         spacing: Theme.spacingS
 
-                                        DankIcon {
+                                        DIcon {
                                             // Three outcomes, not two. A row that
                                             // is neither done nor failed — a run
                                             // torn down by the shell reloading
@@ -892,7 +893,7 @@ Item {
                 anchors.centerIn: parent
                 spacing: Theme.spacingM
 
-                DankIcon {
+                DIcon {
                     anchors.horizontalCenter: parent.horizontalCenter
                     name: view.searchText.trim() !== "" ? "search_off" : "history"
                     size: 48

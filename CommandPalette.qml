@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import qs.Common
+import qs.DCommon.Widgets
 import qs.Widgets
 
 // Keyboard-first overlay: one field that searches everything the window
@@ -107,7 +108,7 @@ Item {
             gesturePolicy: TapHandler.ReleaseWithinBounds
         }
 
-        DankTextField {
+        DTextField {
             id: field
 
             x: Theme.spacingM

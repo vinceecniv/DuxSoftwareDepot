@@ -4,6 +4,7 @@ import QtQuick.Shapes
 import Quickshell.Io
 import qs.Common
 import qs.Services
+import qs.DCommon.Widgets
 import qs.Widgets
 
 // Firmware inventory tab: all devices fwupd knows about, which ones support
@@ -198,7 +199,7 @@ Item {
                 anchors.rightMargin: Theme.spacingM
                 spacing: Theme.spacingM
 
-                DankIcon {
+                DIcon {
                     name: "info"
                     size: 18
                     color: Theme.warning
@@ -216,7 +217,7 @@ Item {
                     Layout.preferredWidth: firmwareEnableButton.width
                     Layout.preferredHeight: firmwareEnableButton.height
 
-                    DankButton {
+                    DButton {
                         id: firmwareEnableButton
                         buttonHeight: 28
                         horizontalPadding: Theme.spacingM
@@ -247,7 +248,7 @@ Item {
             clip: true
             visible: !view.loading
 
-            DankListView {
+            DListView {
                 id: deviceList
                 anchors.fill: parent
                 anchors.margins: 0
@@ -343,7 +344,7 @@ Item {
                         }
                     }
 
-                    DankRipple {
+                    DRipple {
                         id: devRip
                         anchors.fill: parent
                         cornerRadius: devBg.tlrAnim
@@ -385,7 +386,7 @@ Item {
                             Layout.fillWidth: true
                             spacing: Theme.spacingM
 
-                            DankIcon {
+                            DIcon {
                                 name: view.deviceIcon(deviceRow.modelData)
                                 size: 22
                                 color: deviceRow.modelData.updatable ? Theme.primary : Theme.surfaceVariantText
@@ -453,7 +454,7 @@ Item {
                                 }
                             }
 
-                            DankActionButton {
+                            DActionButton {
                                 buttonSize: 26
                                 iconName: deviceRow.expanded ? "expand_less" : "expand_more"
                                 iconSize: 16
@@ -570,7 +571,7 @@ Item {
                 anchors.centerIn: parent
                 spacing: Theme.spacingM
 
-                DankSpinner {
+                DSpinner {
                     anchors.horizontalCenter: parent.horizontalCenter
                     size: 40
                 }

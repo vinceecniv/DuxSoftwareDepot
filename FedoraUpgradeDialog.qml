@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import qs.Common
+import qs.DCommon.Widgets
 import qs.Widgets
 
 // What upgrading to the next Fedora release involves, asked before anything
@@ -142,7 +143,7 @@ Item {
                     Layout.preferredHeight: 32
                     radius: 10
                     color: Theme.withAlpha(Theme.primary, 0.15)
-                    DankIcon {
+                    DIcon {
                         anchors.centerIn: parent
                         name: "rocket_launch"
                         size: 18
@@ -158,7 +159,7 @@ Item {
                     color: Theme.surfaceText
                 }
 
-                DankActionButton {
+                DActionButton {
                     buttonSize: 28
                     iconName: "close"
                     iconSize: 16
@@ -259,7 +260,7 @@ Item {
                         anchors.margins: Theme.spacingM
                         spacing: Theme.spacingS
 
-                        DankIcon {
+                        DIcon {
                             Layout.alignment: Qt.AlignTop
                             name: note.modelData.icon
                             size: 16
@@ -286,7 +287,7 @@ Item {
                     Layout.fillWidth: true
                 }
 
-                DankButton {
+                DButton {
                     buttonHeight: 32
                     horizontalPadding: Theme.spacingM
                     text: Tr.t("Cancel")
@@ -295,7 +296,7 @@ Item {
                     onClicked: dialog.close()
                 }
 
-                DankButton {
+                DButton {
                     buttonHeight: 32
                     horizontalPadding: Theme.spacingM
                     iconName: "download"

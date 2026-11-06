@@ -6,6 +6,7 @@ import Quickshell
 import Quickshell.Io
 import qs.Common
 import qs.Services
+import qs.DCommon.Widgets
 import qs.Widgets
 
 // Shared app-details popup used by the Updates, Installed and Install tabs.
@@ -448,13 +449,13 @@ Item {
             }
         }
 
-        DankSpinner {
+        DSpinner {
             anchors.centerIn: parent
             visible: lightboxImage.status === Image.Loading
             size: 40
         }
 
-        DankActionButton {
+        DActionButton {
             anchors.top: parent.top
             anchors.right: parent.right
             anchors.margins: Theme.spacingM
@@ -465,7 +466,7 @@ Item {
             onClicked: dialog.lightboxIndex = -1
         }
 
-        DankActionButton {
+        DActionButton {
             anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
             anchors.leftMargin: Theme.spacingS
@@ -477,7 +478,7 @@ Item {
             onClicked: dialog.lightboxStep(-1)
         }
 
-        DankActionButton {
+        DActionButton {
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
             anchors.rightMargin: Theme.spacingS
@@ -562,7 +563,7 @@ Item {
                         layer.effect: TintedIconEffect {}
                     }
 
-                    DankIcon {
+                    DIcon {
                         anchors.centerIn: parent
                         visible: dialogLogo.status !== Image.Ready
                         name: dialog.isPlugin
@@ -597,7 +598,7 @@ Item {
                         }
 
                         // Flathub-verified developer
-                        DankIcon {
+                        DIcon {
                             visible: dialog.info.flathub !== undefined && dialog.info.flathub !== null && dialog.info.flathub.verified === true
                             name: "verified"
                             filled: true
@@ -683,7 +684,7 @@ Item {
                         // its own. A third free-standing segment would need a
                         // third share of the width, and the row would pull
                         // itself apart into evenly spaced columns.
-                        DankIcon {
+                        DIcon {
                             visible: identityRow.identityLine !== ""
                             name: "tag"
                             size: 13
@@ -705,7 +706,7 @@ Item {
                             wrapMode: Text.WordWrap
                         }
 
-                        DankIcon {
+                        DIcon {
                             id: licenseIcon
 
                             visible: identityRow.licenseLine !== ""
@@ -756,7 +757,7 @@ Item {
                         Repeater {
                             model: 5
 
-                            delegate: DankIcon {
+                            delegate: DIcon {
                                 required property int index
 
                                 readonly property bool lit: dialog.effectiveRating && (index + 0.25 <= dialog.effectiveRating.stars)
@@ -785,7 +786,7 @@ Item {
                     color: closeBtnMa.containsMouse ? Theme.withAlpha(Theme.error, 0.12) : Ui.buttonFill("icon", false)
                     Behavior on color { ColorAnimation { duration: Theme.mediumDuration } }
 
-                    DankIcon {
+                    DIcon {
                         anchors.centerIn: parent
                         name: "close"
                         size: 16
@@ -804,8 +805,8 @@ Item {
                 }
             }
 
-            // ── Scrollable body (DankFlickable: same wheel feel as the lists)
-            DankFlickable {
+            // ── Scrollable body (DFlickable: same wheel feel as the lists)
+            DFlickable {
                 id: body
                 Component.onCompleted: {
                     Ui.softenScrollbar(body);
@@ -861,7 +862,7 @@ Item {
                         height: 80
                         visible: dialog.loading
 
-                        DankSpinner {
+                        DSpinner {
                             anchors.centerIn: parent
                             size: 32
                         }
@@ -890,7 +891,7 @@ Item {
                                 Layout.fillWidth: true
                                 spacing: Theme.spacingS
 
-                                DankIcon {
+                                DIcon {
                                     name: "photo_library"
                                     size: 16
                                     color: Theme.primary
@@ -1068,7 +1069,7 @@ Item {
                                     Behavior on scale { NumberAnimation { duration: Theme.mediumDuration; easing.type: Easing.OutCubic } }
                                     scale: leftShotMa.pressed ? 0.92 : 1.0
 
-                                    DankIcon {
+                                    DIcon {
                                         anchors.centerIn: parent
                                         name: "chevron_left"
                                         size: 20
@@ -1107,7 +1108,7 @@ Item {
                                     Behavior on scale { NumberAnimation { duration: Theme.mediumDuration; easing.type: Easing.OutCubic } }
                                     scale: rightShotMa.pressed ? 0.92 : 1.0
 
-                                    DankIcon {
+                                    DIcon {
                                         anchors.centerIn: parent
                                         name: "chevron_right"
                                         size: 20
@@ -1162,7 +1163,7 @@ Item {
                                 Layout.fillWidth: true
                                 spacing: Theme.spacingS
 
-                                DankIcon {
+                                DIcon {
                                     name: "description"
                                     size: 16
                                     color: Theme.primary
@@ -1247,7 +1248,7 @@ Item {
                                             color: Theme.primary
                                         }
 
-                                        DankIcon {
+                                        DIcon {
                                             name: dialog.descExpanded ? "expand_less" : "expand_more"
                                             size: 14
                                             color: Theme.primary
@@ -1277,7 +1278,7 @@ Item {
                             spacing: Theme.spacingS
                             visible: (dialog.brewFacts && dialog.brewFacts.installs30d > 0) || false
 
-                            DankIcon {
+                            DIcon {
                                 name: "trending_up"
                                 size: 14
                                 color: Theme.surfaceVariantText
@@ -1296,7 +1297,7 @@ Item {
                             spacing: Theme.spacingS
                             visible: dialog.isBrew && dialog.brewFacts.linux === false
 
-                            DankIcon {
+                            DIcon {
                                 name: "warning"
                                 size: 14
                                 color: Theme.warning
@@ -1331,7 +1332,7 @@ Item {
                             width: parent.width
                             spacing: Theme.spacingS
 
-                            DankIcon {
+                            DIcon {
                                 name: "extension"
                                 size: 14
                                 color: Theme.surfaceVariantText
@@ -1393,7 +1394,7 @@ Item {
                                 Layout.fillWidth: true
                                 spacing: Theme.spacingS
 
-                                DankIcon {
+                                DIcon {
                                     name: "deployed_code"
                                     size: 16
                                     color: Theme.primary
@@ -1441,7 +1442,7 @@ Item {
                             width: parent.width
                             spacing: Theme.spacingS
 
-                            DankTextField {
+                            DTextField {
                                 id: repoField
                                 Layout.fillWidth: true
                                 placeholderText: "https://github.com/owner/project"
@@ -1458,7 +1459,7 @@ Item {
                                 }
                             }
 
-                            DankSpinner {
+                            DSpinner {
                                 visible: dialog.updateSourceStatus === "saving"
                                 size: 18
                             }
@@ -1467,7 +1468,7 @@ Item {
                                 Layout.preferredWidth: updateSourceSaveButton.width
                                 Layout.preferredHeight: updateSourceSaveButton.height
 
-                                DankButton {
+                                DButton {
                                     id: updateSourceSaveButton
                                     buttonHeight: 28
                                     horizontalPadding: Theme.spacingM
@@ -1521,7 +1522,7 @@ Item {
                                 Layout.fillWidth: true
                                 spacing: Theme.spacingS
 
-                                DankIcon {
+                                DIcon {
                                     name: "security"
                                     size: 16
                                     color: Theme.primary
@@ -1594,7 +1595,7 @@ Item {
                                                 anchors.centerIn: parent
                                                 spacing: 4
 
-                                                DankIcon {
+                                                DIcon {
                                                     name: modelData === "network" ? "public" : (modelData.indexOf("fs:") === 0 ? "folder" : (modelData.indexOf("devices") === 0 ? "usb" : "shield"))
                                                     size: 12
                                                     color: (modelData === "devices:all" || modelData === "fs:host" || modelData === "fs:host:ro")
@@ -1632,7 +1633,7 @@ Item {
                                         anchors.centerIn: parent
                                         spacing: 6
 
-                                        DankIcon {
+                                        DIcon {
                                             name: dialog.permsExpanded ? "expand_less" : "expand_more"
                                             size: 14
                                             color: Theme.primary
@@ -1664,7 +1665,7 @@ Item {
                         spacing: Theme.spacingS
                         visible: !!dialog.info.installStats
 
-                        DankIcon {
+                        DIcon {
                             name: "trending_up"
                             size: 14
                             color: Theme.surfaceVariantText
@@ -1694,7 +1695,7 @@ Item {
                         spacing: Theme.spacingS
                         visible: dialog.advisory !== null && (dialog.advisory.type || "") === "security"
 
-                        DankIcon {
+                        DIcon {
                             Layout.alignment: Qt.AlignTop
                             name: "shield"
                             size: 16
@@ -1743,7 +1744,7 @@ Item {
                                 Layout.fillWidth: true
                                 spacing: Theme.spacingS
 
-                                DankIcon {
+                                DIcon {
                                     name: "new_releases"
                                     size: 16
                                     color: Theme.primary
@@ -1824,7 +1825,7 @@ Item {
                                 Layout.fillWidth: true
                                 spacing: Theme.spacingS
 
-                                DankIcon {
+                                DIcon {
                                     name: "commit"
                                     size: 16
                                     color: Theme.primary
@@ -1915,7 +1916,7 @@ Item {
                                 spacing: Theme.spacingXS
                                 visible: dialog.gitNotesUrl !== "" && dialog.gitReleases.length > 0
 
-                                DankIcon {
+                                DIcon {
                                     name: "open_in_new"
                                     size: 13
                                     color: Theme.primary
@@ -1968,7 +1969,7 @@ Item {
                                 Layout.fillWidth: true
                                 spacing: Theme.spacingS
 
-                                DankIcon {
+                                DIcon {
                                     name: "history_edu"
                                     size: 18
                                     color: Theme.primary
@@ -2015,7 +2016,7 @@ Item {
                                 Layout.fillWidth: true
                                 spacing: Theme.spacingS
 
-                                DankIcon {
+                                DIcon {
                                     name: "history"
                                     size: 18
                                     color: Theme.primary
@@ -2053,7 +2054,7 @@ Item {
                                 Repeater {
                                     model: dialog.previousVersions
 
-                                    delegate: DankButton {
+                                    delegate: DButton {
                                         required property var modelData
 
                                         buttonHeight: 28
@@ -2094,7 +2095,7 @@ Item {
                                 Layout.fillWidth: true
                                 spacing: Theme.spacingS
 
-                                DankIcon {
+                                DIcon {
                                     name: "star"
                                     size: 16
                                     color: Theme.primary
@@ -2131,7 +2132,7 @@ Item {
                                         anchors.centerIn: parent
                                         spacing: 6
 
-                                        DankIcon {
+                                        DIcon {
                                             name: "rate_review"
                                             size: 14
                                             color: Ui.buttonInk("tonal")
@@ -2192,7 +2193,7 @@ Item {
                                             Repeater {
                                                 model: 5
 
-                                                delegate: DankIcon {
+                                                delegate: DIcon {
                                                     required property int index
 
                                                     name: "star"
@@ -2214,21 +2215,21 @@ Item {
                                             }
                                         }
 
-                                        DankTextField {
+                                        DTextField {
                                             id: reviewSummaryField
                                             Layout.fillWidth: true
                                             placeholderText: Tr.t("One-line summary")
                                             font.pixelSize: Theme.fontSizeSmall
                                         }
 
-                                        DankTextField {
+                                        DTextField {
                                             id: reviewBodyField
                                             Layout.fillWidth: true
                                             placeholderText: Tr.t("What did you think? (optional)")
                                             font.pixelSize: Theme.fontSizeSmall
                                         }
 
-                                        DankTextField {
+                                        DTextField {
                                             id: reviewAuthorField
                                             Layout.fillWidth: true
                                             placeholderText: Tr.t("Your name (optional)")
@@ -2248,7 +2249,7 @@ Item {
 
                                             Item { Layout.fillWidth: true }
 
-                                            DankButton {
+                                            DButton {
                                                 buttonHeight: 28
                                                 horizontalPadding: Theme.spacingM
                                                 iconName: "close"
@@ -2259,7 +2260,7 @@ Item {
                                                 onClicked: dialog.reviewFormOpen = false
                                             }
 
-                                            DankButton {
+                                            DButton {
                                                 buttonHeight: 28
                                                 horizontalPadding: Theme.spacingM
                                                 iconName: "send"
@@ -2338,7 +2339,7 @@ Item {
                                                         Repeater {
                                                             model: 5
 
-                                                            delegate: DankIcon {
+                                                            delegate: DIcon {
                                                                 required property int index
 
                                                                 name: "star"
@@ -2412,7 +2413,7 @@ Item {
                                             anchors.centerIn: parent
                                             spacing: 6
 
-                                            DankIcon {
+                                            DIcon {
                                                 name: "expand_more"
                                                 size: 14
                                                 color: Theme.primary
@@ -2449,7 +2450,7 @@ Item {
                                             anchors.centerIn: parent
                                             spacing: 6
 
-                                            DankIcon {
+                                            DIcon {
                                                 name: "unfold_more"
                                                 size: 14
                                                 color: Theme.primary
@@ -2486,7 +2487,7 @@ Item {
                                             anchors.centerIn: parent
                                             spacing: 6
 
-                                            DankIcon {
+                                            DIcon {
                                                 name: "expand_less"
                                                 size: 14
                                                 color: Theme.primary
@@ -2541,7 +2542,7 @@ Item {
 
                         // An icon alone does not say what a globe or a lock
                         // does here; the tooltips the #21 overhaul dropped
-                        DankTooltipV2 {
+                        DTooltipV2 {
                             id: footerTooltip
                         }
 
@@ -2562,14 +2563,14 @@ Item {
                             scale: webBtnMa.pressed ? 0.94 : 1.0
                             Behavior on scale { NumberAnimation { duration: Theme.mediumDuration; easing.type: Easing.OutBack } }
 
-                            DankRipple {
+                            DRipple {
                                 id: webRip
                                 anchors.fill: parent
                                 cornerRadius: parent.radius
                                 rippleColor: Ui.buttonInk("icon")
                             }
 
-                            DankIcon {
+                            DIcon {
                                 anchors.centerIn: parent
                                 name: "language"
                                 size: 16
@@ -2608,14 +2609,14 @@ Item {
                             scale: holdBtnMa.pressed ? 0.94 : 1.0
                             Behavior on scale { NumberAnimation { duration: Theme.mediumDuration; easing.type: Easing.OutBack } }
 
-                            DankRipple {
+                            DRipple {
                                 id: holdRip
                                 anchors.fill: parent
                                 cornerRadius: parent.radius
                                 rippleColor: dialog.appData.held === true ? Theme.warning : Ui.buttonInk("icon")
                             }
 
-                            DankIcon {
+                            DIcon {
                                 anchors.centerIn: parent
                                 name: dialog.appData.held === true ? "lock_open" : "lock"
                                 size: 15
@@ -2660,7 +2661,7 @@ Item {
                         scale: pluginBtnMa.pressed ? 0.94 : 1.0
                         Behavior on scale { NumberAnimation { duration: Theme.mediumDuration; easing.type: Easing.OutBack } }
 
-                        DankRipple {
+                        DRipple {
                             id: pluginRip
                             anchors.fill: parent
                             cornerRadius: parent.radius
@@ -2672,7 +2673,7 @@ Item {
                             anchors.centerIn: parent
                             spacing: 6
 
-                            DankIcon {
+                            DIcon {
                                 name: "open_in_new"
                                 size: 14
                                 color: Ui.buttonInk(pluginBtnRoot.kind)
@@ -2718,7 +2719,7 @@ Item {
                         scale: openBtnMa.pressed ? 0.94 : 1.0
                         Behavior on scale { NumberAnimation { duration: Theme.mediumDuration; easing.type: Easing.OutBack } }
 
-                        DankRipple {
+                        DRipple {
                             id: openRip
                             anchors.fill: parent
                             cornerRadius: parent.radius
@@ -2730,7 +2731,7 @@ Item {
                             anchors.centerIn: parent
                             spacing: 6
 
-                            DankIcon {
+                            DIcon {
                                 name: "launch"
                                 size: 14
                                 color: Ui.buttonInk(openBtnRoot.kind)
@@ -2775,7 +2776,7 @@ Item {
                         isPlaying: visible
                     }
 
-                    DankSpinner {
+                    DSpinner {
                         visible: dialog.busy && dialog.busyFraction <= 0
                         size: 22
                     }
@@ -2821,7 +2822,7 @@ Item {
                             scale: uninstBtnMa.pressed ? 0.94 : 1.0
                             Behavior on scale { NumberAnimation { duration: Theme.mediumDuration; easing.type: Easing.OutBack } }
 
-                            DankRipple {
+                            DRipple {
                                 id: uninstRip
                                 anchors.fill: parent
                                 cornerRadius: parent.radius
@@ -2833,7 +2834,7 @@ Item {
                                 anchors.centerIn: parent
                                 spacing: 6
 
-                                DankIcon {
+                                DIcon {
                                     name: uninstBtnRoot.confirming ? "delete_forever" : "delete"
                                     size: 14
                                     color: Ui.buttonInk(uninstBtnRoot.kind)
@@ -2885,7 +2886,7 @@ Item {
                             scale: updateBtnMa.pressed ? 0.94 : 1.0
                             Behavior on scale { NumberAnimation { duration: Theme.mediumDuration; easing.type: Easing.OutBack } }
 
-                            DankRipple {
+                            DRipple {
                                 id: updateRip
                                 anchors.fill: parent
                                 cornerRadius: parent.radius
@@ -2897,7 +2898,7 @@ Item {
                                 anchors.centerIn: parent
                                 spacing: 6
 
-                                DankIcon {
+                                DIcon {
                                     name: "download"
                                     size: 14
                                     color: Ui.buttonInk("filled")
@@ -2948,7 +2949,7 @@ Item {
                                 scale: instBtnMa.pressed ? 0.94 : 1.0
                                 Behavior on scale { NumberAnimation { duration: Theme.mediumDuration; easing.type: Easing.OutBack } }
 
-                                DankRipple {
+                                DRipple {
                                     id: instBtnRip
                                     anchors.fill: parent
                                     cornerRadius: parent.radius
@@ -2960,7 +2961,7 @@ Item {
                                     anchors.centerIn: parent
                                     spacing: 6
 
-                                    DankIcon {
+                                    DIcon {
                                         name: "download"
                                         size: 14
                                         color: Ui.buttonInk(instBtnRoot.kind)
@@ -3003,7 +3004,7 @@ Item {
                     anchors.margins: Theme.spacingS
                     spacing: Theme.spacingS
 
-                    DankIcon {
+                    DIcon {
                         name: "alt_route"
                         size: 15
                         color: Theme.surfaceVariantText
@@ -3046,7 +3047,7 @@ Item {
                     anchors.margins: Theme.spacingS
                     spacing: Theme.spacingS
 
-                    DankIcon {
+                    DIcon {
                         name: "warning"
                         size: 16
                         color: Theme.warning

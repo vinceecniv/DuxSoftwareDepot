@@ -4,7 +4,7 @@
 # Two things make this awkward, and both are handled here:
 #
 #  * The `qs.*` imports are not modules on disk. Quickshell synthesises them
-#    from the running shell's root, so qmllint cannot resolve DankToggle,
+#    from the running shell's root, so qmllint cannot resolve DToggle,
 #    Theme or PluginService and drowns the output — 2586 warnings against
 #    code that is fine. So mirror that root into a scratch tree with a
 #    generated qmldir per directory, and hand qmllint the tree: the same run

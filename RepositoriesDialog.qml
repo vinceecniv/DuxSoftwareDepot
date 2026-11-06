@@ -5,6 +5,7 @@ import Quickshell
 import Quickshell.Io
 import qs.Common
 import qs.Services
+import qs.DCommon.Widgets
 import qs.Widgets
 
 // Where software comes from, in one place: the repositories the system is
@@ -323,7 +324,7 @@ Item {
                 Layout.fillWidth: true
                 spacing: Theme.spacingM
 
-                DankIcon {
+                DIcon {
                     name: "database"
                     size: 22
                     color: Theme.primary
@@ -337,12 +338,12 @@ Item {
                     color: Theme.surfaceText
                 }
 
-                DankSpinner {
+                DSpinner {
                     visible: dialog.busy || dialog.loading
                     size: 18
                 }
 
-                DankActionButton {
+                DActionButton {
                     buttonSize: 30
                     iconName: "close"
                     iconSize: 16
@@ -415,7 +416,7 @@ Item {
                                 Layout.fillWidth: true
                                 spacing: Theme.spacingS
 
-                                DankIcon {
+                                DIcon {
                                     name: "recommend"
                                     size: 18
                                     color: Theme.primary
@@ -496,7 +497,7 @@ Item {
                                         anchors.rightMargin: Theme.spacingM
                                         spacing: Theme.spacingM
 
-                                        DankIcon {
+                                        DIcon {
                                             name: "extension"
                                             size: 20
                                             color: Theme.primary
@@ -527,7 +528,7 @@ Item {
                                             implicitWidth: suggestionButton.width
                                             implicitHeight: suggestionButton.height
 
-                                            DankButton {
+                                            DButton {
                                                 id: suggestionButton
                                                 buttonHeight: 28
                                                 horizontalPadding: Theme.spacingM
@@ -566,7 +567,7 @@ Item {
                                 Layout.fillWidth: true
                                 spacing: Theme.spacingS
 
-                                DankIcon {
+                                DIcon {
                                     name: "deployed_code"
                                     size: 18
                                     color: Theme.primary
@@ -646,7 +647,7 @@ Item {
                                         anchors.margins: Theme.spacingS
                                         spacing: Theme.spacingM
 
-                                        DankIcon {
+                                        DIcon {
                                             name: "cloud_done"
                                             size: 18
                                             color: Theme.primary
@@ -690,7 +691,7 @@ Item {
                                             }
                                         }
 
-                                        DankActionButton {
+                                        DActionButton {
                                             buttonSize: 28
                                             iconName: "delete"
                                             iconSize: 15
@@ -731,7 +732,7 @@ Item {
                                 Layout.fillWidth: true
                                 spacing: Theme.spacingS
 
-                                DankIcon {
+                                DIcon {
                                     name: "storefront"
                                     size: 18
                                     color: Theme.primary
@@ -811,7 +812,7 @@ Item {
                                         anchors.margins: Theme.spacingS
                                         spacing: Theme.spacingM
 
-                                        DankIcon {
+                                        DIcon {
                                             name: catalogRow.modelData.present ? "check_circle" : "store"
                                             size: 18
                                             color: catalogRow.modelData.present ? Theme.success : Theme.primary
@@ -861,7 +862,7 @@ Item {
                                             implicitWidth: catalogButton.width
                                             implicitHeight: catalogButton.height
 
-                                            DankButton {
+                                            DButton {
                                                 id: catalogButton
                                                 buttonHeight: 28
                                                 horizontalPadding: Theme.spacingM
@@ -898,7 +899,7 @@ Item {
                                 Layout.fillWidth: true
                                 spacing: Theme.spacingS
 
-                                DankIcon {
+                                DIcon {
                                     name: "add_link"
                                     size: 18
                                     color: Theme.primary
@@ -916,7 +917,7 @@ Item {
                                 Layout.fillWidth: true
                                 spacing: Theme.spacingM
 
-                                DankTextField {
+                                DTextField {
                                     id: remoteField
                                     Layout.fillWidth: true
                                     placeholderText: Tr.t("Address of a .flatpakrepo file")
@@ -934,7 +935,7 @@ Item {
                                     implicitWidth: remoteButton.width
                                     implicitHeight: remoteButton.height
 
-                                    DankButton {
+                                    DButton {
                                         id: remoteButton
                                         buttonHeight: 30
                                         horizontalPadding: Theme.spacingM
@@ -981,7 +982,7 @@ Item {
                                 Layout.fillWidth: true
                                 spacing: Theme.spacingM
 
-                                DankIcon {
+                                DIcon {
                                     name: "inventory_2"
                                     size: 18
                                     color: Theme.primary
@@ -999,7 +1000,7 @@ Item {
                                     implicitWidth: noiseButton.width
                                     implicitHeight: noiseButton.height
 
-                                    DankButton {
+                                    DButton {
                                         id: noiseButton
                                         buttonHeight: 26
                                         horizontalPadding: Theme.spacingM
@@ -1082,7 +1083,7 @@ Item {
                                         anchors.margins: Theme.spacingS
                                         spacing: Theme.spacingM
 
-                                        DankIcon {
+                                        DIcon {
                                             name: repoRow.modelData.kind === "copr" ? "person" : (repoRow.isDistro ? "verified" : "public")
                                             size: 18
                                             color: repoRow.isDistro ? Theme.primary : Theme.surfaceVariantText
@@ -1110,7 +1111,7 @@ Item {
                                             }
                                         }
 
-                                        DankActionButton {
+                                        DActionButton {
                                             visible: repoRow.modelData.kind === "copr" && repoRow.modelData.project !== ""
                                             buttonSize: 28
                                             iconName: "delete"
@@ -1131,7 +1132,7 @@ Item {
                                             implicitWidth: 52
                                             implicitHeight: 30
 
-                                            DankToggle {
+                                            DToggle {
                                                 anchors.fill: parent
                                                 hideText: true
                                                 checked: repoRow.modelData.enabled
@@ -1170,7 +1171,7 @@ Item {
                                 Layout.fillWidth: true
                                 spacing: Theme.spacingS
 
-                                DankIcon {
+                                DIcon {
                                     name: "person_add"
                                     size: 18
                                     color: Theme.primary
@@ -1188,7 +1189,7 @@ Item {
                                 Layout.fillWidth: true
                                 spacing: Theme.spacingM
 
-                                DankTextField {
+                                DTextField {
                                     id: coprField
                                     Layout.fillWidth: true
                                     placeholderText: Tr.t("owner/project")
@@ -1206,7 +1207,7 @@ Item {
                                     implicitWidth: coprButton.width
                                     implicitHeight: coprButton.height
 
-                                    DankButton {
+                                    DButton {
                                         id: coprButton
                                         buttonHeight: 30
                                         horizontalPadding: Theme.spacingM

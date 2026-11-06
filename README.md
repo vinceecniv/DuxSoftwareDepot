@@ -4,7 +4,7 @@
 [![Checks](https://github.com/vinceecniv/DuxSoftwareDepot/actions/workflows/checks.yml/badge.svg)](https://github.com/vinceecniv/DuxSoftwareDepot/actions/workflows/checks.yml)
 [![License](https://img.shields.io/badge/license-MIT-informational)](LICENSE)
 ![Status](https://img.shields.io/badge/status-beta-orange)
-![DMS](https://img.shields.io/badge/DMS-%E2%89%A5%201.6-6750A4)
+![DMS](https://img.shields.io/badge/DMS-%E2%89%A5%202.0-6750A4)
 [![Languages](https://img.shields.io/badge/languages-16-6750A4)](#languages)
 
 **Manages** ![System packages](https://img.shields.io/badge/system%20packages-dnf%20%C2%B7%20apt%20%C2%B7%20pacman%20%C2%B7%20rpm--ostree-4A4458)
@@ -233,7 +233,7 @@ English. Add a language by dropping a file next to the others.
 
 - A Fedora-based distribution — or an atomic Fedora, Debian/Ubuntu or Arch
   (all three experimental)
-- DMS ≥ 1.6 with the `sysupdate` daemon capability
+- DMS ≥ 2.0 with the `sysupdate` daemon capability
 - `python3` and `flatpak`, optionally `fwupd`, optionally Homebrew
 - Package-manager bindings for your distro:
   - Fedora: `python3-libdnf5` (**not** part of a default install)

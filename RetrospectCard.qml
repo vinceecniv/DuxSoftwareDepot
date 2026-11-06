@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import qs.Common
+import qs.DCommon.Widgets
 import qs.Widgets
 
 // A year, read back out of the action log.
@@ -162,7 +163,7 @@ Item {
             Layout.fillWidth: true
             spacing: Theme.spacingS
 
-            DankIcon {
+            DIcon {
                 name: "calendar_month"
                 size: 20
                 color: Theme.primary

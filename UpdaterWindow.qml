@@ -7,6 +7,7 @@ import Quickshell
 import Quickshell.Io
 import qs.Common
 import qs.Services
+import qs.DCommon.Widgets
 import qs.Widgets
 
 // Standalone updater window: the full visual experience with logos, release
@@ -775,7 +776,7 @@ FloatingWindow {
                         color: Theme.withAlpha(Theme.primary, 0.10)
                         border.width: 0
 
-                        DankIcon {
+                        DIcon {
                             anchors.centerIn: parent
                             name: win.settingsTab === "about" ? "info" : "settings"
                             size: 20
@@ -808,14 +809,14 @@ FloatingWindow {
                         scale: setCloseMa.pressed ? 0.92 : 1.0
                         Behavior on scale { NumberAnimation { duration: Theme.mediumDuration; easing.type: Easing.OutBack } }
 
-                        DankRipple {
+                        DRipple {
                             id: setCloseRip
                             anchors.fill: parent
                             cornerRadius: parent.radius
                             rippleColor: Ui.failColor
                         }
 
-                        DankIcon {
+                        DIcon {
                             anchors.centerIn: parent
                             name: "close"
                             size: 18
@@ -873,7 +874,7 @@ FloatingWindow {
                                 anchors.centerIn: parent
                                 spacing: 6
 
-                                DankIcon {
+                                DIcon {
                                     name: "settings"
                                     size: 16
                                     color: parent.parent.isTabActive ? Theme.primaryText : (parent.parent.isTabHovered ? Theme.primary : Theme.surfaceVariantText)
@@ -920,7 +921,7 @@ FloatingWindow {
                                 anchors.centerIn: parent
                                 spacing: 6
 
-                                DankIcon {
+                                DIcon {
                                     name: "info"
                                     size: 16
                                     color: parent.parent.isTabActive ? Theme.primaryText : (parent.parent.isTabHovered ? Theme.primary : Theme.surfaceVariantText)
@@ -954,9 +955,9 @@ FloatingWindow {
                     // ═════════════════════════════════════════════════════
                     // 1. PREFERENCES VIEW (Dynamic Segmented Rows with Icons)
                     // ═════════════════════════════════════════════════════
-                    // DankFlickable rather than a bare Flickable: the shell's
+                    // DFlickable rather than a bare Flickable: the shell's
                     // wheel and touchpad momentum, and its scrollbar
-                    DankFlickable {
+                    DFlickable {
                         id: prefFlickable
                         Component.onCompleted: Ui.softenScrollbar(prefFlickable)
                         anchors.fill: parent
@@ -1004,7 +1005,7 @@ FloatingWindow {
                                     anchors.rightMargin: Theme.spacingM
                                     spacing: Theme.spacingM
 
-                                    DankIcon {
+                                    DIcon {
                                         name: "visibility_off"
                                         size: 20
                                         color: Theme.primary
@@ -1030,7 +1031,7 @@ FloatingWindow {
                                         }
                                     }
 
-                                    DankToggle {
+                                    DToggle {
                                         id: t1
                                         hideText: true
                                         checked: win.widgetRoot ? win.widgetRoot.hideWhenUpToDate : false
@@ -1065,7 +1066,7 @@ FloatingWindow {
                                     anchors.rightMargin: Theme.spacingM
                                     spacing: Theme.spacingM
 
-                                    DankIcon {
+                                    DIcon {
                                         name: "extension"
                                         size: 20
                                         color: Theme.primary
@@ -1091,7 +1092,7 @@ FloatingWindow {
                                         }
                                     }
 
-                                    DankToggle {
+                                    DToggle {
                                         id: t2
                                         hideText: true
                                         checked: win.widgetRoot ? win.widgetRoot.showRuntimes : false
@@ -1126,7 +1127,7 @@ FloatingWindow {
                                     anchors.rightMargin: Theme.spacingM
                                     spacing: Theme.spacingM
 
-                                    DankIcon {
+                                    DIcon {
                                         name: "memory"
                                         size: 20
                                         color: Theme.primary
@@ -1152,7 +1153,7 @@ FloatingWindow {
                                         }
                                     }
 
-                                    DankToggle {
+                                    DToggle {
                                         id: t3
                                         hideText: true
                                         checked: win.widgetRoot ? win.widgetRoot.includeFirmware : true
@@ -1187,7 +1188,7 @@ FloatingWindow {
                                     anchors.rightMargin: Theme.spacingM
                                     spacing: Theme.spacingM
 
-                                    DankIcon {
+                                    DIcon {
                                         name: "check_circle"
                                         size: 20
                                         color: Theme.primary
@@ -1213,7 +1214,7 @@ FloatingWindow {
                                         }
                                     }
 
-                                    DankToggle {
+                                    DToggle {
                                         id: t4
                                         hideText: true
                                         checked: win.widgetRoot ? win.widgetRoot.confirmBeforeUpdate : false
@@ -1248,7 +1249,7 @@ FloatingWindow {
                                     anchors.rightMargin: Theme.spacingM
                                     spacing: Theme.spacingM
 
-                                    DankIcon {
+                                    DIcon {
                                         name: "admin_panel_settings"
                                         size: 20
                                         color: Theme.primary
@@ -1274,7 +1275,7 @@ FloatingWindow {
                                         }
                                     }
 
-                                    DankToggle {
+                                    DToggle {
                                         id: t5
                                         hideText: true
                                         checked: Backend.useSudo
@@ -1309,7 +1310,7 @@ FloatingWindow {
                                     anchors.rightMargin: Theme.spacingM
                                     spacing: Theme.spacingM
 
-                                    DankIcon {
+                                    DIcon {
                                         name: "palette"
                                         size: 20
                                         color: Theme.primary
@@ -1335,7 +1336,7 @@ FloatingWindow {
                                         }
                                     }
 
-                                    DankToggle {
+                                    DToggle {
                                         id: t6
                                         hideText: true
                                         checked: Ui.tintAppIcons
@@ -1370,7 +1371,7 @@ FloatingWindow {
                                     anchors.rightMargin: Theme.spacingM
                                     spacing: Theme.spacingM
 
-                                    DankIcon {
+                                    DIcon {
                                         name: "apps"
                                         size: 20
                                         color: Theme.primary
@@ -1396,7 +1397,7 @@ FloatingWindow {
                                         }
                                     }
 
-                                    DankToggle {
+                                    DToggle {
                                         id: t7
                                         hideText: true
                                         checked: Backend.launcherEntryPresent
@@ -1438,7 +1439,7 @@ FloatingWindow {
                                     anchors.rightMargin: Theme.spacingM
                                     spacing: Theme.spacingM
 
-                                    DankIcon {
+                                    DIcon {
                                         name: "insert_drive_file"
                                         size: 20
                                         color: Theme.primary
@@ -1464,7 +1465,7 @@ FloatingWindow {
                                         }
                                     }
 
-                                    DankToggle {
+                                    DToggle {
                                         id: t8
                                         hideText: true
                                         checked: Backend.appimageHandlerDefault
@@ -1505,7 +1506,7 @@ FloatingWindow {
                                     anchors.rightMargin: Theme.spacingM
                                     spacing: Theme.spacingM
 
-                                    DankIcon {
+                                    DIcon {
                                         name: "open_in_browser"
                                         size: 20
                                         color: Theme.primary
@@ -1531,7 +1532,7 @@ FloatingWindow {
                                         }
                                     }
 
-                                    DankToggle {
+                                    DToggle {
                                         id: t9
                                         hideText: true
                                         checked: win.widgetRoot ? win.widgetRoot.pillOpensWindow : false
@@ -1570,7 +1571,7 @@ FloatingWindow {
                                         Layout.fillWidth: true
                                         spacing: Theme.spacingM
 
-                                        DankIcon {
+                                        DIcon {
                                             name: "sync"
                                             size: 20
                                             color: Theme.primary
@@ -1597,7 +1598,7 @@ FloatingWindow {
                                         }
                                     }
 
-                                    DankDropdown {
+                                    DDropdown {
                                         id: t10
                                         readonly property var autoMap: ({
                                                 "Off": "off",
@@ -1654,7 +1655,7 @@ FloatingWindow {
                                 Column {
                                     Layout.fillWidth: true
 
-                                    DankToggle {
+                                    DToggle {
                                         width: parent.width
                                         text: "Record the next update run"
                                         description: "Wraps every helper the run starts and writes what it says to recordings/, alongside the list of packages the window was showing. The run itself is untouched."
@@ -1681,7 +1682,7 @@ FloatingWindow {
                                         anchors.rightMargin: Theme.spacingM
                                         spacing: Theme.spacingM
 
-                                        DankIcon {
+                                        DIcon {
                                             name: "science"
                                             size: 20
                                             color: Theme.secondary
@@ -1695,7 +1696,7 @@ FloatingWindow {
                                             wrapMode: Text.WordWrap
                                         }
 
-                                        DankButton {
+                                        DButton {
                                             buttonHeight: 28
                                             horizontalPadding: Theme.spacingM
                                             text: "Stop"
@@ -1719,7 +1720,7 @@ FloatingWindow {
                                     Repeater {
                                         model: [1, 2, 4, 10]
 
-                                        delegate: DankButton {
+                                        delegate: DButton {
                                             required property var modelData
 
                                             buttonHeight: 26
@@ -1735,7 +1736,7 @@ FloatingWindow {
                                         Layout.fillWidth: true
                                     }
 
-                                    DankButton {
+                                    DButton {
                                         buttonHeight: 26
                                         horizontalPadding: Theme.spacingS
                                         iconName: "refresh"
@@ -1774,7 +1775,7 @@ FloatingWindow {
                                             elide: Text.ElideRight
                                         }
 
-                                        DankButton {
+                                        DButton {
                                             buttonHeight: 26
                                             horizontalPadding: Theme.spacingM
                                             iconName: "play_arrow"
@@ -1803,7 +1804,7 @@ FloatingWindow {
                     // ═════════════════════════════════════════════════════
                     // 2. ABOUT / INFO VIEW (Animated Slide In)
                     // ═════════════════════════════════════════════════════
-                    DankFlickable {
+                    DFlickable {
                         id: aboutFlickable
                         Component.onCompleted: Ui.softenScrollbar(aboutFlickable)
                         anchors.fill: parent
@@ -1926,7 +1927,7 @@ FloatingWindow {
                                                 Layout.fillWidth: true
                                                 spacing: Theme.spacingS
 
-                                                DankIcon {
+                                                DIcon {
                                                     name: "update"
                                                     size: 16
                                                     color: Theme.primary
@@ -1968,7 +1969,7 @@ FloatingWindow {
                                                         anchors.centerIn: parent
                                                         spacing: 6
 
-                                                        DankIcon {
+                                                        DIcon {
                                                             name: win.showUpdateChangelog ? "expand_less" : "article"
                                                             size: 16
                                                             color: Ui.buttonInk(logBtn.kind)
@@ -2012,7 +2013,7 @@ FloatingWindow {
                                                         anchors.centerIn: parent
                                                         spacing: 6
 
-                                                        DankIcon {
+                                                        DIcon {
                                                             name: "download"
                                                             size: 14
                                                             color: Ui.buttonInk("filled")
@@ -2110,7 +2111,7 @@ FloatingWindow {
                                                 anchors.centerIn: parent
                                                 spacing: 6
 
-                                                DankIcon {
+                                                DIcon {
                                                     name: "code"
                                                     size: 16
                                                     color: Ui.buttonInk("tonal")
@@ -2148,7 +2149,7 @@ FloatingWindow {
                                                 anchors.centerIn: parent
                                                 spacing: 6
 
-                                                DankIcon {
+                                                DIcon {
                                                     name: "bug_report"
                                                     size: 16
                                                     color: Ui.buttonInk("tonal")
@@ -2225,7 +2226,7 @@ FloatingWindow {
                                                 anchors.centerIn: parent
                                                 spacing: 6
 
-                                                DankIcon {
+                                                DIcon {
                                                     name: "open_in_new"
                                                     size: 14
                                                     color: Ui.buttonInk("tonal")
@@ -2266,7 +2267,7 @@ FloatingWindow {
                                                 anchors.centerIn: parent
                                                 spacing: 6
 
-                                                DankIcon {
+                                                DIcon {
                                                     name: "open_in_new"
                                                     size: 14
                                                     color: Ui.buttonInk("tonal")
@@ -3397,7 +3398,7 @@ FloatingWindow {
                     id: headerButtons
                     spacing: 4
 
-                    DankTooltipV2 {
+                    DTooltipV2 {
                         id: headerTooltip
                     }
 
@@ -3422,14 +3423,14 @@ FloatingWindow {
                         scale: searchMa.pressed ? 0.92 : 1.0
                         Behavior on scale { NumberAnimation { duration: Theme.mediumDuration; easing.type: Easing.OutBack } }
 
-                        DankRipple {
+                        DRipple {
                             id: searchRip
                             anchors.fill: parent
                             cornerRadius: parent.radius
                             rippleColor: Ui.buttonInk(headerSearchBtn.kind)
                         }
 
-                        DankIcon {
+                        DIcon {
                             anchors.centerIn: parent
                             name: "search"
                             size: 20
@@ -3477,14 +3478,14 @@ FloatingWindow {
                         opacity: btnEnabled || isActive ? 1.0 : 0.4
                         Behavior on scale { NumberAnimation { duration: Theme.mediumDuration; easing.type: Easing.OutBack } }
 
-                        DankRipple {
+                        DRipple {
                             id: refreshRip
                             anchors.fill: parent
                             cornerRadius: parent.radius
                             rippleColor: Ui.buttonInk(windowRefreshButton.kind)
                         }
 
-                        DankIcon {
+                        DIcon {
                             id: refreshIcon
                             anchors.centerIn: parent
                             name: "refresh"
@@ -3555,14 +3556,14 @@ FloatingWindow {
                         scale: settingsMa.pressed ? 0.92 : 1.0
                         Behavior on scale { NumberAnimation { duration: Theme.mediumDuration; easing.type: Easing.OutBack } }
 
-                        DankRipple {
+                        DRipple {
                             id: settingsRip
                             anchors.fill: parent
                             cornerRadius: parent.radius
                             rippleColor: Ui.buttonInk(headerSettingsBtn.kind)
                         }
 
-                        DankIcon {
+                        DIcon {
                             anchors.centerIn: parent
                             name: "settings"
                             size: 20
@@ -3603,14 +3604,14 @@ FloatingWindow {
                         scale: closeMa.pressed ? 0.92 : 1.0
                         Behavior on scale { NumberAnimation { duration: Theme.mediumDuration; easing.type: Easing.OutBack } }
 
-                        DankRipple {
+                        DRipple {
                             id: closeRip
                             anchors.fill: parent
                             cornerRadius: parent.radius
                             rippleColor: Ui.failColor
                         }
 
-                        DankIcon {
+                        DIcon {
                             anchors.centerIn: parent
                             name: "close"
                             size: 20
@@ -3652,7 +3653,7 @@ FloatingWindow {
                 anchors.rightMargin: Theme.spacingM
                 spacing: Theme.spacingM
 
-                DankIcon {
+                DIcon {
                     name: "warning"
                     size: 20
                     color: Theme.warning
@@ -3685,7 +3686,7 @@ FloatingWindow {
                 anchors.rightMargin: Theme.spacingM
                 spacing: Theme.spacingM
 
-                DankIcon {
+                DIcon {
                     name: "science"
                     size: 20
                     color: Theme.secondary
@@ -3703,7 +3704,7 @@ FloatingWindow {
                     implicitWidth: aptIssueButton.width
                     implicitHeight: aptIssueButton.height
 
-                    DankButton {
+                    DButton {
                         id: aptIssueButton
                         buttonHeight: 28
                         horizontalPadding: Theme.spacingM
@@ -3759,7 +3760,7 @@ FloatingWindow {
                             Layout.fillWidth: true
                             spacing: Theme.spacingM
 
-                            DankIcon {
+                            DIcon {
                                 name: requirementRow.modelData.blocking ? "error" : "info"
                                 size: 20
                                 color: requirementRow.modelData.blocking ? Theme.error : Theme.warning
@@ -3787,7 +3788,7 @@ FloatingWindow {
                                 implicitWidth: requirementInstallButton.width
                                 implicitHeight: requirementInstallButton.height
 
-                                DankButton {
+                                DButton {
                                     id: requirementInstallButton
                                     buttonHeight: 28
                                     horizontalPadding: Theme.spacingM
@@ -3876,7 +3877,7 @@ FloatingWindow {
                     Layout.fillWidth: true
                     spacing: Theme.spacingM
 
-                    DankIcon {
+                    DIcon {
                         name: "rocket_launch"
                         size: 20
                         color: Theme.secondary
@@ -3895,7 +3896,7 @@ FloatingWindow {
                         implicitWidth: launcherAddButton.width
                         implicitHeight: launcherAddButton.height
 
-                        DankButton {
+                        DButton {
                             id: launcherAddButton
                             buttonHeight: 28
                             horizontalPadding: Theme.spacingM
@@ -3913,7 +3914,7 @@ FloatingWindow {
 
                     // Closing it is an answer too: the offer does not return,
                     // and the switch in settings is where it lives afterwards
-                    DankActionButton {
+                    DActionButton {
                         visible: !Backend.launcherEntryBusy
                         buttonSize: 28
                         iconName: "close"
@@ -3978,13 +3979,13 @@ FloatingWindow {
                         elide: Text.ElideRight
                     }
 
-                    // Wrapper Item: DankButton sizes itself via `width`,
+                    // Wrapper Item: DButton sizes itself via `width`,
                     // which the RowLayout would ignore and cramp the label
                     Item {
                         Layout.preferredWidth: selfUpdateButton.width
                         Layout.preferredHeight: selfUpdateButton.height
 
-                        DankButton {
+                        DButton {
                             id: selfUpdateButton
                             buttonHeight: 30
                             iconName: "download"
@@ -4003,7 +4004,7 @@ FloatingWindow {
                         }
                     }
 
-                    DankActionButton {
+                    DActionButton {
                         buttonSize: 28
                         iconName: "close"
                         iconSize: 16
@@ -4026,7 +4027,7 @@ FloatingWindow {
                 // hides exactly the fixes someone skipped. Bounded height with
                 // a scrollbar instead: the banner stays a banner, and the
                 // notes stay complete.
-                DankFlickable {
+                DFlickable {
                     id: selfUpdateNotesView
 
                     Component.onCompleted: Ui.softenScrollbar(selfUpdateNotesView)
@@ -4076,7 +4077,7 @@ FloatingWindow {
                 anchors.margins: Theme.spacingM
                 spacing: Theme.spacingM
 
-                DankIcon {
+                DIcon {
                     name: "restart_alt"
                     size: 22
                     color: Theme.warning
@@ -4094,7 +4095,7 @@ FloatingWindow {
                     Layout.preferredWidth: windowRebootButton.width
                     Layout.preferredHeight: windowRebootButton.height
 
-                    DankButton {
+                    DButton {
                         id: windowRebootButton
                         buttonHeight: 32
                         iconName: "restart_alt"
@@ -4106,7 +4107,7 @@ FloatingWindow {
                     }
                 }
 
-                DankActionButton {
+                DActionButton {
                     buttonSize: 28
                     iconName: "close"
                     iconSize: 16
@@ -4139,7 +4140,7 @@ FloatingWindow {
                 anchors.margins: Theme.spacingM
                 spacing: Theme.spacingM
 
-                DankIcon {
+                DIcon {
                     name: "error"
                     size: 22
                     color: Theme.error
@@ -4171,7 +4172,7 @@ FloatingWindow {
                     }
                 }
 
-                DankButton {
+                DButton {
                     buttonHeight: 32
                     iconName: "refresh"
                     iconSize: 15
@@ -4182,7 +4183,7 @@ FloatingWindow {
         }
 
         // ── Tabs ────────────────────────────────────────────────────────────
-        DankTabBar {
+        DTabBar {
             id: tabs
             Layout.fillWidth: true
             // The active-tab indicator draws ~10px below the bar's bounds, so
@@ -4354,7 +4355,7 @@ FloatingWindow {
                     asynchronous: true
                 }
 
-                DankIcon {
+                DIcon {
                     visible: stripLogo.status !== Image.Ready
                     name: "deployed_code_update"
                     size: 20
@@ -4411,7 +4412,7 @@ FloatingWindow {
                 anchors.rightMargin: Theme.spacingM
                 spacing: Theme.spacingM
 
-                DankSpinner {
+                DSpinner {
                     size: 22
                 }
 
@@ -4456,7 +4457,7 @@ FloatingWindow {
                 anchors.rightMargin: Theme.spacingM
                 spacing: Theme.spacingM
 
-                DankIcon {
+                DIcon {
                     name: "warning"
                     size: 18
                     color: Theme.error
@@ -4483,7 +4484,7 @@ FloatingWindow {
                     wrapMode: Text.WordWrap
                 }
 
-                DankActionButton {
+                DActionButton {
                     buttonSize: 28
                     iconName: "close"
                     iconSize: 16
@@ -4537,7 +4538,7 @@ FloatingWindow {
                     Layout.fillWidth: true
                     spacing: Theme.spacingM
 
-                    DankIcon {
+                    DIcon {
                         name: distroBanner.phase === "ready" ? "restart_alt" : (distroBanner.phase === "failed" ? "error" : (distroBanner.phase === "downloading" ? "downloading" : "rocket_launch"))
                         size: 18
                         color: distroBanner.phase === "failed" ? Theme.error : Theme.primary
@@ -4577,7 +4578,7 @@ FloatingWindow {
 
                     // Downloaded: drop it, or restart into it — asked twice,
                     // as the window's other restart button is
-                    DankButton {
+                    DButton {
                         visible: distroBanner.phase === "ready"
                         enabled: !distroBanner.upgrade.busy
                         buttonHeight: 28
@@ -4588,7 +4589,7 @@ FloatingWindow {
                         onClicked: distroBanner.upgrade.cancel()
                     }
 
-                    DankButton {
+                    DButton {
                         visible: distroBanner.phase === "ready"
                         enabled: !distroBanner.upgrade.busy
                         buttonHeight: 28
@@ -4609,7 +4610,7 @@ FloatingWindow {
                         }
                     }
 
-                    DankButton {
+                    DButton {
                         visible: (distroBanner.phase === "idle" || distroBanner.phase === "planning" || distroBanner.phase === "planned" || distroBanner.phase === "failed") && distroBanner.canUpgrade
                         buttonHeight: 28
                         horizontalPadding: Theme.spacingM
@@ -4621,7 +4622,7 @@ FloatingWindow {
                         onClicked: fedoraUpgradeDialog.open()
                     }
 
-                    DankButton {
+                    DButton {
                         visible: distroBanner.phase !== "downloading" && distroBanner.phase !== "ready"
                         buttonHeight: 28
                         horizontalPadding: Theme.spacingM
@@ -4692,7 +4693,7 @@ FloatingWindow {
                 anchors.rightMargin: Theme.spacingM
                 spacing: Theme.spacingM
 
-                DankIcon {
+                DIcon {
                     name: "campaign"
                     size: 18
                     color: Theme.warning
@@ -4711,7 +4712,7 @@ FloatingWindow {
                     Layout.preferredWidth: newsReadButton.width
                     Layout.preferredHeight: newsReadButton.height
 
-                    DankButton {
+                    DButton {
                         id: newsReadButton
                         buttonHeight: 28
                         horizontalPadding: Theme.spacingM
@@ -4920,7 +4921,7 @@ FloatingWindow {
 
                     // Whatever happens to this panel — dismissed, or swept
                     // away by the shell reloading — the log keeps the run
-                    // Wrapper Item: DankButton sizes itself through `width`, which a layout does not read
+                    // Wrapper Item: DButton sizes itself through `width`, which a layout does not read
                     Item {
                         Layout.preferredWidth: viewInLogButton.width
                         Layout.preferredHeight: viewInLogButton.height
@@ -4930,7 +4931,7 @@ FloatingWindow {
                         // the condition is false — which here is at startup
                         visible: !win.engine.running && win.engine.phase !== "idle" && win.engine.failedCount > 0
 
-                        DankButton {
+                        DButton {
                             id: viewInLogButton
                             buttonHeight: 26
                             horizontalPadding: Theme.spacingM
@@ -4943,7 +4944,7 @@ FloatingWindow {
                         }
                     }
 
-                    DankActionButton {
+                    DActionButton {
                         visible: !win.engine.running && win.engine.phase !== "idle"
                         buttonSize: 24
                         iconName: "close"
@@ -4966,7 +4967,7 @@ FloatingWindow {
         }
 
         // ── Update list (a heading per category, like Installed) ──────────────
-        DankListView {
+        DListView {
             id: cardsList
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -5044,7 +5045,7 @@ FloatingWindow {
                             anchors.verticalCenter: parent.verticalCenter
                             spacing: Theme.spacingS
 
-                            DankIcon {
+                            DIcon {
                                 name: win.categoryIcon(stickyBar.rowData.category || "")
                                 size: 20
                                 color: win.categoryColor(stickyBar.rowData.category || "")
@@ -5076,7 +5077,7 @@ FloatingWindow {
                                 }
                             }
 
-                            DankIcon {
+                            DIcon {
                                 visible: stickyBar.rowData.collapsible === true
                                 name: stickyBar.rowData.collapsed === true ? "expand_more" : "expand_less"
                                 size: 16
@@ -5085,7 +5086,7 @@ FloatingWindow {
                             }
                         }
 
-                        DankButton {
+                        DButton {
                             anchors.right: parent.right
                             anchors.verticalCenter: parent.verticalCenter
                             visible: stickyBar.updatable && stickyHover.hovered
@@ -5144,7 +5145,7 @@ FloatingWindow {
                             anchors.verticalCenter: parent.verticalCenter
                             spacing: Theme.spacingS
 
-                            DankIcon {
+                            DIcon {
                                 name: win.categoryIcon(catContainer.modelData.category || "")
                                 size: 20
                                 color: win.categoryColor(catContainer.modelData.category || "")
@@ -5176,7 +5177,7 @@ FloatingWindow {
                                 }
                             }
 
-                            DankIcon {
+                            DIcon {
                                 visible: catContainer.modelData.collapsible === true
                                 name: catContainer.modelData.collapsed === true ? "expand_more" : "expand_less"
                                 size: 16
@@ -5185,7 +5186,7 @@ FloatingWindow {
                             }
                         }
 
-                        DankButton {
+                        DButton {
                             anchors.right: parent.right
                             anchors.verticalCenter: parent.verticalCenter
                             visible: catContainer.updatable && catHeaderHover.hovered
@@ -5382,7 +5383,7 @@ FloatingWindow {
                                     }
                                 }
 
-                                DankIcon {
+                                DIcon {
                                     id: heroStateIcon
                                     anchors.centerIn: parent
                                     visible: !dankLogoImage.visible
@@ -5493,7 +5494,7 @@ FloatingWindow {
                                 RowLayout {
                                     spacing: Theme.spacingS
 
-                                    DankIcon {
+                                    DIcon {
                                         name: "computer"
                                         size: 20
                                         color: Theme.primary
@@ -5570,7 +5571,7 @@ FloatingWindow {
                                 RowLayout {
                                     spacing: Theme.spacingS
 
-                                    DankIcon {
+                                    DIcon {
                                         name: "monitor_heart"
                                         size: 20
                                         color: Theme.primary
@@ -5661,7 +5662,7 @@ FloatingWindow {
                                         onTapped: win.openTab(1)
                                     }
 
-                                    DankIcon {
+                                    DIcon {
                                         name: "apps"
                                         size: 20
                                         color: Theme.primary
@@ -5675,7 +5676,7 @@ FloatingWindow {
                                         color: installedCardHover.hovered ? Theme.primary : Theme.surfaceText
                                     }
 
-                                    DankIcon {
+                                    DIcon {
                                         name: "chevron_right"
                                         size: 16
                                         color: Theme.primary
@@ -5718,7 +5719,7 @@ FloatingWindow {
                                         Layout.fillWidth: true
                                         spacing: Theme.spacingS
 
-                                        DankIcon {
+                                        DIcon {
                                             name: modelData.icon
                                             size: 14
                                             color: Theme.surfaceVariantText
@@ -5791,7 +5792,7 @@ FloatingWindow {
                                         onTapped: win.openTab(4)
                                     }
 
-                                    DankIcon {
+                                    DIcon {
                                         name: "history"
                                         size: 20
                                         color: Theme.primary
@@ -5805,7 +5806,7 @@ FloatingWindow {
                                         color: recentCardHover.hovered ? Theme.primary : Theme.surfaceText
                                     }
 
-                                    DankIcon {
+                                    DIcon {
                                         name: "chevron_right"
                                         size: 16
                                         color: Theme.primary
@@ -5934,7 +5935,7 @@ FloatingWindow {
                                 Layout.fillWidth: true
                                 spacing: Theme.spacingS
 
-                                DankIcon {
+                                DIcon {
                                     name: "cleaning_services"
                                     size: 18
                                     color: Theme.primary
@@ -6012,7 +6013,7 @@ FloatingWindow {
                                         elide: Text.ElideRight
                                     }
 
-                                    DankIcon {
+                                    DIcon {
                                         visible: modelData.done === true
                                         name: "check"
                                         size: 14
@@ -6031,7 +6032,7 @@ FloatingWindow {
                                         implicitHeight: cleanupButton.height
                                         visible: modelData.done !== true
 
-                                        DankButton {
+                                        DButton {
                                             id: cleanupButton
                                             buttonHeight: 26
                                             horizontalPadding: Theme.spacingM
@@ -6086,7 +6087,7 @@ FloatingWindow {
                 anchors.rightMargin: Theme.spacingM
                 spacing: Theme.spacingS
 
-                DankIcon {
+                DIcon {
                     name: planStrip.plan && planStrip.plan.removals > 0 ? "warning" : "checklist"
                     size: 16
                     color: planStrip.plan && planStrip.plan.removals > 0 ? Theme.warning : Theme.surfaceVariantText
@@ -6162,7 +6163,7 @@ FloatingWindow {
                 scale: updateAllMa.pressed ? 0.94 : 1.0
                 Behavior on scale { NumberAnimation { duration: Theme.mediumDuration; easing.type: Easing.OutBack } }
 
-                DankRipple {
+                DRipple {
                     id: updateAllRip
                     anchors.fill: parent
                     cornerRadius: parent.radius
@@ -6174,7 +6175,7 @@ FloatingWindow {
                     anchors.centerIn: parent
                     spacing: 8
 
-                    DankIcon {
+                    DIcon {
                         name: windowUpdateAllButton.busyRun ? "close" : "download"
                         size: 16
                         color: Ui.buttonInk(windowUpdateAllButton.kind)

@@ -555,7 +555,92 @@ FloatingWindow {
         return [r.ref, r.eol || "", r.eolRebase || "", (r.usedBy || []).join(",")].join("|");
     }
     readonly property var eolDismissed: (widgetRoot && widgetRoot.pluginData) ? (widgetRoot.pluginData.eolDismissed || []) : []
-    readonly property var eolShown: ((widgetRoot ? widgetRoot.eolRefs : []) || []).filter(r => eolDismissed.indexOf(eolKey(r)) < 0)
+    // Ignored is a stronger word: the user decided to keep this ref, so it is
+    // left alone whatever happens to it, by ref alone rather than per case,
+    // and it stops counting as well. Settings lists them to undo that.
+    readonly property var eolIgnored: (widgetRoot && widgetRoot.pluginData) ? (widgetRoot.pluginData.eolIgnored || []) : []
+    readonly property var eolRefs: (widgetRoot ? widgetRoot.eolRefs : []) || []
+    readonly property var eolActive: eolRefs.filter(r => eolIgnored.indexOf(r.ref) < 0)
+    readonly property var eolIgnoredRefs: eolRefs.filter(r => eolIgnored.indexOf(r.ref) >= 0)
+    readonly property var eolShown: eolActive.filter(r => eolDismissed.indexOf(eolKey(r)) < 0)
+
+    function eolName(r) {
+        return r.kind === "runtime" && r.branch ? (r.appName || r.id) + " " + r.branch : (r.appName || r.id);
+    }
+
+    function setEolIgnored(ref, ignored) {
+        // Kept to the refs still present, as with the dismissed cases
+        const kept = eolIgnored.filter(k => k !== ref && eolRefs.some(r => r.ref === k));
+        PluginService.savePluginData("dankSoftwareDepot", "eolIgnored", ignored ? kept.concat([ref]) : kept);
+    }
+
+    // Removing: the first click only arms the button, for a few seconds
+    property string eolConfirmRef: ""
+    property string eolRemovingRef: ""
+    property string eolRemoveError: ""
+
+    Timer {
+        id: eolConfirmTimer
+        interval: 6000
+        onTriggered: win.eolConfirmRef = ""
+    }
+
+    function removeEol(r) {
+        if (eolConfirmRef !== r.ref) {
+            eolConfirmRef = r.ref;
+            eolRemoveError = "";
+            eolConfirmTimer.restart();
+            return;
+        }
+        eolConfirmTimer.stop();
+        eolConfirmRef = "";
+        eolRemovingRef = r.ref;
+        eolRemoveProcess._entry = r;
+        eolRemoveProcess._message = "";
+        eolRemoveProcess.command = [Backend.python, Qt.resolvedUrl("scripts/flatpak_helper.py").toString().replace("file://", ""), "remove-eol", r.ref];
+        eolRemoveProcess.running = true;
+    }
+
+    Process {
+        id: eolRemoveProcess
+
+        property var _entry: null
+        property string _message: ""
+
+        stdout: SplitParser {
+            onRead: line => {
+                try {
+                    const event = JSON.parse(line);
+                    if ((event.event === "error" || event.event === "op-error") && event.message)
+                        eolRemoveProcess._message = event.message;
+                } catch (e) {}
+            }
+        }
+
+        onExited: exitCode => {
+            const r = _entry;
+            const name = win.eolName(r);
+            win.eolRemovingRef = "";
+            if (exitCode === 0) {
+                const logger = win.widgetRoot ? win.widgetRoot.actionLogger : null;
+                if (logger)
+                    logger.record("uninstall", Tr.t("Uninstalled %1").arg(name), [{
+                        name: name,
+                        id: r.id,
+                        repo: "flatpak",
+                        from: r.branch || "",
+                        to: "",
+                        source: "Flatpak",
+                        status: "done"
+                    }], 0, { key: "Uninstalled %1", args: [name] });
+                win.softwareSerial++;
+            } else {
+                win.eolRemoveError = Tr.t("Could not remove %1: %2").arg(name).arg(_message);
+            }
+            if (win.widgetRoot)
+                win.widgetRoot.refreshEol();
+        }
+    }
 
     function dismissEol() {
         // Kept to the cases still present, so the list cannot grow forever
@@ -1630,6 +1715,71 @@ FloatingWindow {
                                 }
                             }
 
+                            // Ignored end-of-life refs, and the way back
+                            Rectangle {
+                                width: prefColumn.width
+                                visible: win.eolIgnoredRefs.length > 0
+                                height: eolIgnoredColumn.implicitHeight + Theme.spacingM * 2
+                                radius: Theme.cornerRadius
+                                color: Theme.withAlpha(Ui.chipSurface, 0.45)
+
+                                ColumnLayout {
+                                    id: eolIgnoredColumn
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.leftMargin: Theme.spacingM
+                                    anchors.rightMargin: Theme.spacingM
+                                    spacing: Theme.spacingS
+
+                                    StyledText {
+                                        Layout.fillWidth: true
+                                        text: Tr.t("Ignored end-of-life software")
+                                        font.pixelSize: Theme.fontSizeMedium
+                                        font.weight: Font.Medium
+                                        color: Theme.surfaceText
+                                    }
+
+                                    StyledText {
+                                        Layout.fillWidth: true
+                                        text: Tr.t("These stay installed and are no longer mentioned.")
+                                        font.pixelSize: Theme.fontSizeSmall
+                                        color: Theme.surfaceVariantText
+                                        wrapMode: Text.WordWrap
+                                    }
+
+                                    Repeater {
+                                        model: win.eolIgnoredRefs
+
+                                        delegate: RowLayout {
+                                            required property var modelData
+
+                                            Layout.fillWidth: true
+                                            spacing: Theme.spacingM
+
+                                            StyledText {
+                                                Layout.fillWidth: true
+                                                text: win.eolName(parent.modelData)
+                                                font.pixelSize: Theme.fontSizeSmall
+                                                color: Theme.surfaceText
+                                                elide: Text.ElideRight
+                                            }
+
+                                            DButton {
+                                                buttonHeight: 28
+                                                horizontalPadding: Theme.spacingM
+                                                iconName: "visibility"
+                                                iconSize: 13
+                                                text: Tr.t("Show again")
+                                                backgroundColor: Theme.buttonBg
+                                                textColor: Theme.buttonText
+                                                onClicked: win.setEolIgnored(parent.modelData.ref, false)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
                             // ── Developer: record a run, play it back ───────────────
                             // Only on a working copy (the plugin directory is a
                             // symlink), which is also the only place it means
@@ -1798,6 +1948,7 @@ FloatingWindow {
                                     }
                                 }
                             }
+
                         }
                     }
 
@@ -4463,28 +4614,87 @@ FloatingWindow {
                     color: Theme.error
                 }
 
-                StyledText {
+                ColumnLayout {
                     Layout.fillWidth: true
-                    // One sentence per runtime or app, with its version: a
+                    spacing: Theme.spacingS
+
+                    // One line per runtime or app, with its version: a
                     // runtime's extensions (Mesa, the VAAPI driver, its
                     // Locale) arrive folded into it, and the apps that still
                     // run on it are what keep it here.
-                    text: win.eolShown.map(r => {
-                        const name = r.kind === "runtime" && r.branch ? (r.appName || r.id) + " " + r.branch : (r.appName || r.id);
-                        if (r.eolRebase)
-                            return Tr.t("%1 is no longer maintained; its successor is %2.").arg(name).arg(r.eolRebase.split("/")[1] || r.eolRebase);
-                        if (r.kind !== "runtime")
-                            return Tr.t("%1 is no longer maintained.").arg(name);
-                        if ((r.usedBy || []).length > 0)
-                            return Tr.t("%1 is no longer maintained. Still used by %2, until it moves to a newer version.").arg(name).arg(r.usedBy.join(", "));
-                        return Tr.t("%1 is no longer maintained, and no installed app uses it any more.").arg(name);
-                    }).join("\n")
-                    font.pixelSize: Theme.fontSizeSmall
-                    color: Theme.surfaceText
-                    wrapMode: Text.WordWrap
+                    Repeater {
+                        model: win.eolShown
+
+                        delegate: RowLayout {
+                            id: eolLine
+
+                            required property var modelData
+
+                            // Only a runtime nothing runs on: an app is the
+                            // user's own to remove, from Installed
+                            readonly property bool removable: modelData.kind === "runtime" && (modelData.usedBy || []).length === 0
+                            readonly property bool removing: win.eolRemovingRef === modelData.ref
+
+                            Layout.fillWidth: true
+                            spacing: Theme.spacingS
+
+                            StyledText {
+                                Layout.fillWidth: true
+                                text: {
+                                    const r = eolLine.modelData;
+                                    const name = win.eolName(r);
+                                    if (r.eolRebase)
+                                        return Tr.t("%1 is no longer maintained; its successor is %2.").arg(name).arg(r.eolRebase.split("/")[1] || r.eolRebase);
+                                    if (r.kind !== "runtime")
+                                        return Tr.t("%1 is no longer maintained.").arg(name);
+                                    if ((r.usedBy || []).length > 0)
+                                        return Tr.t("%1 is no longer maintained. Still used by %2, until it moves to a newer version.").arg(name).arg(r.usedBy.join(", "));
+                                    return Tr.t("%1 is no longer maintained, and no installed app uses it any more.").arg(name);
+                                }
+                                font.pixelSize: Theme.fontSizeSmall
+                                color: Theme.surfaceText
+                                wrapMode: Text.WordWrap
+                            }
+
+                            DButton {
+                                visible: eolLine.removable
+                                buttonHeight: 28
+                                horizontalPadding: Theme.spacingM
+                                iconName: "delete"
+                                iconSize: 13
+                                enabled: win.eolRemovingRef === "" && !win.engine.running
+                                text: eolLine.removing ? Tr.t("Removing") : win.eolConfirmRef === eolLine.modelData.ref ? Tr.t("Really remove?") : Tr.t("Remove")
+                                backgroundColor: win.eolConfirmRef === eolLine.modelData.ref ? Theme.error : Theme.buttonBg
+                                textColor: win.eolConfirmRef === eolLine.modelData.ref ? Theme.background : Theme.buttonText
+                                onClicked: win.removeEol(eolLine.modelData)
+                            }
+
+                            DButton {
+                                buttonHeight: 28
+                                horizontalPadding: Theme.spacingM
+                                iconName: "visibility_off"
+                                iconSize: 13
+                                enabled: !eolLine.removing
+                                text: Tr.t("Ignore")
+                                backgroundColor: Theme.withAlpha(Theme.surfaceText, 0.08)
+                                textColor: Theme.surfaceText
+                                onClicked: win.setEolIgnored(eolLine.modelData.ref, true)
+                            }
+                        }
+                    }
+
+                    StyledText {
+                        Layout.fillWidth: true
+                        visible: win.eolRemoveError !== ""
+                        text: win.eolRemoveError
+                        font.pixelSize: Theme.fontSizeSmall
+                        color: Theme.error
+                        wrapMode: Text.WordWrap
+                    }
                 }
 
                 DActionButton {
+                    Layout.alignment: Qt.AlignTop
                     buttonSize: 28
                     iconName: "close"
                     iconSize: 16
@@ -5597,7 +5807,7 @@ FloatingWindow {
                                         };
                                         return [
                                             { label: Tr.t("Held"), value: String((root.heldSystemKeys || []).length + (SettingsData.updaterIgnoredPackages || []).length) },
-                                            { label: "End-of-life", value: String((root.eolRefs || []).length) },
+                                            { label: "End-of-life", value: String(win.eolActive.length) },
                                             { label: Tr.t("Automatic updates"), value: autoLabels[root.autoUpdateMode] || Tr.t("Off") },
                                             { label: "Dux Software Depot", value: win.pluginManifest.version ? "v" + win.pluginManifest.version : "" }
                                         ].filter(row => row.value !== "");

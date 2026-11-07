@@ -588,5 +588,11 @@
     "This list may be incomplete.": "Цей список може бути неповним.",
     "Restart the shell to finish the update": "Перезапустіть оболонку, щоб завершити оновлення",
     "Until then, part of the plugin still runs the previous version.": "Доти частина плагіна працює в попередній версії.",
-    "Restart shell": "Перезапустити оболонку"
+    "Restart shell": "Перезапустити оболонку",
+    "Really remove?": "Справді вилучити?",
+    "Ignore": "Ігнорувати",
+    "Could not remove %1: %2": "Не вдалося вилучити %1: %2",
+    "Ignored end-of-life software": "Ігнороване ПЗ без підтримки",
+    "These stay installed and are no longer mentioned.": "Вони залишаться встановленими й більше не згадуватимуться.",
+    "Show again": "Показати знову"
 }

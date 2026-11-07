@@ -588,5 +588,11 @@
     "This list may be incomplete.": "Listan kan vara ofullständig.",
     "Restart the shell to finish the update": "Starta om skalet för att slutföra uppdateringen",
     "Until then, part of the plugin still runs the previous version.": "Tills dess kör en del av tillägget fortfarande den tidigare versionen.",
-    "Restart shell": "Starta om skalet"
+    "Restart shell": "Starta om skalet",
+    "Really remove?": "Ta bort på riktigt?",
+    "Ignore": "Ignorera",
+    "Could not remove %1: %2": "Det gick inte att ta bort %1: %2",
+    "Ignored end-of-life software": "Ignorerad programvara utan underhåll",
+    "These stay installed and are no longer mentioned.": "De förblir installerade och nämns inte längre.",
+    "Show again": "Visa igen"
 }

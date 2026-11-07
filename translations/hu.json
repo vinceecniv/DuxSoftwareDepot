@@ -588,5 +588,11 @@
     "This list may be incomplete.": "Ez a lista hiányos lehet.",
     "Restart the shell to finish the update": "Indítsa újra a héjat a frissítés befejezéséhez",
     "Until then, part of the plugin still runs the previous version.": "Addig a bővítmény egy része még az előző verziót futtatja.",
-    "Restart shell": "Héj újraindítása"
+    "Restart shell": "Héj újraindítása",
+    "Really remove?": "Biztosan eltávolítja?",
+    "Ignore": "Mellőzés",
+    "Could not remove %1: %2": "%1 nem távolítható el: %2",
+    "Ignored end-of-life software": "Mellőzött, életciklusa végén járó szoftverek",
+    "These stay installed and are no longer mentioned.": "Ezek telepítve maradnak, és többé nem kerülnek említésre.",
+    "Show again": "Megjelenítés újra"
 }

@@ -588,5 +588,11 @@
     "This list may be incomplete.": "Esta lista pode estar incompleta.",
     "Restart the shell to finish the update": "Reinicie o shell para concluir a atualização",
     "Until then, part of the plugin still runs the previous version.": "Até lá, parte do plugin ainda executa a versão anterior.",
-    "Restart shell": "Reiniciar o shell"
+    "Restart shell": "Reiniciar o shell",
+    "Really remove?": "Remover mesmo?",
+    "Ignore": "Ignorar",
+    "Could not remove %1: %2": "Não foi possível remover %1: %2",
+    "Ignored end-of-life software": "Software em fim de vida ignorado",
+    "These stay installed and are no longer mentioned.": "Permanecem instalados e já não são mencionados.",
+    "Show again": "Mostrar novamente"
 }

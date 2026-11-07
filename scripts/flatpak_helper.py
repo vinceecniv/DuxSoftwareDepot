@@ -21,6 +21,12 @@ Usage:  flatpak_helper.py update [appid ...]
         installed; one JSON object)
         flatpak_helper.py install-file <path>
         (install it, replacing the installed build; same event stream)
+        flatpak_helper.py eol
+        (installed refs their remote no longer maintains; one JSON array)
+        flatpak_helper.py remove-eol <ref>
+        (uninstall an end-of-life runtime no app uses, with the extensions
+        listed under it, from every installation that has it; same event
+        stream, and it refuses anything else)
 
 System-installation updates authenticate through polkit (the DMS agent shows
 the prompt); no terminal is ever involved. SIGTERM/SIGINT abort the
@@ -602,7 +608,7 @@ def _app_runtime(ref):
     return ""
 
 
-def run_eol_check():
+def eol_entries():
     """Installed refs their remote marks end-of-life (or eol-rebased), one
     entry per thing a person would recognise.
 
@@ -645,6 +651,7 @@ def run_eol_check():
                 "eol": eol or "",
                 "eolRebase": rebase or "",
                 "extensions": [],
+                "extensionRefs": [],
                 "usedBy": [],
             }
     entries = sorted(found.values(), key=lambda e: (e["id"], e["branch"]))
@@ -657,12 +664,88 @@ def run_eol_check():
                        and entry["branch"].startswith(p["branch"])), None)
         if parent:
             parent["extensions"].append(entry["appName"])
+            parent["extensionRefs"].append(entry["ref"])
             continue
         if entry["kind"] == "runtime":
             arch = entry["ref"].split("/")[2] if entry["ref"].count("/") >= 3 else ""
             entry["usedBy"] = sorted(users.get(f"{entry['id']}/{arch}/{entry['branch']}", ()))
         out.append(entry)
-    print(json.dumps(out), flush=True)
+    return out
+
+
+def run_eol_check():
+    print(json.dumps(eol_entries()), flush=True)
+
+
+def _held_by(installation, ref_str):
+    kind, name, arch, branch = (ref_str.split("/") + ["", "", "", ""])[:4]
+    ref_kind = Flatpak.RefKind.RUNTIME if kind == "runtime" else Flatpak.RefKind.APP
+    try:
+        installation.get_installed_ref(ref_kind, name, arch, branch, None)
+        return True
+    except GLib.Error:
+        return False
+
+
+def run_remove_eol(ref_str):
+    """Uninstall one end-of-life runtime. The full ref, because an id alone
+    does not say which branch goes when a newer one sits beside it.
+
+    Whether it may go is decided here and now rather than taken from the
+    banner, whose list is as old as the last check: an app installed since
+    then has made it a runtime in use."""
+    def refuse(message):
+        emit({"event": "error", "message": message})
+        emit({"event": "done", "ok": False, "failed": [appid_of(ref_str)]})
+        sys.exit(1)
+
+    entry = next((e for e in eol_entries() if e["ref"] == ref_str), None)
+    if entry is None:
+        refuse("%s is not an installed end-of-life ref" % ref_str)
+    if entry["kind"] != "runtime":
+        refuse("%s is not a runtime" % ref_str)
+    if entry["usedBy"]:
+        refuse("%s is still used by %s" % (ref_str, ", ".join(entry["usedBy"])))
+
+    cancellable = Gio.Cancellable()
+    signal.signal(signal.SIGTERM, lambda *_: cancellable.cancel())
+    signal.signal(signal.SIGINT, lambda *_: cancellable.cancel())
+    failed = []
+
+    def on_new_operation(transaction, op, progress):
+        emit({"event": "op-start", "ref": op.get_ref(), "appid": appid_of(op.get_ref())})
+
+    def on_operation_done(transaction, op, commit, result):
+        emit({"event": "op-done", "ref": op.get_ref(), "appid": appid_of(op.get_ref())})
+
+    def on_operation_error(transaction, op, error, details):
+        failed.append(appid_of(op.get_ref()))
+        emit({"event": "op-error", "ref": op.get_ref(), "appid": appid_of(op.get_ref()),
+              "message": error.message if error else "unknown error"})
+        return False
+
+    targets = [ref_str] + entry["extensionRefs"]
+    for installation, label in _installations():
+        refs = [ref for ref in targets if _held_by(installation, ref)]
+        if not refs:
+            continue
+        try:
+            txn = Flatpak.Transaction.new_for_installation(installation, cancellable)
+            txn.connect("new-operation", on_new_operation)
+            txn.connect("operation-done", on_operation_done)
+            txn.connect("operation-error", on_operation_error)
+            for ref in refs:
+                txn.add_uninstall(ref)
+            txn.run(cancellable)
+        except GLib.Error as err:
+            if err.matches(Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED):
+                emit({"event": "done", "ok": False, "cancelled": True, "failed": failed})
+                sys.exit(130)
+            emit({"event": "error", "message": err.message})
+            if label not in failed:
+                failed.append(label)
+    emit({"event": "done", "ok": not failed, "failed": failed})
+    sys.exit(0 if not failed else 1)
 
 
 def main():
@@ -674,6 +757,9 @@ def main():
         return
     if len(sys.argv) >= 2 and sys.argv[1] == "eol":
         run_eol_check()
+        return
+    if len(sys.argv) >= 3 and sys.argv[1] == "remove-eol":
+        run_remove_eol(sys.argv[2])
         return
     if len(sys.argv) >= 3 and sys.argv[1] == "inspect-file":
         run_inspect_file(sys.argv[2])

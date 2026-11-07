@@ -12,7 +12,7 @@ These helpers implement the protocol today:
 | `scripts/ostree_helper.py` | rpm-ostree (command line) | atomic Fedora: layering, removal and whole-deployment upgrades |
 | `scripts/apt_helper.py` | python-apt (python3-apt) | deb install / remove / upgrade / downgrade / plan |
 | `scripts/pacman_helper.py` | pyalpm | pacman install / remove / upgrade / plan (official repos only, no AUR) |
-| `scripts/flatpak_helper.py` | libflatpak (gi) | flatpak update / install (+ eol listing) |
+| `scripts/flatpak_helper.py` | libflatpak (gi) | flatpak update / install (+ eol listing and removal) |
 
 `Backend.qml` picks the transaction helper from the detected distro
 family (`/etc/os-release`). The protocol is deliberately package-

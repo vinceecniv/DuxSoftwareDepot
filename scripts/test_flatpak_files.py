@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Installing a .flatpak bundle or a .flatpakref, against the real libflatpak.
+"""Installing a .flatpak bundle or a .flatpakref, and removing an end-of-life
+runtime, against the real libflatpak.
 
 A stand-in would only repeat what the helper assumes about libflatpak, and
 what #41 needs answered is what libflatpak does with these files: whether a
@@ -153,6 +154,76 @@ code, out = helper("inspect-file", str(junk))
 check("is refused by inspect", out[0].get("ok") if out else None, False)
 code, out = helper("install-file", str(junk))
 check("and by install, with an error", (code, out[0].get("event") if out else None), (1, "error"))
+
+print("An end-of-life runtime")
+
+
+def old_runtime(name, branch, eol=True):
+    tree = tmp / ("rt-%s-%s" % (name, branch))
+    (tree / "usr").mkdir(parents=True)
+    (tree / "metadata").write_text(
+        "[Runtime]\nname=%s\nruntime=%s/x86_64/%s\nsdk=%s/x86_64/%s\n" % (name, name, branch, name, branch))
+    marker = ["--end-of-life=no longer maintained"] if eol else []
+    sh("flatpak", "build-export", "--runtime", "--files=usr", *marker, str(repo), str(tree), branch)
+    return "runtime/%s/x86_64/%s" % (name, branch)
+
+
+def everything():
+    out = []
+    for where in ("--user", "--system"):
+        listed = subprocess.run(["flatpak", where, "list", "--columns=ref"], env=env,
+                                capture_output=True, text=True).stdout
+        out += [where[2:] + " " + line for line in listed.split()]
+    return sorted(out)
+
+
+unused = old_runtime("org.dsd.Unused", "1")
+extension = old_runtime("org.dsd.Unused.Extra", "1")
+newer = old_runtime("org.dsd.Unused", "2", eol=False)
+used = old_runtime("org.dsd.Used", "1")
+user_app = tmp / "app-used"
+(user_app / "files/bin").mkdir(parents=True)
+(user_app / "export").mkdir()
+(user_app / "files/bin/hello").write_text("#!/bin/sh\n")
+(user_app / "metadata").write_text(
+    "[Application]\nname=org.dsd.UsedApp\nruntime=org.dsd.Used/x86_64/1\ncommand=hello\n")
+sh("flatpak", "build-export", str(repo), str(user_app), "stable")
+# A system installation is only created by the system helper or by root, so
+# the throwaway one needs its repository made by hand. Where ostree is not
+# around, the runtime just lives in the user installation alone.
+both = shutil.which("ostree") is not None
+wanted = [("--user", "org.dsd.Unused", "1"), ("--user", "org.dsd.Unused.Extra", "1"),
+          ("--user", "org.dsd.Unused", "2"), ("--user", "org.dsd.UsedApp", "stable")]
+if both:
+    sh("ostree", "--repo=" + str(tmp / "system/repo"), "init", "--mode=bare-user-only")
+    sh("flatpak", "--system", "remote-add", "--no-gpg-verify", "localtest", "file://" + str(repo))
+    wanted.append(("--system", "org.dsd.Unused", "1"))
+for where, name, branch in wanted:
+    sh("flatpak", where, "install", "-y", "--noninteractive", "localtest", "%s//%s" % (name, branch))
+
+proc = subprocess.run([sys.executable, str(HELPER), "eol"], env=env, capture_output=True, text=True)
+eol = {entry["ref"]: entry for entry in json.loads(proc.stdout or "[]")}
+check("is listed with its extension folded in", eol.get(unused, {}).get("extensionRefs"), [extension])
+check("and no app using it", eol.get(unused, {}).get("usedBy"), [])
+check("the one an app runs on says so", eol.get(used, {}).get("usedBy"), ["org.dsd.UsedApp"])
+
+code, out = helper("remove-eol", used)
+check("is refused while an app runs on it", (code, out[0].get("event") if out else None), (1, "error"))
+check("which leaves it there", "user org.dsd.Used/x86_64/1" in everything(), True)
+code, out = helper("remove-eol", newer)
+check("a branch that is still maintained is refused", (code, out[0].get("event") if out else None), (1, "error"))
+code, out = helper("remove-eol", "app/org.dsd.TestApp/x86_64/stable")
+check("and so is anything not end-of-life", (code, out[0].get("event") if out else None), (1, "error"))
+
+code, out = helper("remove-eol", unused)
+check("goes when nothing uses it", (code, out[-1].get("ok") if out else None), (0, True))
+left = everything()
+check("from every installation that has it", [line for line in left if line.endswith("org.dsd.Unused/x86_64/1")], [])
+check("with its extension", [line for line in left if "Unused.Extra" in line], [])
+check("and the newer branch beside it stays", "user org.dsd.Unused/x86_64/2" in left, True)
+check("as does the runtime in use", "user org.dsd.Used/x86_64/1" in left, True)
+code, out = helper("remove-eol", unused)
+check("gone is gone: a second try is refused", (code, out[0].get("event") if out else None), (1, "error"))
 
 print()
 if failures:

@@ -588,5 +588,11 @@
     "This list may be incomplete.": "此列表可能不完整。",
     "Restart the shell to finish the update": "重启 shell 以完成更新",
     "Until then, part of the plugin still runs the previous version.": "在此之前，插件的一部分仍在运行旧版本。",
-    "Restart shell": "重启 shell"
+    "Restart shell": "重启 shell",
+    "Really remove?": "确定要移除吗?",
+    "Ignore": "忽略",
+    "Could not remove %1: %2": "无法移除 %1:%2",
+    "Ignored end-of-life software": "已忽略的终止维护软件",
+    "These stay installed and are no longer mentioned.": "它们将保持安装,且不再提示。",
+    "Show again": "重新显示"
 }

@@ -588,5 +588,11 @@
     "This list may be incomplete.": "Deze lijst is mogelijk onvolledig.",
     "Restart the shell to finish the update": "Herstart de shell om de update af te ronden",
     "Until then, part of the plugin still runs the previous version.": "Tot die tijd draait een deel van de plugin nog de vorige versie.",
-    "Restart shell": "Shell herstarten"
+    "Restart shell": "Shell herstarten",
+    "Really remove?": "Echt verwijderen?",
+    "Ignore": "Negeren",
+    "Could not remove %1: %2": "Kan %1 niet verwijderen: %2",
+    "Ignored end-of-life software": "Genegeerde end-of-life-software",
+    "These stay installed and are no longer mentioned.": "Deze blijven geïnstalleerd en worden niet meer vermeld.",
+    "Show again": "Weer tonen"
 }

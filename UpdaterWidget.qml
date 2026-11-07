@@ -473,6 +473,10 @@ PluginComponent {
     // ── End-of-life components (flatpak refs the remote stopped maintaining)
     property var eolRefs: []
 
+    function refreshEol() {
+        eolProcess.running = true;
+    }
+
     Process {
         id: eolProcess
         command: [Backend.python, Qt.resolvedUrl("scripts/flatpak_helper.py").toString().replace("file://", ""), "eol"]

@@ -11,6 +11,13 @@ in-app when the plugin offers its own update.
   ([#43](https://github.com/vinceecniv/DuxSoftwareDepot/issues/43)). On
   DMS 1.x, stay on 1.8.4 or upgrade the shell first.
 
+- **Remove or ignore what the end-of-life notice names.** A runtime no app
+  uses any more can be removed from the notice itself, with its extensions
+  and only that version. *Ignore* keeps it, and anything else the notice
+  names, without mentioning it again; *Plugin Settings* lists what you
+  ignored and can bring it back
+  ([#44](https://github.com/vinceecniv/DuxSoftwareDepot/issues/44)).
+
 ## 1.8.4 — 2026-11-06
 
 - **The plugin no longer offers an update your shell cannot load.** The

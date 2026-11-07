@@ -588,5 +588,11 @@
     "This list may be incomplete.": "Danh sách này có thể chưa đầy đủ.",
     "Restart the shell to finish the update": "Khởi động lại shell để hoàn tất cập nhật",
     "Until then, part of the plugin still runs the previous version.": "Cho đến lúc đó, một phần của plugin vẫn chạy phiên bản trước.",
-    "Restart shell": "Khởi động lại shell"
+    "Restart shell": "Khởi động lại shell",
+    "Really remove?": "Thực sự gỡ bỏ?",
+    "Ignore": "Bỏ qua",
+    "Could not remove %1: %2": "Không thể gỡ bỏ %1: %2",
+    "Ignored end-of-life software": "Phần mềm hết hỗ trợ đã bỏ qua",
+    "These stay installed and are no longer mentioned.": "Chúng vẫn được cài đặt và sẽ không được nhắc đến nữa.",
+    "Show again": "Hiện lại"
 }

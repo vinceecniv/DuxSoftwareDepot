@@ -588,5 +588,11 @@
     "This list may be incomplete.": "이 목록은 불완전할 수 있습니다.",
     "Restart the shell to finish the update": "업데이트를 마치려면 셸을 다시 시작하세요",
     "Until then, part of the plugin still runs the previous version.": "그때까지 플러그인 일부는 이전 버전으로 실행됩니다.",
-    "Restart shell": "셸 다시 시작"
+    "Restart shell": "셸 다시 시작",
+    "Really remove?": "정말 제거할까요?",
+    "Ignore": "무시",
+    "Could not remove %1: %2": "%1을(를) 제거할 수 없습니다: %2",
+    "Ignored end-of-life software": "무시한 지원 종료 소프트웨어",
+    "These stay installed and are no longer mentioned.": "설치된 상태로 유지되며 더 이상 표시되지 않습니다.",
+    "Show again": "다시 표시"
 }

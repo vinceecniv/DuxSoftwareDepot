@@ -588,5 +588,11 @@
     "This list may be incomplete.": "この一覧は不完全な可能性があります。",
     "Restart the shell to finish the update": "更新を完了するにはシェルを再起動してください",
     "Until then, part of the plugin still runs the previous version.": "それまでは、プラグインの一部が以前のバージョンのまま動作します。",
-    "Restart shell": "シェルを再起動"
+    "Restart shell": "シェルを再起動",
+    "Really remove?": "本当に削除しますか?",
+    "Ignore": "無視",
+    "Could not remove %1: %2": "%1 を削除できませんでした: %2",
+    "Ignored end-of-life software": "無視したサポート終了ソフトウェア",
+    "These stay installed and are no longer mentioned.": "これらはインストールされたままで、今後は通知されません。",
+    "Show again": "再表示"
 }

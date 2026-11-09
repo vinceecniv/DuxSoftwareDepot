@@ -594,5 +594,8 @@
     "Could not remove %1: %2": "Không thể gỡ bỏ %1: %2",
     "Ignored end-of-life software": "Phần mềm hết hỗ trợ đã bỏ qua",
     "These stay installed and are no longer mentioned.": "Chúng vẫn được cài đặt và sẽ không được nhắc đến nữa.",
-    "Show again": "Hiện lại"
+    "Show again": "Hiện lại",
+    "fwupd is not installed, so there is no firmware to show. Install the fwupd package, then try again.": "fwupd chưa được cài đặt nên không có firmware nào để hiển thị. Hãy cài gói fwupd rồi thử lại.",
+    "fwupd could not read the device list.": "fwupd không đọc được danh sách thiết bị.",
+    "Try again": "Thử lại"
 }

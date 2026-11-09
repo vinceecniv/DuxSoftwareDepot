@@ -22,6 +22,9 @@ Item {
 
     property var devices: []         // {deviceId, name, vendor, version, updatable, plugin}
     property bool loading: true
+    // Why there is no list: "missing" when fwupd is not installed, else
+    // fwupd's own message. Empty while the list is fine.
+    property string error: ""
     property var releasesByDevice: ({})  // deviceId -> [{version, notesHtml}] | "loading"
 
     Component.onCompleted: {
@@ -31,6 +34,7 @@ Item {
 
     function reload() {
         loading = true;
+        error = "";
         devicesProcess.running = true;
     }
 
@@ -109,13 +113,19 @@ Item {
 
     Process {
         id: devicesProcess
-        command: ["fwupdmgr", "get-devices", "--json"]
+        // Through sh, so a missing fwupdmgr still ends in onExited: a binary
+        // that cannot be started gets neither that nor onStreamFinished, and
+        // the spinner below turned forever (fwupd is optional on Arch)
+        command: ["sh", "-c", "command -v fwupdmgr >/dev/null 2>&1 || exit 127; exec fwupdmgr get-devices --json"]
 
         stdout: StdioCollector {
             onStreamFinished: {
                 const found = [];
                 try {
                     const data = JSON.parse(text);
+                    // With --json, fwupd reports a failure on stdout too
+                    if (data.Error)
+                        view.error = data.Error.Message || "error";
                     for (const dev of data.Devices || []) {
                         if (!dev.Name)
                             continue;
@@ -139,6 +149,15 @@ Item {
                 view.devices = found;
                 view.loading = false;
             }
+        }
+
+        onExited: (exitCode, exitStatus) => {
+            if (exitCode === 127)
+                view.error = "missing";
+            // 2 is fwupd's "nothing to do"
+            else if (exitCode !== 0 && exitCode !== 2 && view.error === "")
+                view.error = "error";
+            view.loading = false;
         }
     }
 
@@ -232,7 +251,7 @@ Item {
 
         StyledText {
             Layout.fillWidth: true
-            visible: !view.loading
+            visible: !view.loading && view.error === ""
             text: Tr.t("%1 devices · %2 support firmware updates (fwupd/LVFS)").arg(view.devices.length).arg(view.updatableCount)
             font.pixelSize: Theme.fontSizeSmall - 1
             color: Theme.surfaceVariantText
@@ -246,7 +265,7 @@ Item {
             color: "transparent"
             border.width: 0
             clip: true
-            visible: !view.loading
+            visible: !view.loading && view.error === ""
 
             DListView {
                 id: deviceList
@@ -560,6 +579,56 @@ Item {
                 }
             }
         }
+        }
+
+        // No list to show: fwupd is not installed, or it answered with an
+        // error. Said, rather than an empty list that reads as "no devices".
+        Item {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: !view.loading && view.error !== ""
+
+            Column {
+                anchors.centerIn: parent
+                width: Math.min(parent.width - Theme.spacingL * 2, 460)
+                spacing: Theme.spacingM
+
+                DIcon {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    name: view.error === "missing" ? "memory" : "error"
+                    size: 40
+                    color: Theme.surfaceVariantText
+                }
+
+                StyledText {
+                    width: parent.width
+                    horizontalAlignment: Text.AlignHCenter
+                    text: view.error === "missing" ? Tr.t("fwupd is not installed, so there is no firmware to show. Install the fwupd package, then try again.") : Tr.t("fwupd could not read the device list.")
+                    font.pixelSize: Theme.fontSizeMedium
+                    color: Theme.surfaceText
+                    wrapMode: Text.WordWrap
+                }
+
+                SelectableText {
+                    width: parent.width
+                    visible: view.error !== "missing" && view.error !== "error"
+                    horizontalAlignment: Text.AlignHCenter
+                    text: view.error
+                    font.pixelSize: Theme.fontSizeSmall
+                    color: Theme.surfaceVariantText
+                    wrapMode: Text.WordWrap
+                }
+
+                DButton {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    buttonHeight: 32
+                    horizontalPadding: Theme.spacingM
+                    text: Tr.t("Try again")
+                    backgroundColor: Theme.buttonBg
+                    textColor: Theme.buttonText
+                    onClicked: view.reload()
+                }
+            }
         }
 
         Item {

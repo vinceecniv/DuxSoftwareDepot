@@ -594,5 +594,8 @@
     "Could not remove %1: %2": "Nie można usunąć %1: %2",
     "Ignored end-of-life software": "Ignorowane oprogramowanie bez wsparcia",
     "These stay installed and are no longer mentioned.": "Pozostają zainstalowane i nie są już wymieniane.",
-    "Show again": "Pokaż ponownie"
+    "Show again": "Pokaż ponownie",
+    "fwupd is not installed, so there is no firmware to show. Install the fwupd package, then try again.": "fwupd nie jest zainstalowany, więc nie ma oprogramowania układowego do pokazania. Zainstaluj pakiet fwupd i spróbuj ponownie.",
+    "fwupd could not read the device list.": "fwupd nie mógł odczytać listy urządzeń.",
+    "Try again": "Spróbuj ponownie"
 }

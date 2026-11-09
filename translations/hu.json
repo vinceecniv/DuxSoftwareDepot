@@ -594,5 +594,8 @@
     "Could not remove %1: %2": "%1 nem távolítható el: %2",
     "Ignored end-of-life software": "Mellőzött, életciklusa végén járó szoftverek",
     "These stay installed and are no longer mentioned.": "Ezek telepítve maradnak, és többé nem kerülnek említésre.",
-    "Show again": "Megjelenítés újra"
+    "Show again": "Megjelenítés újra",
+    "fwupd is not installed, so there is no firmware to show. Install the fwupd package, then try again.": "Az fwupd nincs telepítve, így nincs megjeleníthető firmware. Telepítsd az fwupd csomagot, majd próbáld újra.",
+    "fwupd could not read the device list.": "Az fwupd nem tudta beolvasni az eszközlistát.",
+    "Try again": "Újra"
 }

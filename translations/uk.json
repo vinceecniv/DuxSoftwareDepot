@@ -594,5 +594,8 @@
     "Could not remove %1: %2": "Не вдалося вилучити %1: %2",
     "Ignored end-of-life software": "Ігнороване ПЗ без підтримки",
     "These stay installed and are no longer mentioned.": "Вони залишаться встановленими й більше не згадуватимуться.",
-    "Show again": "Показати знову"
+    "Show again": "Показати знову",
+    "fwupd is not installed, so there is no firmware to show. Install the fwupd package, then try again.": "fwupd не встановлено, тому немає мікропрограм для показу. Встановіть пакет fwupd і спробуйте ще раз.",
+    "fwupd could not read the device list.": "fwupd не вдалося прочитати список пристроїв.",
+    "Try again": "Спробувати ще раз"
 }

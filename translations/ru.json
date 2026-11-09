@@ -594,5 +594,8 @@
     "Could not remove %1: %2": "Не удалось удалить %1: %2",
     "Ignored end-of-life software": "Игнорируемое ПО без поддержки",
     "These stay installed and are no longer mentioned.": "Они останутся установленными и больше не будут упоминаться.",
-    "Show again": "Показать снова"
+    "Show again": "Показать снова",
+    "fwupd is not installed, so there is no firmware to show. Install the fwupd package, then try again.": "fwupd не установлен, поэтому показать прошивки нечего. Установите пакет fwupd и попробуйте снова.",
+    "fwupd could not read the device list.": "fwupd не удалось прочитать список устройств.",
+    "Try again": "Повторить"
 }

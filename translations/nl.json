@@ -594,5 +594,8 @@
     "Could not remove %1: %2": "Kan %1 niet verwijderen: %2",
     "Ignored end-of-life software": "Genegeerde end-of-life-software",
     "These stay installed and are no longer mentioned.": "Deze blijven geïnstalleerd en worden niet meer vermeld.",
-    "Show again": "Weer tonen"
+    "Show again": "Weer tonen",
+    "fwupd is not installed, so there is no firmware to show. Install the fwupd package, then try again.": "fwupd is niet geïnstalleerd, dus er is geen firmware om te tonen. Installeer het pakket fwupd en probeer het opnieuw.",
+    "fwupd could not read the device list.": "fwupd kon de apparatenlijst niet lezen.",
+    "Try again": "Opnieuw proberen"
 }

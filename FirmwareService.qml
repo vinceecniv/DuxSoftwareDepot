@@ -139,7 +139,9 @@ Item {
 
     Process {
         id: checkProcess
-        command: ["fwupdmgr", "get-updates", "--json"]
+        // Through sh: a binary that cannot be started never reaches
+        // onExited, so neither the 127 below nor checking = false happened
+        command: ["sh", "-c", "command -v fwupdmgr >/dev/null 2>&1 || exit 127; exec fwupdmgr get-updates --json"]
 
         stdout: StdioCollector {
             onStreamFinished: svc._parse(text)
@@ -147,7 +149,7 @@ Item {
 
         onExited: (exitCode, exitStatus) => {
             svc.checking = false;
-            // 127/-1: binary missing → disable quietly. fwupd exits 2 for
+            // 127: binary missing → disable quietly. fwupd exits 2 for
             // "nothing to do", which is fine.
             if (exitCode === 127) {
                 svc.available = false;

@@ -594,5 +594,8 @@
     "Could not remove %1: %2": "%1 を削除できませんでした: %2",
     "Ignored end-of-life software": "無視したサポート終了ソフトウェア",
     "These stay installed and are no longer mentioned.": "これらはインストールされたままで、今後は通知されません。",
-    "Show again": "再表示"
+    "Show again": "再表示",
+    "fwupd is not installed, so there is no firmware to show. Install the fwupd package, then try again.": "fwupd がインストールされていないため、表示するファームウェアがありません。fwupd パッケージをインストールしてから、もう一度お試しください。",
+    "fwupd could not read the device list.": "fwupd はデバイス一覧を読み取れませんでした。",
+    "Try again": "再試行"
 }

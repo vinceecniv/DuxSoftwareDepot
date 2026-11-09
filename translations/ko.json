@@ -594,5 +594,8 @@
     "Could not remove %1: %2": "%1을(를) 제거할 수 없습니다: %2",
     "Ignored end-of-life software": "무시한 지원 종료 소프트웨어",
     "These stay installed and are no longer mentioned.": "설치된 상태로 유지되며 더 이상 표시되지 않습니다.",
-    "Show again": "다시 표시"
+    "Show again": "다시 표시",
+    "fwupd is not installed, so there is no firmware to show. Install the fwupd package, then try again.": "fwupd가 설치되어 있지 않아 표시할 펌웨어가 없습니다. fwupd 패키지를 설치한 후 다시 시도하세요.",
+    "fwupd could not read the device list.": "fwupd가 장치 목록을 읽지 못했습니다.",
+    "Try again": "다시 시도"
 }

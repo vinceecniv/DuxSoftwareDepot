@@ -594,5 +594,8 @@
     "Could not remove %1: %2": "Det gick inte att ta bort %1: %2",
     "Ignored end-of-life software": "Ignorerad programvara utan underhåll",
     "These stay installed and are no longer mentioned.": "De förblir installerade och nämns inte längre.",
-    "Show again": "Visa igen"
+    "Show again": "Visa igen",
+    "fwupd is not installed, so there is no firmware to show. Install the fwupd package, then try again.": "fwupd är inte installerat, så det finns ingen firmware att visa. Installera paketet fwupd och försök sedan igen.",
+    "fwupd could not read the device list.": "fwupd kunde inte läsa enhetslistan.",
+    "Try again": "Försök igen"
 }

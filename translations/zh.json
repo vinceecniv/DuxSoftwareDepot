@@ -594,5 +594,8 @@
     "Could not remove %1: %2": "无法移除 %1:%2",
     "Ignored end-of-life software": "已忽略的终止维护软件",
     "These stay installed and are no longer mentioned.": "它们将保持安装,且不再提示。",
-    "Show again": "重新显示"
+    "Show again": "重新显示",
+    "fwupd is not installed, so there is no firmware to show. Install the fwupd package, then try again.": "未安装 fwupd，因此没有可显示的固件。请安装 fwupd 软件包，然后重试。",
+    "fwupd could not read the device list.": "fwupd 无法读取设备列表。",
+    "Try again": "重试"
 }

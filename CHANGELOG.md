@@ -18,6 +18,17 @@ in-app when the plugin offers its own update.
   ignored and can bring it back
   ([#44](https://github.com/vinceecniv/DuxSoftwareDepot/issues/44)).
 
+- **The Firmware tab says why it has no list.** Without fwupd installed
+  it showed "Reading device list…" forever. It now says fwupd is missing,
+  or shows the error fwupd gave, with a button to try again
+  ([#46](https://github.com/vinceecniv/DuxSoftwareDepot/issues/46)).
+
+- **Notifications no longer need libnotify.** They go through the shell's
+  own `dms notify` instead of `notify-send`, which was not a listed
+  dependency, so without it notifications were silently lost
+  ([#34](https://github.com/vinceecniv/DuxSoftwareDepot/pull/34), thanks
+  to @hthienloc).
+
 ## 1.8.4 — 2026-11-06
 
 - **The plugin no longer offers an update your shell cannot load.** The

@@ -760,8 +760,10 @@ PluginComponent {
 
     // One desktop notification, from the two places that have something to
     // announce. Clicking the body (action "default") or the Open button opens
-    // the window: notify-send --action waits and prints the chosen action, and
-    // the detached shell turns that into the plugin's own IPC call.
+    // the window: dms notify --action waits and prints the chosen action, and
+    // the detached shell turns that into the plugin's own IPC call. dms
+    // notify rather than notify-send, which needs libnotify: the shell is
+    // there by definition, and from 2.0 on it takes the same flags (#34).
     // ── Updated in place, shell not restarted yet
     //
     // The shell updates the plugin while it runs, and until it restarts,
@@ -828,7 +830,7 @@ PluginComponent {
         // A click opens the window, or with onClick "restart", restarts the
         // shell
         const restart = onClick === "restart";
-        Quickshell.execDetached(["sh", "-c", "if [ -n \"$4\" ]; then chosen=$(notify-send -a 'Dux Software Depot' -i \"$1\" -A default=\"$2\" \"$3\" \"$4\"); else chosen=$(notify-send -a 'Dux Software Depot' -i \"$1\" -A default=\"$2\" \"$3\"); fi; [ -n \"$chosen\" ] || exit 0; if [ \"$5\" = restart ]; then dms restart; else dms ipc call dankSoftwareDepot open; fi", "notify", iconFile, restart ? Tr.t("Restart shell") : Tr.t("Open"), summary, body || "", restart ? "restart" : ""]);
+        Quickshell.execDetached(["sh", "-c", "if [ -n \"$4\" ]; then chosen=$(dms notify -a 'Dux Software Depot' -i \"$1\" -A default=\"$2\" \"$3\" \"$4\"); else chosen=$(dms notify -a 'Dux Software Depot' -i \"$1\" -A default=\"$2\" \"$3\"); fi; [ -n \"$chosen\" ] || exit 0; if [ \"$5\" = restart ]; then dms restart; else dms ipc call dankSoftwareDepot open; fi", "notify", iconFile, restart ? Tr.t("Restart shell") : Tr.t("Open"), summary, body || "", restart ? "restart" : ""]);
     }
 
     // A new version of the plugin deserves the same courtesy as new packages:

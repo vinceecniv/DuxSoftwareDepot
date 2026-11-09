@@ -24,8 +24,12 @@ APP_NAME="Dux Software Depot"
 PATH="$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 export PATH
 
+# Through dms notify once dms is found; the first message is the one that
+# says it was not, so notify-send stays for that, and for a dms that could
+# not deliver it
 say() {
-    if command -v notify-send >/dev/null 2>&1; then
+    if ! { [ -n "$dms_bin" ] && "$dms_bin" notify -a "$APP_NAME" -i dux-software-depot "$APP_NAME" "$1" >/dev/null 2>&1; } &&
+        command -v notify-send >/dev/null 2>&1; then
         notify-send -a "$APP_NAME" -i dux-software-depot "$APP_NAME" "$1"
     fi
     echo "$APP_NAME: $1" >&2

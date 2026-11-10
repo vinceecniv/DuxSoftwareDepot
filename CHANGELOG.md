@@ -3,6 +3,15 @@
 Release notes per version. The section for the latest version is shown
 in-app when the plugin offers its own update.
 
+## 1.8.5 — 2026-11-10
+
+- **Large updates no longer bring the shell down.** With the window open
+  during a run of about 150 packages or more, the shell's memory ran away
+  — past 11 GB within minutes — until the system crawled and the kernel
+  stopped the shell. Every package that started or finished rebuilt every
+  row of the groups it moved between; now only the row that moves is
+  touched, and a replayed run of 161 packages stays under 900 MB.
+
 ## 1.8.4 — 2026-11-06
 
 - **The plugin no longer offers an update your shell cannot load.** The

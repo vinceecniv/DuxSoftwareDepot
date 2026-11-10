@@ -156,9 +156,32 @@ Item {
             appimageRepoProcess.running = true;
         }
 
+        // Stays open with the progress while it removes, and closes once it
+        // has; cancelled at the password prompt or failed, it stays open
+        // with the button back, rather than closing on a removal that did
+        // not happen. The view clears busyAction before it announces
+        // success, so the reset waits until that has been heard.
+        property string uninstallingId: ""
+
+        Connections {
+            target: view
+
+            function onSoftwareMutated() {
+                if (detailsDialog.uninstallingId === "")
+                    return;
+                detailsDialog.uninstallingId = "";
+                detailsDialog.close();
+            }
+
+            function onBusyActionChanged() {
+                if (view.busyAction === "")
+                    Qt.callLater(() => detailsDialog.uninstallingId = "");
+            }
+        }
+
         onUninstallRequested: {
             const target = entry;
-            close();
+            uninstallingId = target.id;
             if (target.kind === "appimage")
                 view.uninstallAppimage(target.id, target.name);
             else if (target.kind === "flatpak")

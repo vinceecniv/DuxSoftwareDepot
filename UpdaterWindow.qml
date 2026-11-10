@@ -4548,10 +4548,9 @@ FloatingWindow {
             id: securityStrip
             Layout.fillWidth: true
             visible: win.currentTab === 0 && !win.dashboardMode && !win.showingRun && !SystemUpdateService.isChecking && win.effectiveCount > 0 && win.widgetRoot !== null && win.widgetRoot.securityCount > 0
-            readonly property bool heldBack: win.widgetRoot !== null && win.widgetRoot.heldSecurityCount > 0
             implicitHeight: statusStripRow.implicitHeight + Theme.spacingS * 2
             radius: Theme.cornerRadius
-            color: Theme.withAlpha(heldBack ? Ui.failColor : Theme.error, 0.08)
+            color: Theme.withAlpha(Theme.error, 0.08)
 
             RowLayout {
                 id: statusStripRow
@@ -4565,7 +4564,7 @@ FloatingWindow {
                 DIcon {
                     name: "security"
                     size: 18
-                    color: securityStrip.heldBack ? Ui.failColor : Theme.error
+                    color: Ui.failColor
                 }
 
                 // How many of them close a hole. The number was already being
@@ -4580,7 +4579,7 @@ FloatingWindow {
                     }
                     font.pixelSize: Theme.fontSizeSmall
                     font.weight: Font.DemiBold
-                    color: securityStrip.heldBack ? Ui.failColor : Theme.error
+                    color: Ui.failColor
                     elide: Text.ElideRight
                 }
             }
@@ -6329,65 +6328,6 @@ FloatingWindow {
             }
         }
 
-        // ── What Update All would do ────────────────────────────────────────
-        // The resolver's answer, shown before the click rather than after the
-        // password: how much arrives, what nobody asked for, and what leaves.
-        Rectangle {
-            id: planStrip
-
-            Layout.fillWidth: true
-            readonly property var plan: win.engine.previewPlan
-            visible: win.currentTab === 0 && !win.engine.running && win.showUpdateAll && plan !== null
-            implicitHeight: planRow.implicitHeight + Theme.spacingS * 2
-            radius: Theme.cornerRadius
-            color: Theme.withAlpha(plan && plan.removals > 0 ? Theme.warning : Theme.surfaceVariantText, 0.08)
-
-            RowLayout {
-                id: planRow
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
-                anchors.leftMargin: Theme.spacingM
-                anchors.rightMargin: Theme.spacingM
-                spacing: Theme.spacingS
-
-                DIcon {
-                    name: planStrip.plan && planStrip.plan.removals > 0 ? "warning" : "checklist"
-                    size: 16
-                    color: planStrip.plan && planStrip.plan.removals > 0 ? Theme.warning : Theme.surfaceVariantText
-                }
-
-                StyledText {
-                    Layout.fillWidth: true
-                    text: {
-                        const plan = win.engine.previewPlan;
-                        if (!plan)
-                            return "";
-                        const parts = [Tr.t("%1 packages").arg(plan.total), win.engine.formatBytes(plan.downloadBytes)];
-                        if (plan.diskDeltaBytes > 0)
-                            parts.push(Tr.t("+%1 on disk").arg(win.engine.formatBytes(plan.diskDeltaBytes)));
-                        else if (plan.diskDeltaBytes < 0)
-                            parts.push(Tr.t("frees %1").arg(win.engine.formatBytes(-plan.diskDeltaBytes)));
-                        if (plan.extra > 0)
-                            parts.push(Tr.t("%1 pulled in as dependencies").arg(plan.extra));
-                        if (plan.removals > 0)
-                            parts.push(Tr.t("%1 will be removed: %2").arg(plan.removals).arg(plan.removedNames.slice(0, 3).join(", ")));
-                        // Measured here, not guessed: silent while this
-                        // machine has not shown enough runs to have an opinion
-                        const seconds = win.widgetRoot ? win.widgetRoot.estimateRunSeconds(plan.total) : -1;
-                        if (seconds > 0)
-                            parts.push(Tr.t("usually about %1 here").arg(win.engine.formatDuration(seconds)));
-                        return parts.join(" · ");
-                    }
-                    font.pixelSize: Theme.fontSizeSmall - 1
-                    color: Theme.surfaceVariantText
-                    wrapMode: Text.WordWrap
-                    maximumLineCount: 2
-                    elide: Text.ElideRight
-                }
-            }
-        }
-
         StyledText {
             Layout.fillWidth: true
             visible: win.currentTab === 0 && win.hiddenRuntimeCount > 0
@@ -6402,8 +6342,70 @@ FloatingWindow {
             visible: win.currentTab === 0 && win.showUpdateAll
             spacing: Theme.spacingM
 
+            // ── What Update All would do ────────────────────────────────────
+            // The resolver's answer, shown before the click rather than after the
+            // password: how much arrives, what nobody asked for, and what leaves.
+            Rectangle {
+                id: planStrip
+
+                Layout.fillWidth: true
+                // Beside the button it answers, at its height, in the room
+                // the row had left empty (#47)
+                Layout.preferredHeight: Math.max(windowUpdateAllButton.height, planRow.implicitHeight + Theme.spacingS * 2)
+                readonly property var plan: win.engine.previewPlan
+                visible: !win.engine.running && plan !== null
+                radius: Theme.cornerRadius
+                color: Theme.withAlpha(plan && plan.removals > 0 ? Theme.warning : Theme.surfaceVariantText, 0.08)
+
+                RowLayout {
+                    id: planRow
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.leftMargin: Theme.spacingM
+                    anchors.rightMargin: Theme.spacingM
+                    spacing: Theme.spacingS
+
+                    DIcon {
+                        name: planStrip.plan && planStrip.plan.removals > 0 ? "warning" : "checklist"
+                        size: 16
+                        color: planStrip.plan && planStrip.plan.removals > 0 ? Theme.warning : Theme.surfaceVariantText
+                    }
+
+                    StyledText {
+                        Layout.fillWidth: true
+                        text: {
+                            const plan = win.engine.previewPlan;
+                            if (!plan)
+                                return "";
+                            const parts = [Tr.t("%1 packages").arg(plan.total), win.engine.formatBytes(plan.downloadBytes)];
+                            if (plan.diskDeltaBytes > 0)
+                                parts.push(Tr.t("+%1 on disk").arg(win.engine.formatBytes(plan.diskDeltaBytes)));
+                            else if (plan.diskDeltaBytes < 0)
+                                parts.push(Tr.t("frees %1").arg(win.engine.formatBytes(-plan.diskDeltaBytes)));
+                            if (plan.extra > 0)
+                                parts.push(Tr.t("%1 pulled in as dependencies").arg(plan.extra));
+                            if (plan.removals > 0)
+                                parts.push(Tr.t("%1 will be removed: %2").arg(plan.removals).arg(plan.removedNames.slice(0, 3).join(", ")));
+                            // Measured here, not guessed: silent while this
+                            // machine has not shown enough runs to have an opinion
+                            const seconds = win.widgetRoot ? win.widgetRoot.estimateRunSeconds(plan.total) : -1;
+                            if (seconds > 0)
+                                parts.push(Tr.t("usually about %1 here").arg(win.engine.formatDuration(seconds)));
+                            return parts.join(" · ");
+                        }
+                        font.pixelSize: Theme.fontSizeSmall - 1
+                        color: Theme.surfaceVariantText
+                        wrapMode: Text.WordWrap
+                        maximumLineCount: 2
+                        elide: Text.ElideRight
+                    }
+                }
+            }
+
             Item {
                 Layout.fillWidth: true
+                visible: !planStrip.visible
             }
 
             Rectangle {
@@ -6446,7 +6448,10 @@ FloatingWindow {
                     }
 
                     StyledText {
-                        text: windowUpdateAllButton.busyRun ? Tr.t("Cancel") : (Tr.t("Update All") + ((win.widgetRoot && win.widgetRoot.updateSizeText !== "") ? " · " + win.widgetRoot.updateSizeText : ""))
+                        // The estimate only while there is no plan: beside it, the
+                        // resolver's real size, and two sizes side by side
+                        // that disagree (≤ 1.5 GB, 1.1 GB) read as an error
+                        text: windowUpdateAllButton.busyRun ? Tr.t("Cancel") : (Tr.t("Update All") + ((!planStrip.visible && win.widgetRoot && win.widgetRoot.updateSizeText !== "") ? " · " + win.widgetRoot.updateSizeText : ""))
                         font.pixelSize: Theme.fontSizeMedium
                         font.weight: Font.Medium
                         color: Ui.buttonInk(windowUpdateAllButton.kind)

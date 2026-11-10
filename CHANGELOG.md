@@ -23,11 +23,16 @@ in-app when the plugin offers its own update.
   *Uninstall* button too, so an app you no longer use can go while you
   look through your updates. The popup shows the progress and closes when
   it is done; the update then leaves the list
-  ([#48](https://github.com/vinceecniv/DuxSoftwareDepot/issues/48)).
+  ([#48](https://github.com/vinceecniv/DuxSoftwareDepot/issues/48)). In
+  the Installed tab, too, the popup now stays open with the progress
+  instead of closing at once, and stays open when the removal is cancelled
+  or fails.
 
 - **More room for the list.** The bar under the tabs repeated the update
   count and check time from the header, and the size already on *Update
   all*; it now appears only for security fixes, and says just that. The
+  summary of what *Update all* will do sits beside the button instead of
+  on a line of its own, and the button no longer repeats a size. The
   experimental-support notice and the new-Fedora-release banner can be
   dismissed: the notice comes back with the next version of the plugin,
   the banner with the next Fedora release

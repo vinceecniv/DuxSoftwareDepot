@@ -2864,12 +2864,60 @@ FloatingWindow {
     // Each category's rows sit in sectionByCategory, and a category whose
     // contents did not change keeps the very same object — its rows stay
     // built. Only the group a package has just left or entered rebuilds.
+    //
+    // "Rebuilds" was still the whole group, though: its rows were a Repeater
+    // over a plain array, and a Repeater handed a new array destroys every
+    // card and creates them all again. With a few dozen packages nobody
+    // noticed. On 10 November a run of 167 did: every package that started
+    // or finished moved one row between two groups of a hundred and more, so
+    // hundreds of cards were thrown away and rebuilt several times a second,
+    // faster than the shell could free them. It grew past 11 GB within
+    // minutes and the kernel killed it — in the middle of a run. So each
+    // group's rows are a ListModel of their own as well, kept in step the
+    // same way as the groups: a package that moves costs one card leaving
+    // one group and one card arriving in the other.
     property var shownSections: []
     property var sectionByCategory: ({})
+    property var sectionRowModels: ({})
     property string _sectionsSignature: ""
 
     ListModel {
         id: sectionModel
+    }
+
+    Component {
+        id: sectionRowModelComponent
+
+        ListModel {}
+    }
+
+    // Brings a ListModel of {rowId} into the order of `wanted` with as few
+    // inserts, moves and removals as it takes
+    function _syncRowModel(model, wanted) {
+        const keep = new Set(wanted);
+        for (let i = model.count - 1; i >= 0; i--) {
+            if (!keep.has(model.get(i).rowId))
+                model.remove(i, 1);
+        }
+        for (let i = 0; i < wanted.length; i++) {
+            if (i < model.count && model.get(i).rowId === wanted[i])
+                continue;
+            let found = -1;
+            for (let k = i + 1; k < model.count; k++) {
+                if (model.get(k).rowId === wanted[i]) {
+                    found = k;
+                    break;
+                }
+            }
+            if (found >= 0)
+                model.move(found, i, 1);
+            else
+                model.insert(i, {
+                    rowId: wanted[i]
+                });
+        }
+        while (model.count > wanted.length)
+            model.remove(model.count - 1, 1);
     }
 
     function _groupSignature(group) {
@@ -2889,12 +2937,45 @@ FloatingWindow {
         const byCategory = {};
         next.forEach((group, i) => {
             const kept = previous[group.category];
-            byCategory[group.category] = (kept && kept._signature === signatures[i]) ? kept : Object.assign({
-                _signature: signatures[i]
+            if (kept && kept._signature === signatures[i]) {
+                byCategory[group.category] = kept;
+                return;
+            }
+            // A row's id is its key; the same key twice in one group (it
+            // should not happen, but nothing forbids it) gets a suffix
+            // rather than one of the two disappearing
+            const rowIds = [];
+            const rowById = {};
+            for (const row of group.items) {
+                let id = row.key || "";
+                for (let n = 2; rowById[id] !== undefined; n++)
+                    id = (row.key || "") + "#" + n;
+                rowIds.push(id);
+                rowById[id] = row;
+            }
+            byCategory[group.category] = Object.assign({
+                _signature: signatures[i],
+                _rowIds: rowIds,
+                rowById: rowById
             }, group);
         });
+        let models = sectionRowModels;
+        for (const category in byCategory) {
+            if (!models[category]) {
+                if (models === sectionRowModels)
+                    models = Object.assign({}, models);
+                models[category] = sectionRowModelComponent.createObject(win);
+            }
+        }
+        // Before the groups' own model below, which creates the delegates
+        // that look their row model up here
+        if (models !== sectionRowModels)
+            sectionRowModels = models;
+        // Groups first, so a card created by the sync finds its row
         sectionByCategory = byCategory;
         shownSections = next.map(group => byCategory[group.category]);
+        for (const category in models)
+            _syncRowModel(models[category], byCategory[category] ? byCategory[category]._rowIds : []);
         const order = next.map(group => group.category);
         for (let i = 0; i < order.length; i++) {
             if (i < sectionModel.count && sectionModel.get(i).category === order[i])
@@ -5207,17 +5288,20 @@ FloatingWindow {
                         spacing: 2
 
                         Repeater {
-                            model: catContainer.modelData.items || []
+                            model: win.sectionRowModels[catContainer.category] || null
 
                             delegate: UpdateCard {
                                 id: cardItem
-                                required property var modelData
+                                required property string rowId
                                 required property int index
+                                readonly property var modelData: (catContainer.modelData.rowById && catContainer.modelData.rowById[rowId]) || ({
+                                        pkg: { name: "", repo: "system" }
+                                    })
 
                                 Layout.fillWidth: true
                                 active: (updatesDialog.showing && updatesDialog.rowData && updatesDialog.rowData.pkg && modelData.pkg && updatesDialog.rowData.pkg.name === modelData.pkg.name && updatesDialog.rowData.pkg.repo === modelData.pkg.repo)
                                 isSectionFirst: index === 0
-                                isSectionLast: index === (catContainer.modelData.items.length - 1)
+                                isSectionLast: index === ((catContainer.modelData.items || []).length - 1)
                                 showSource: catContainer.modelData.repeatsHeading !== true
                                 shellIconPath: (modelData.pkg && win._isShellPkg(modelData.pkg) && win.widgetRoot) ? win.widgetRoot.dankLogoPath : ""
                                 pkg: modelData.pkg || ({ name: "", repo: "system" })

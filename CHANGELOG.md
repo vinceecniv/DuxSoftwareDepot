@@ -30,7 +30,8 @@ in-app when the plugin offers its own update.
 
 - **More room for the list.** The bar under the tabs repeated the update
   count and check time from the header, and the size already on *Update
-  all*; it now appears only for security fixes, and says just that. The
+  all*; it is gone, and the number of security fixes, the one thing only
+  it said, is now a pill in the header beside the update count. The
   summary of what *Update all* will do sits beside the button instead of
   on a line of its own, and the button no longer repeats a size. The
   experimental-support notice and the new-Fedora-release banner can be

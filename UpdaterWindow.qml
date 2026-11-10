@@ -3593,6 +3593,46 @@ FloatingWindow {
                                 color: win.engine.running ? Theme.primary : (SystemUpdateService.isChecking ? Theme.secondary : Theme.primary)
                             }
                         }
+
+                        // How many of the pending updates close a hole, as a
+                        // pill beside the count. It had a strip of its own
+                        // under the tabs: a whole line of the list for three
+                        // words (#47).
+                        Rectangle {
+                            readonly property int total: win.widgetRoot ? win.widgetRoot.securityCount : 0
+                            readonly property int held: win.widgetRoot ? win.widgetRoot.heldSecurityCount : 0
+                            visible: total > 0 && win.effectiveCount > 0 && !win.engine.running && !SystemUpdateService.isChecking
+                            Layout.preferredHeight: 20
+                            Layout.preferredWidth: securityPillRow.implicitWidth + 16
+                            radius: 10
+                            color: Theme.withAlpha(Theme.error, 0.14)
+
+                            Row {
+                                id: securityPillRow
+                                anchors.centerIn: parent
+                                spacing: 4
+
+                                DIcon {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    name: "security"
+                                    size: 12
+                                    color: Ui.failColor
+                                }
+
+                                StyledText {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: {
+                                        const total = parent.parent.total;
+                                        const held = parent.parent.held;
+                                        const base = total === 1 ? Tr.t("1 security fix") : Tr.t("%1 security fixes").arg(total);
+                                        return held > 0 ? base + " · " + Tr.t("%1 held back").arg(held) : base;
+                                    }
+                                    font.pixelSize: Theme.fontSizeSmall - 2
+                                    font.weight: Font.Medium
+                                    color: Ui.failColor
+                                }
+                            }
+                        }
                     }
 
                     StyledText {
@@ -4539,52 +4579,6 @@ FloatingWindow {
         // each switch to another tab let them spring back — the row you were
         // aiming at moved while you were aiming at it. Underneath, the tabs
         // hold still and the strips take their space from the list instead.
-        // ── Security fixes among the pending updates ────────────────────────
-        // This strip used to repeat the header's count and check time, plus
-        // the download size the Update all button already carries: the
-        // first thing under the tabs said nothing new, and took the list's
-        // room to say it (#47). What is left is the one thing nowhere else.
-        Rectangle {
-            id: securityStrip
-            Layout.fillWidth: true
-            visible: win.currentTab === 0 && !win.dashboardMode && !win.showingRun && !SystemUpdateService.isChecking && win.effectiveCount > 0 && win.widgetRoot !== null && win.widgetRoot.securityCount > 0
-            implicitHeight: statusStripRow.implicitHeight + Theme.spacingS * 2
-            radius: Theme.cornerRadius
-            color: Theme.withAlpha(Theme.error, 0.08)
-
-            RowLayout {
-                id: statusStripRow
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
-                anchors.leftMargin: Theme.spacingM
-                anchors.rightMargin: Theme.spacingM
-                spacing: Theme.spacingM
-
-                DIcon {
-                    name: "security"
-                    size: 18
-                    color: Ui.failColor
-                }
-
-                // How many of them close a hole. The number was already being
-                // worked out and never said out loud.
-                StyledText {
-                    Layout.fillWidth: true
-                    text: {
-                        const total = win.widgetRoot ? win.widgetRoot.securityCount : 0;
-                        const held = win.widgetRoot ? win.widgetRoot.heldSecurityCount : 0;
-                        const base = total === 1 ? Tr.t("1 security fix") : Tr.t("%1 security fixes").arg(total);
-                        return held > 0 ? base + " · " + Tr.t("%1 held back").arg(held) : base;
-                    }
-                    font.pixelSize: Theme.fontSizeSmall
-                    font.weight: Font.DemiBold
-                    color: Ui.failColor
-                    elide: Text.ElideRight
-                }
-            }
-        }
-
         // ── Manual-pass progress (Install all now / single overrides) ──────
         Rectangle {
             Layout.fillWidth: true

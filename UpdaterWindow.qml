@@ -5212,6 +5212,11 @@ FloatingWindow {
             id: cardsList
             Layout.fillWidth: true
             Layout.fillHeight: true
+            // A category heading is 48 high with its text in the middle, so it
+            // brings its own space above it; with the layout's spacing on top
+            // the first heading sat lower than the first thing in the other
+            // tabs. The dashboard has no heading to bring that space.
+            Layout.topMargin: win.dashboardMode ? 0 : -Theme.spacingM
             clip: true
             // A category is set apart by the height of its heading, not by a
             // container around it

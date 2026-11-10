@@ -18,6 +18,21 @@ in-app when the plugin offers its own update.
   ignored and can bring it back
   ([#44](https://github.com/vinceecniv/DuxSoftwareDepot/issues/44)).
 
+- **Uninstall from an update's details.** Clicking an update opens the
+  same kind of popup as in the Installed tab, and now it has the same
+  *Uninstall* button too, so an app you no longer use can go while you
+  look through your updates. The popup shows the progress and closes when
+  it is done; the update then leaves the list
+  ([#48](https://github.com/vinceecniv/DuxSoftwareDepot/issues/48)).
+
+- **More room for the list.** The bar under the tabs repeated the update
+  count and check time from the header, and the size already on *Update
+  all*; it now appears only for security fixes, and says just that. The
+  experimental-support notice and the new-Fedora-release banner can be
+  dismissed: the notice comes back with the next version of the plugin,
+  the banner with the next Fedora release
+  ([#47](https://github.com/vinceecniv/DuxSoftwareDepot/issues/47)).
+
 - **The Firmware tab says why it has no list.** Without fwupd installed
   it showed "Reading device list…" forever. It now says fwupd is missing,
   or shows the error fwupd gave, with a button to try again

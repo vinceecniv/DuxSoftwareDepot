@@ -80,6 +80,15 @@ FloatingWindow {
             // changelog either — the notes exist, just not in the distro
             win.store.fetchGitNotes(base, pkg.fromVersion, pkg.toVersion);
         }
+        // What uninstalling it would take along, as the Installed tab's
+        // popup shows; that tab's resolver answers, so it is loaded for it
+        if (!isFlatpak && !isFirmware && !isPlugin && !isBrew && !isAppImage && !_isShellPkg(pkg)) {
+            installedLoader.active = true;
+            Qt.callLater(() => {
+                if (installedLoader.item)
+                    installedLoader.item.loadRemovalImpact(base);
+            });
+        }
         updatesDialog.rowData = rowData;
         updatesDialog.releases = newer;
         // What brew knows about it — licence, homepage, dependencies, how
@@ -251,11 +260,14 @@ FloatingWindow {
         }
         showUpdateButton: rowPkg !== null && rowPkg.repo !== "firmware" && !win.engine.running && win.singleBusyKey === "" && (rowData.ignored !== true)
         busy: {
+            if (uninstallingId !== "" && rowPkg && uninstallingId === (rowIsRpm ? rowBase : rowPkg.name))
+                return true;
             if (!rowPkg || !win.engine.running)
                 return false;
             const state = win.engine.stateFor(rowPkg);
             return state !== null && state.status === "active";
         }
+        busyDetail: uninstallingId !== "" && installedView ? installedView.mutationProgress : ""
 
         onUpdateRequested: {
             const target = rowData;
@@ -266,6 +278,40 @@ FloatingWindow {
         onHoldToggleRequested: {
             win.setHold(rowPkg, rowData.ignored !== true);
             close();
+        }
+
+        // Uninstall, for whoever looks at an update and thinks "I don't use
+        // that any more" (#48). The Installed tab's view removes it, as from
+        // its own popup; this one stays open with the progress, so the list
+        // being worked through stays where it was. Not for the shell's own
+        // packages, firmware, plugins or formulae: the Installed tab does
+        // not remove those either.
+        property string uninstallingId: ""
+        readonly property var installedView: installedLoader.item
+        readonly property bool rowRemovable: rowPkg !== null && ["1 · Applications", "2 · System packages", "6 · Held packages"].includes(rowData.category || "") && !win._isShellPkg(rowPkg)
+        showUninstall: rowRemovable && !win.engine.running && win.singleBusyKey === "" && (installedView === null || installedView.busyAction === "")
+        alsoRemoves: (rowIsRpm && installedView) ? (installedView.removalImpact[rowBase] || []) : []
+
+        onUninstallRequested: win.uninstallFromUpdates(rowPkg)
+
+        // Removed: the popup closes, and a check takes its update off the
+        // list. Failed or cancelled at the password prompt: it stays open,
+        // with the button back. The view clears busyAction before it
+        // announces success, so the reset waits until that has been heard.
+        Connections {
+            target: updatesDialog.installedView
+
+            function onSoftwareMutated() {
+                if (updatesDialog.uninstallingId === "")
+                    return;
+                SystemUpdateService.checkForUpdates();
+                updatesDialog.close();
+            }
+
+            function onBusyActionChanged() {
+                if (updatesDialog.installedView.busyAction === "")
+                    Qt.callLater(() => updatesDialog.uninstallingId = "");
+            }
         }
     }
 
@@ -305,6 +351,27 @@ FloatingWindow {
             SystemUpdateService.unignorePackage(pkg.name);
         if (win.widgetRoot && win.widgetRoot.actionLogger)
             win.widgetRoot.actionLogger.recordHold(pkg.name, win.store.displayName(pkg), held);
+    }
+
+    // An uninstall started from the Updates tab, done by the Installed tab's
+    // view (loaded for it, not shown)
+    function uninstallFromUpdates(pkg) {
+        const id = pkg.repo === "flatpak" || pkg.repo === "appimage" ? pkg.name : store.stripArch(pkg.name);
+        const name = pkg.displayName || store.displayName(pkg);
+        installedLoader.active = true;
+        // The view may only just have been created
+        Qt.callLater(() => {
+            const view = installedLoader.item;
+            if (!view || view.busyAction !== "")
+                return;
+            updatesDialog.uninstallingId = id;
+            if (pkg.repo === "flatpak")
+                view.uninstallFlatpak(id);
+            else if (pkg.repo === "appimage")
+                view.uninstallAppimage(id, name);
+            else
+                view.uninstallRpm(id, name);
+        });
     }
 
     function _isShellPkg(pkg) {
@@ -546,6 +613,11 @@ FloatingWindow {
     // Dismissed via the banner's X: stays hidden until a yet newer version
     // appears (persisted in pluginData)
     readonly property string selfUpdateDismissedVersion: (widgetRoot && widgetRoot.pluginData) ? (widgetRoot.pluginData.selfUpdateDismissedVersion || "") : ""
+    // The experimental-backend notice, dismissed via its X: back with the
+    // next version of the plugin, which may have changed what it is about
+    readonly property string experimentalDismissedVersion: (widgetRoot && widgetRoot.pluginData) ? (widgetRoot.pluginData.experimentalDismissedVersion || "") : ""
+    // The new-release banner, dismissed via its X for that release only
+    readonly property int distroDismissedRelease: (widgetRoot && widgetRoot.pluginData) ? (widgetRoot.pluginData.distroDismissedRelease || 0) : 0
 
     // End-of-life notices dismissed via their X, per case: the ref, what its
     // remote says about it, and which apps still use it. When any of that
@@ -3823,7 +3895,7 @@ FloatingWindow {
         // ── Experimental-backend notice (Debian/Ubuntu, Arch) ───────────────
         Rectangle {
             Layout.fillWidth: true
-            visible: Backend.backendId !== "dnf"
+            visible: Backend.backendId !== "dnf" && win.experimentalDismissedVersion !== (win.pluginManifest.version || "")
             implicitHeight: aptNoticeRow.implicitHeight + Theme.spacingM * 2
             radius: Theme.cornerRadius
             color: Theme.withAlpha(Theme.secondary, 0.14)
@@ -3866,6 +3938,15 @@ FloatingWindow {
                         textColor: Ui.buttonInk("tonal")
                         onClicked: Qt.openUrlExternally(win.githubUrl + "/issues")
                     }
+                }
+
+                DActionButton {
+                    buttonSize: 28
+                    iconName: "close"
+                    iconSize: 16
+                    iconColor: Theme.surfaceVariantText
+                    tooltipText: Tr.t("Dismiss")
+                    onClicked: PluginService.savePluginData("dankSoftwareDepot", "experimentalDismissedVersion", win.pluginManifest.version || "")
                 }
             }
         }
@@ -4458,13 +4539,19 @@ FloatingWindow {
         // each switch to another tab let them spring back — the row you were
         // aiming at moved while you were aiming at it. Underneath, the tabs
         // hold still and the strips take their space from the list instead.
-        // ── Compact status strip while updates are pending ──────────────────
+        // ── Security fixes among the pending updates ────────────────────────
+        // This strip used to repeat the header's count and check time, plus
+        // the download size the Update all button already carries: the
+        // first thing under the tabs said nothing new, and took the list's
+        // room to say it (#47). What is left is the one thing nowhere else.
         Rectangle {
+            id: securityStrip
             Layout.fillWidth: true
-            visible: win.currentTab === 0 && !win.dashboardMode && !win.showingRun && !SystemUpdateService.isChecking && win.effectiveCount > 0
-            implicitHeight: statusStripRow.implicitHeight + Theme.spacingM * 2
+            visible: win.currentTab === 0 && !win.dashboardMode && !win.showingRun && !SystemUpdateService.isChecking && win.effectiveCount > 0 && win.widgetRoot !== null && win.widgetRoot.securityCount > 0
+            readonly property bool heldBack: win.widgetRoot !== null && win.widgetRoot.heldSecurityCount > 0
+            implicitHeight: statusStripRow.implicitHeight + Theme.spacingS * 2
             radius: Theme.cornerRadius
-            color: Theme.withAlpha(Theme.primary, 0.08)
+            color: Theme.withAlpha(heldBack ? Ui.failColor : Theme.error, 0.08)
 
             RowLayout {
                 id: statusStripRow
@@ -4475,64 +4562,16 @@ FloatingWindow {
                 anchors.rightMargin: Theme.spacingM
                 spacing: Theme.spacingM
 
-                Rectangle {
-                    Layout.preferredWidth: 26
-                    Layout.preferredHeight: 26
-                    radius: 13
-                    color: Theme.isLightMode ? Theme.primary : "transparent"
-                    visible: stripLogo.status === Image.Ready
-
-                    Image {
-                        anchors.centerIn: parent
-                        width: 20
-                        height: 20
-                        source: stripLogo.source
-                        sourceSize.width: 40
-                        sourceSize.height: 40
-                        fillMode: Image.PreserveAspectFit
-                        asynchronous: true
-                    }
-                }
-
-                Image {
-                    id: stripLogo
-                    visible: false
-                    Layout.preferredWidth: 22
-                    Layout.preferredHeight: 22
-                    source: (win.dashboard && win.dashboard.dankLogo) ? "file://" + win.dashboard.dankLogo : ""
-                    sourceSize.width: 44
-                    sourceSize.height: 44
-                    fillMode: Image.PreserveAspectFit
-                    asynchronous: true
-                }
-
                 DIcon {
-                    visible: stripLogo.status !== Image.Ready
-                    name: "deployed_code_update"
-                    size: 20
-                    color: Theme.primary
-                }
-
-                StyledText {
-                    Layout.fillWidth: true
-                    text: {
-                        const parts = [(win.effectiveCount === 1 ? Tr.t("%1 update available") : Tr.t("%1 updates available")).arg(win.effectiveCount)];
-                        if (win.widgetRoot && win.widgetRoot.updateSizeText !== "")
-                            parts.push(win.widgetRoot.updateSizeText);
-                        const checked = win.lastCheckedText();
-                        if (checked)
-                            parts.push(checked);
-                        return parts.join(" · ");
-                    }
-                    font.pixelSize: Theme.fontSizeSmall
-                    color: Theme.surfaceText
-                    elide: Text.ElideRight
+                    name: "security"
+                    size: 18
+                    color: securityStrip.heldBack ? Ui.failColor : Theme.error
                 }
 
                 // How many of them close a hole. The number was already being
                 // worked out and never said out loud.
                 StyledText {
-                    visible: win.widgetRoot !== null && win.widgetRoot.securityCount > 0
+                    Layout.fillWidth: true
                     text: {
                         const total = win.widgetRoot ? win.widgetRoot.securityCount : 0;
                         const held = win.widgetRoot ? win.widgetRoot.heldSecurityCount : 0;
@@ -4541,7 +4580,8 @@ FloatingWindow {
                     }
                     font.pixelSize: Theme.fontSizeSmall
                     font.weight: Font.DemiBold
-                    color: (win.widgetRoot && win.widgetRoot.heldSecurityCount > 0) ? Ui.failColor : Theme.error
+                    color: securityStrip.heldBack ? Ui.failColor : Theme.error
+                    elide: Text.ElideRight
                 }
             }
         }
@@ -4720,6 +4760,10 @@ FloatingWindow {
             readonly property int release: phase === "ready" ? upgrade.preparedTarget : ((phase === "downloading" || phase === "failed") && upgrade.plan ? upgrade.plan.releasever : latest)
             // Atomic Fedora rebases instead (rpm-ostree), which is not this
             readonly property bool canUpgrade: !Backend.atomic && upgrade !== null && latest > 0
+            // Only an offer can be dismissed; a download under way or one
+            // waiting for its restart is something to act on
+            readonly property bool dismissable: phase === "idle" || phase === "planned"
+            readonly property bool dismissed: dismissable && latest > 0 && latest === win.distroDismissedRelease
             property bool confirmRestart: false
 
             Timer {
@@ -4729,7 +4773,7 @@ FloatingWindow {
             }
 
             Layout.fillWidth: true
-            visible: win.currentTab === 0 && (offered || phase === "downloading" || phase === "ready" || phase === "failed")
+            visible: win.currentTab === 0 && !dismissed && (offered || phase === "downloading" || phase === "ready" || phase === "failed")
             implicitHeight: distroColumn.implicitHeight + Theme.spacingM * 2
             radius: Theme.cornerRadius
             color: phase === "failed" ? Theme.withAlpha(Theme.error, 0.10) : Theme.withAlpha(Theme.primary, 0.10)
@@ -4842,6 +4886,16 @@ FloatingWindow {
                         backgroundColor: distroBanner.canUpgrade ? Ui.buttonFill("tonal", false) : Theme.buttonBg
                         textColor: distroBanner.canUpgrade ? Ui.buttonInk("tonal") : Theme.buttonText
                         onClicked: Qt.openUrlExternally(Backend.atomic ? "https://docs.fedoraproject.org/en-US/fedora-silverblue/updates-upgrades-rollbacks/" : "https://docs.fedoraproject.org/en-US/quick-docs/upgrading-fedora-offline/")
+                    }
+
+                    DActionButton {
+                        visible: distroBanner.dismissable && distroBanner.latest > 0
+                        buttonSize: 28
+                        iconName: "close"
+                        iconSize: 16
+                        iconColor: Theme.surfaceVariantText
+                        tooltipText: Tr.t("Dismiss")
+                        onClicked: PluginService.savePluginData("dankSoftwareDepot", "distroDismissedRelease", distroBanner.latest)
                     }
                 }
 

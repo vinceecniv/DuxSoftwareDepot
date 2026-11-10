@@ -3573,26 +3573,10 @@ FloatingWindow {
                             elide: Text.ElideRight
                         }
 
-                        Rectangle {
-                            visible: win.engine.running || SystemUpdateService.isChecking || win.effectiveCount > 0
-                            Layout.preferredHeight: 20
-                            Layout.preferredWidth: statusBadgeText.implicitWidth + 16
-                            radius: 10
-                            color: win.engine.running
-                                ? Theme.withAlpha(Theme.primary, 0.22)
-                                : (SystemUpdateService.isChecking
-                                    ? Theme.withAlpha(Theme.secondary, 0.2)
-                                    : Theme.withAlpha(Theme.primary, 0.16))
-
-                            StyledText {
-                                id: statusBadgeText
-                                anchors.centerIn: parent
-                                text: win.engine.running ? Tr.t("Updating") : (SystemUpdateService.isChecking ? Tr.t("Checking") : (win.effectiveCount + " " + Tr.t("new")))
-                                font.pixelSize: Theme.fontSizeSmall - 2
-                                font.weight: Font.Medium
-                                color: win.engine.running ? Theme.primary : (SystemUpdateService.isChecking ? Theme.secondary : Theme.primary)
-                            }
-                        }
+                        // No "N new" pill here: the line below says the same,
+                        // with when it was checked, and the two side by side
+                        // were one fact said twice. The pill that stays says
+                        // something only it says.
 
                         // How many of the pending updates close a hole, as a
                         // pill beside the count. It had a strip of its own

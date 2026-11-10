@@ -5,6 +5,13 @@ in-app when the plugin offers its own update.
 
 ## Unreleased
 
+- **Large updates no longer bring the shell down.** With the window open
+  during a run of about 150 packages or more, the shell's memory ran away
+  — past 11 GB within minutes — until the system crawled and the kernel
+  stopped the shell. Every package that started or finished rebuilt every
+  row of the groups it moved between; now only the row that moves is
+  touched, and a replayed run of 161 packages stays under 900 MB.
+
 - **Requires Dux Shell 2.0 or newer.** The plugin now uses the shell's
   current widget names, so it no longer fills the log with deprecation
   errors on 2.x and keeps loading once the old names are removed

@@ -1192,6 +1192,27 @@ def dnf_name_search(query):
     return list(seen.values())
 
 
+def correct_installed_refs(items):
+    """Point a system source at the package that is really installed when
+    the catalog names one that is not (see pkg_backend.installed_app_owners)."""
+    names_by_id = {}
+    for item in items:
+        for source in item.get("sources", []):
+            if source["kind"] == "dnf" and source.get("ref"):
+                names_by_id[item["id"]] = source["ref"]
+    try:
+        owners = pkg_backend.installed_app_owners(names_by_id)
+    except Exception:
+        return
+    for item in items:
+        owner = owners.get(item["id"])
+        if not owner:
+            continue
+        for source in item["sources"]:
+            if source["kind"] == "dnf":
+                source["ref"] = owner
+
+
 def run_search(query):
     paths = catalog_paths()
     fp = fingerprint(paths)
@@ -1239,6 +1260,7 @@ def run_search(query):
         if ref and not any(s_["source"] == source for s_ in item["sources"]):
             item["sources"].append({"source": source, "kind": kind, "ref": ref})
 
+    correct_installed_refs(list(merged.values()))
     covered = {s_["ref"] for item in merged.values() for s_ in item["sources"] if s_["kind"] == "dnf"}
     for pkg in dnf_name_search(query):
         if pkg["name"] in covered or ("pkg:" + pkg["name"].lower()) in merged:
@@ -1775,6 +1797,7 @@ def run_qml_index():
         if ref and not any(s_["source"] == source for s_ in item["sources"]):
             item["sources"].append({"source": source, "kind": kind, "ref": ref})
 
+    correct_installed_refs(list(merged.values()))
     out = []
     used_sections = set()
     for item in merged.values():

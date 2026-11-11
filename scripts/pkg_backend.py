@@ -530,6 +530,59 @@ def _owners_of(paths):
     return pairs
 
 
+def _installed_subset(names):
+    """The names in `names` that are installed packages."""
+    if not names:
+        return set()
+    backend = detect()
+    if backend == "apt":
+        lines = _run_lines(["dpkg-query", "-W", "-f", "${Package} ${db:Status-Status}\n"] + names)
+        return {line.split()[0] for line in lines if line.endswith(" installed")}
+    if backend == "pacman":
+        return {line.strip() for line in _run_lines(["pacman", "-Qq"] + names)} & set(names)
+    # Not installed prints "package X is not installed", on stdout
+    return {line.strip() for line in _run_lines(["rpm", "-q", "--qf", "%{NAME}\n"] + names)} & set(names)
+
+
+APP_FILE_PATTERNS = ("/usr/share/metainfo/%s.metainfo.xml", "/usr/share/metainfo/%s.appdata.xml",
+                     "/usr/share/appdata/%s.appdata.xml", "/usr/share/applications/%s.desktop")
+
+
+def installed_app_owners(names_by_id):
+    """{app id: package} for apps whose catalog names a package that is not
+    installed while the app's own metainfo or desktop file is on disk.
+
+    The catalog's package name is usually right, and then this finds
+    nothing to say. When a package ships a metainfo file naming a package
+    that does not exist (CachyOS's chatgpt-desktop-bin names "chatgpt",
+    #49), the app is installed under a name the catalog never mentions: it
+    showed Install, and Install ran `pacman -S chatgpt`. The package that
+    owns the file is the one that is really there."""
+    # Only apps whose own file is on disk can be installed under another
+    # name, and a stat is all it takes to find them: a few dozen on a
+    # desktop, out of the catalog's thousands. Listing every installed
+    # package to rule the rest out cost ten times as long, on every opening
+    # of the Install tab.
+    path_to_id = {}
+    for app_id in names_by_id:
+        for pattern in APP_FILE_PATTERNS:
+            path = pattern % app_id
+            if app_id and os.path.exists(path):
+                path_to_id[path] = app_id
+                break
+    candidates = {}
+    for path, package in _owners_of(list(path_to_id)):
+        app_id = path_to_id.get(path)
+        if app_id and package != names_by_id.get(app_id):
+            candidates[app_id] = package
+    if not candidates:
+        return {}
+    # A catalog name that is installed too stays: then it is the right one
+    # (a metapackage, say), and the file just lives in a dependency
+    installed = _installed_subset(sorted({names_by_id[app_id] for app_id in candidates}))
+    return {app_id: package for app_id, package in candidates.items() if names_by_id[app_id] not in installed}
+
+
 def desktop_owners():
     """Installed packages that own a launchable desktop entry, with the icon
     and display name from that entry: {package: {icon, name}}."""

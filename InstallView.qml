@@ -20,6 +20,10 @@ Item {
     property int sourceFilter: 0     // 0 all, 1 flathub, 2 fedora
     property string busyAction: ""   // "<ref>" while an install runs
     property string lastInstallResult: ""
+    // The last failed install and why, for the details popup of the app it
+    // was for: sourceKey of the source tried, and the package manager's reason
+    property string failedInstallKey: ""
+    property string failedInstallReason: ""
     property string installProgress: ""  // live phase/percent line while installProcess runs
     property int installStep: 0          // PhaseIndicator step: 0 check, 1 download, 2 install
     property real installFraction: 0     // 0..1 overall progress estimate
@@ -96,6 +100,9 @@ Item {
     }
 
     function openDetails(entry) {
+        // An earlier failure is not news the next time the popup opens
+        failedInstallKey = "";
+        failedInstallReason = "";
         detailsDialog.brewFacts = null;
         detailsDialog.entry = entry;
         detailsDialog.open({
@@ -170,6 +177,7 @@ Item {
         busy: entry ? entry.sources.some(s => s.ref !== "" && view.sourceKey(s) === view.busyAction) : false
         busyDetail: view.installProgress
         busyFraction: view.installFraction
+        errorText: entry && view.failedInstallKey !== "" && entry.sources.some(s => view.sourceKey(s) === view.failedInstallKey) ? view.failedInstallReason : ""
 
         onInstallRequested: source => view.install(source, entry.name, entry.icon || "")
     }
@@ -1045,6 +1053,8 @@ Item {
 
     function _beginInstall(key, label, id, sourceLabel, icon) {
         busyAction = key;
+        failedInstallKey = "";
+        failedInstallReason = "";
         installIcon = icon || "";
         lastInstallResult = "";
         installProcess._label = label;
@@ -1403,6 +1413,10 @@ Item {
         }
 
         onExited: (exitCode, exitStatus) => {
+            if (exitCode !== 0) {
+                view.failedInstallKey = view.busyAction;
+                view.failedInstallReason = Tr.t("Could not install %1").arg(installProcess._label) + ": " + (view._helperError !== "" ? view._helperError : Tr.t("exit %1").arg(exitCode));
+            }
             view.busyAction = "";
             view.installProgress = "";
             view.installStep = 0;

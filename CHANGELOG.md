@@ -18,6 +18,15 @@ in-app when the plugin offers its own update.
   ([#43](https://github.com/vinceecniv/DuxSoftwareDepot/issues/43)). On
   DMS 1.x, stay on 1.8.4 or upgrade the shell first.
 
+- **An app installed under another package name shows as installed.**
+  When a package's own app data names a package that does not exist —
+  CachyOS's ChatGPT names `chatgpt` while the package is
+  `chatgpt-desktop-bin` — the Install tab offered to install it again and
+  failed with "package not found". It now asks which package owns the
+  app's files on disk and uses that one. A failed install also says why
+  in the app's popup itself, where the button used to just look dead
+  ([#49](https://github.com/vinceecniv/DuxSoftwareDepot/issues/49)).
+
 - **Remove or ignore what the end-of-life notice names.** A runtime no app
   uses any more can be removed from the notice itself, with its extensions
   and only that version. *Ignore* keeps it, and anything else the notice

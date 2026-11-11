@@ -54,6 +54,9 @@ jobs:
       - name: The pacman path
         run: python3 scripts/test_pacman_helper.py
 
+      - name: An app installed under another package than its catalog names
+        run: python3 scripts/test_installed_owner.py
+
       - name: The Flatpak path
         run: python3 scripts/test_flatpak_helper.py
 

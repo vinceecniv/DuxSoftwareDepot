@@ -71,6 +71,7 @@ Item {
     // Actions
     property bool busy: false
     property string busyDetail: ""   // live progress line shown next to the spinner
+    property string errorText: ""    // why the last action from this popup failed; shown above the buttons
     property real busyFraction: 0    // 0..1 estimate; > 0 swaps the spinner for a progress bar
     property bool installedChipVisible: false
     property bool showInstallButtons: false
@@ -2514,6 +2515,41 @@ Item {
                                 }
                             }
                         }
+                    }
+                }
+            }
+
+            // Why the last install from here failed. It used to say so only in
+            // a line above the Install tab's list, behind this popup and gone
+            // after eight seconds, and in the log: from here the button just
+            // looked dead (#49).
+            StyledRect {
+                Layout.fillWidth: true
+                visible: dialog.errorText !== "" && !dialog.busy
+                radius: Theme.cornerRadius
+                color: Theme.withAlpha(Theme.error, 0.12)
+                implicitHeight: errorRow.implicitHeight + Theme.spacingS * 2
+
+                RowLayout {
+                    id: errorRow
+                    anchors.fill: parent
+                    anchors.leftMargin: Theme.spacingM
+                    anchors.rightMargin: Theme.spacingM
+                    spacing: Theme.spacingS
+
+                    DIcon {
+                        name: "error"
+                        size: 18
+                        color: Ui.failColor
+                        Layout.alignment: Qt.AlignTop
+                    }
+
+                    SelectableText {
+                        Layout.fillWidth: true
+                        text: dialog.errorText
+                        wrapMode: Text.Wrap
+                        font.pixelSize: Theme.fontSizeSmall
+                        color: Ui.failColor
                     }
                 }
             }

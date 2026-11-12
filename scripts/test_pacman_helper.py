@@ -47,7 +47,8 @@ class Pkg:
         self.name = name
         self.version = version
         self.arch = arch
-        self.download_size = 1000
+        self.download_size = 0 if SCENARIO.get("packages", {}).get(name, {}).get("cached") else 1000
+        self.filename = "%s-%s-%s.pkg.tar.zst" % (name, version, arch)
         self.isize = 2000
 
 
@@ -114,9 +115,6 @@ class Transaction:
                 filename = "%s-%s-x86_64.pkg.tar.zst" % (pkg.name, pkg.version)
                 for event in (0, 1, 2, 1, 3):
                     dlcb(filename, event, -523683652)
-        if self.flags.get("downloadonly"):
-            _trace("download-only to %s" % os.path.basename(self.handle.cachedirs[0].rstrip("/")))
-            return
         _trace("commit")
 
     def release(self):
@@ -136,7 +134,7 @@ class Handle:
         self._sync = [SyncDB()]
         # pycman's guess; the helper replaces it with pacman-conf's answer
         self.arch = ["x86_64"]
-        self.cachedirs = ["/var/cache/pacman/pkg/"]
+        self.cachedirs = [os.environ["PACMAN_STUB_CACHE"] + "/"]
 
     def register_syncdb(self, name, level):
         pass
@@ -179,7 +177,18 @@ if scenario.get("installFails"):
     print("%s: /usr/bin/x exists in filesystem" % args[-1])
     sys.exit(1)
 local = os.path.join(os.environ["DSD_PACMAN_DBPATH"], "local")
-for name in args[args.index("--") + 1:]:
+names = args[args.index("--") + 1:]
+if "--remove" not in args:
+    # Downloads first, each moved into the cache whole, as pacman does
+    for name in names:
+        entry = scenario["packages"][name]
+        path = os.path.join(os.environ["PACMAN_STUB_CACHE"],
+                            "%s-%s-%s.pkg.tar.zst" % (name, entry["after"], entry.get("arch", "x86_64")))
+        if not os.path.exists(path):
+            open(path, "w").close()
+            with open(trace, "a") as fh:
+                fh.write("pacman downloaded " + name + "\\n")
+for name in names:
     entry = scenario["packages"][name]
     if "--remove" in args:
         os.rmdir(os.path.join(local, "%s-%s" % (name, entry["installed"])))
@@ -277,6 +286,12 @@ def run(scenario, *args):
                 (dbpath / "local" / ("%s-%s" % (name, entry["installed"]))).mkdir()
         env["DSD_PACMAN_DBPATH"] = str(dbpath)
         env["XDG_CACHE_HOME"] = str(Path(tmp) / "cache")
+        syscache = Path(tmp) / "syscache"
+        syscache.mkdir()
+        for name, entry in scenario.get("packages", {}).items():
+            if entry.get("cached"):
+                (syscache / ("%s-%s-%s.pkg.tar.zst" % (name, entry["after"], entry.get("arch", "x86_64")))).touch()
+        env["PACMAN_STUB_CACHE"] = str(syscache)
         env["SUDO_ALLOWS"] = "0" if scenario.get("sudoAsks") else "1"
         if scenario.get("architectures") is not None:
             env["PACMAN_ARCHS"] = " ".join(scenario["architectures"])
@@ -315,8 +330,8 @@ def run(scenario, *args):
         LAST["lockRemains"] = lock.exists()
         LAST["dbpath"] = str(dbpath)
         LAST["local"] = sorted(os.listdir(dbpath / "local"))
-        LAST["cacheLeft"] = sorted(os.listdir(Path(tmp) / "cache" / "dankSoftwareDepot")) \
-            if (Path(tmp) / "cache" / "dankSoftwareDepot").exists() else []
+        LAST["syscache"] = sorted(os.listdir(syscache))
+        LAST["userCache"] = (Path(tmp) / "cache").exists()
         sudo_log = Path(str(trace) + ".sudo")
         LAST["sudo"] = sudo_log.read_text().splitlines() if sudo_log.exists() else []
         path_log = Path(str(trace) + ".sudopath")
@@ -452,8 +467,8 @@ def main():
                 json.dumps(done))
 
     # --via-sudo: pacman is the only thing run as root. The refresh and the
-    # install go through sudo; resolving and downloading are pyalpm's, as the
-    # user, and never commit anything.
+    # install go through sudo; pyalpm only resolves, as the user, and never
+    # commits anything. pacman downloads into the system cache.
     # Names no real system has: if the real pacman were ever reached, it
     # would answer "target not found" and change nothing
     fake_behind = {"packages": {"dsd-test-viewer": dict(behind["packages"]["dolphin"])}}
@@ -462,23 +477,33 @@ def main():
     ok &= check("via sudo: the refresh is sudo pacman -Sy, before the package is resolved",
                 "sudo -n /usr/bin/pacman --sync --refresh --noconfirm --noprogressbar" in LAST["sudo"]
                 and raw.index("refresh") < raw.index("resolve dsd-test-viewer -> 26.08.1-1"), str(raw) + str(LAST["sudo"]))
-    ok &= check("via sudo: pyalpm only downloads, into a cache of the user's own",
-                any(line.startswith("download-only to pkg-") for line in raw) and "commit" not in raw, str(raw))
+    ok &= check("via sudo: pyalpm downloads nothing and commits nothing; the user's cache is untouched",
+                "commit" not in raw and not LAST["userCache"], str(raw))
     install = [l for l in LAST["sudo"] if l.startswith("sudo -n /usr/bin/pacman --sync --noconfirm")]
-    ok &= check("via sudo: then sudo pacman -S --needed installs from the system cache and that one",
-                len(install) == 1 and "--needed" in install[0] and "--cachedir /var/cache/pacman/pkg/" in install[0]
-                and "/dankSoftwareDepot/pkg-" in install[0] and install[0].endswith("-- dsd-test-viewer"), str(LAST["sudo"]))
+    ok &= check("via sudo: sudo pacman -S --needed downloads and installs, with pacman's own cache",
+                len(install) == 1 and "--needed" in install[0] and "--cachedir" not in install[0]
+                and install[0].endswith("-- dsd-test-viewer"), str(LAST["sudo"]))
+    ok &= check("via sudo: the new version stays in the system cache, for rolling back",
+                LAST["syscache"] == ["dsd-test-viewer-26.08.1-1-x86_64.pkg.tar.zst"], str(LAST["syscache"]))
     kinds = [(e["event"], e.get("phase")) for e in events if e.get("name") == "dsd-test-viewer"]
-    ok &= check("via sudo: the events are a root run's — download, then the install as it lands",
-                event(events, "plan") is not None and ("op-done", "download") in kinds
-                and kinds[-2:] == [("progress", "install"), ("op-done", "install")]
-                and ("op-start", "install") in kinds and "dsd-test-viewer-26.08.1-1" in LAST["local"], json.dumps(events))
+    ok &= check("via sudo: the events are a root run's — the download as its file lands, then the install",
+                event(events, "plan") is not None
+                and kinds == [("op-start", "download"), ("progress", "download"), ("op-done", "download"),
+                              ("op-start", "install"), ("progress", "install"), ("op-done", "install")]
+                and (event(events, "progress") or {}).get("totalTransferred") == 1000
+                and "dsd-test-viewer-26.08.1-1" in LAST["local"], json.dumps(events))
     ok &= check("via sudo: pacman gets the system's PATH, not the caller's, for the hooks it runs as root",
                 LAST["sudoPath"] and set(LAST["sudoPath"]) == {"/usr/local/sbin:/usr/local/bin:/usr/bin"},
                 str(LAST["sudoPath"]))
-    ok &= check("via sudo: and it ends well, its download cache gone",
-                proc.returncode == 0 and (event(events, "done") or {}).get("ok") is True and LAST["cacheLeft"] == [],
-                json.dumps(event(events, "done")) + str(LAST["cacheLeft"]))
+    ok &= check("via sudo: and it ends well",
+                proc.returncode == 0 and (event(events, "done") or {}).get("ok") is True,
+                json.dumps(event(events, "done")))
+    cached = {"packages": {"dsd-test-viewer": dict(fake_behind["packages"]["dsd-test-viewer"], cached=True)}}
+    events, trace, proc, raw = run(cached, "--via-sudo", "upgrade", "dsd-test-viewer")
+    kinds = [(e["event"], e.get("phase")) for e in events if e.get("name") == "dsd-test-viewer"]
+    ok &= check("via sudo: a package already in the cache goes straight to the install",
+                kinds == [("op-start", "install"), ("progress", "install"), ("op-done", "install")]
+                and proc.returncode == 0, json.dumps(events))
 
     asks = dict(fake_behind)
     asks["sudoAsks"] = True
@@ -493,7 +518,7 @@ def main():
     ok &= check("via sudo: a failed install carries pacman's reason, and its whole output on stderr",
                 proc.returncode == 1 and (event(events, "done") or {}).get("ok") is False
                 and any(e.get("event") == "error" and "conflicting files" in e.get("message", "") for e in events)
-                and "exists in filesystem" in proc.stderr and LAST["cacheLeft"] == [], json.dumps(events) + proc.stderr)
+                and "exists in filesystem" in proc.stderr, json.dumps(events) + proc.stderr)
 
     events, trace, proc, raw = run(fake_current, "--via-sudo", "upgrade", "dsd-test-lib")
     ok &= check("via sudo: nothing to do runs no pacman -S",

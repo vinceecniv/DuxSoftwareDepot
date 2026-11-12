@@ -39,11 +39,12 @@ manager-agnostic — the QML layer needs no changes per backend. See
 - One pacman-only option: `--via-sudo` before the action runs it as the
   user, for a machine where sudo lets the user run `/usr/bin/pacman` without
   a password (`scripts/sudoers_rule.py` writes that rule). `sudo pacman -Sy`
-  refreshes, pyalpm resolves and downloads into a private database
-  directory and a cache of the user's own — the same `plan` and download
-  events — and `sudo pacman -S` (or `-R`) installs from that cache. Install
-  progress comes from the local database: a package's directory appearing
-  (or going) is its `op-done`. When sudo would ask, or a pacman lock that no
+  refreshes, pyalpm resolves against a private database directory — the
+  same `plan` event — and `sudo pacman -S` (or `-R`) downloads into the
+  system cache and installs. Progress comes from the file system: a
+  package's file appearing in the cache (pacman moves it there whole) is
+  its download `op-done`, its directory appearing in the local database (or
+  going, for a removal) its install `op-done`. When sudo would ask, or a pacman lock that no
   running package manager explains is in the way (clearing it needs root,
   which the rule does not give), the helper prints nothing and exits 3;
   `Backend.helperCommand` then takes the usual pkexec path. A lock a running

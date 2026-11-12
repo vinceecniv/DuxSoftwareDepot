@@ -89,7 +89,22 @@ Item {
     // shell reloads while it runs.
     // The dux-* names are the ones Dux Labs suggests packagers move to with
     // 2.0; dms-shell is what Arch and Debian already call it.
-    readonly property var shellPackagePattern: /^(dms(-git)?|dms-cli|dms-greeter|dms-shell(-git|-bin)?|dux-shell(-git)?|dux-greeter|quickshell(-git)?)$/
+    readonly property var shellPackageNames: ["dms", "dms-git", "dms-cli", "dms-greeter", "dms-shell", "dms-shell-git", "dms-shell-bin", "dux-shell", "dux-shell-git", "dux-greeter", "quickshell", "quickshell-git"]
+    readonly property var shellPackagePattern: new RegExp("^(" + shellPackageNames.join("|") + ")$")
+
+    // What a full upgrade on a pacman system leaves alone: the shell's own
+    // packages, which have the last pass to themselves, and everything held.
+    // Named whether or not they are pending — the refresh the run starts with
+    // can make one of them pending that the list never showed. IgnorePkg in
+    // pacman.conf needs no naming: pacman and pyalpm read it themselves.
+    function _pacmanLeaveAlone() {
+        const names = new Set(shellPackageNames.concat(SettingsData.updaterIgnoredPackages || []));
+        for (const key of heldKeys || []) {
+            if (key.indexOf("system/") === 0)
+                names.add(key.slice("system/".length));
+        }
+        return Array.from(names).sort();
+    }
 
     // FirmwareService instance (bound by the widget); firmware updates run
     // as the last phase via fwupdmgr.
@@ -390,7 +405,11 @@ Item {
             return;
         }
         previewProcess._selected = new Set(names.map(n => _stripArch(n)));
-        previewProcess.command = Backend.instrument("plan", Backend.planCommand("upgrade", names));
+        // pacman: the whole upgrade the run will do, which is more than the
+        // list whenever the repositories have moved since its check
+        previewProcess.command = Backend.instrument("plan", Backend.backendId === "pacman"
+            ? Backend.planCommand("sysupgrade", _pacmanLeaveAlone())
+            : Backend.planCommand("upgrade", names));
         previewProcess.running = true;
     }
 
@@ -569,7 +588,11 @@ Item {
         const dnfPkgs = dnfAll.filter(p => p.repo !== "aur" && !shellPackagePattern.test(_stripArch(p.name)));
         const flatpakPkgs = updates.filter(p => p.repo === "flatpak");
 
-        _wantDnf = (options.dnf !== false) && dnfPkgs.length > 0;
+        // On a pacman system an AUR pass always follows the full upgrade, even
+        // with no official package in the list: that pass refreshes the
+        // databases and brings everything up to them, so paru builds against
+        // the system the databases describe rather than a partial upgrade
+        _wantDnf = (options.dnf !== false) && (dnfPkgs.length > 0 || aurPkgs.length > 0);
         _wantShell = shellPkgs.length > 0;
         _wantAur = aurPkgs.length > 0;
         _aurDone = !_wantAur;
@@ -1004,11 +1027,6 @@ Item {
         _aurOutput = "";
         _aurFinished = 0;
         const cmd = [Backend.python, Qt.resolvedUrl("scripts/aur_helper.py").toString().replace("file://", "")];
-        // The official pass refreshes the sync databases; without one in this
-        // run they are as old as the last refresh, and paru would resolve the
-        // AUR packages' repository dependencies against that
-        if (!_wantDnf)
-            cmd.push("--refresh");
         for (const base in _aurNameToKey)
             cmd.push(base);
         aurProcess.command = Backend.instrument("aur", cmd);
@@ -1241,7 +1259,14 @@ Item {
             _verifyDaemonPass();
             return;
         }
-        helperProcess.command = Backend.instrument("system", Backend.helperCommand("upgrade", Object.keys(_dnfNameToKey)));
+        // On a pacman system the pass is the whole upgrade, `pacman -Su`. The
+        // run refreshes the databases first, and they can know of updates the
+        // list was checked too early to show; upgrading only the listed ones
+        // after that refresh is a partial upgrade, which Arch does not
+        // support, and it left the rest to turn up right after the run.
+        helperProcess.command = Backend.instrument("system", Backend.backendId === "pacman"
+            ? Backend.helperCommand("sysupgrade", _pacmanLeaveAlone())
+            : Backend.helperCommand("upgrade", Object.keys(_dnfNameToKey)));
         helperProcess.running = true;
     }
 
@@ -1258,6 +1283,7 @@ Item {
         case "plan": {
             _helperSawPlan = true;
             _helperPlanBytes = event.totalDownloadBytes || 0;
+            _adoptPlannedUpgrades(event.ops || []);
             _dnfStage = 1;
             _dnfStageY = 100;
             _dnfStageX = 0;
@@ -2341,6 +2367,51 @@ Item {
     // without a row gets one.
     // The helper's own words for a transaction-level failure
     property string _flatpakRunError: ""
+
+    // A full upgrade (pacman) brings what the list was checked too early to
+    // know about. Each such upgrade gets a row of its own, with its versions,
+    // its progress and its verification, rather than arriving unseen. New
+    // dependencies stay out of the list, as they always have.
+    function _adoptPlannedUpgrades(ops) {
+        const map = Object.assign({}, _dnfNameToKey);
+        const expected = Object.assign({}, _daemonExpectedEvr);
+        const previous = Object.assign({}, _daemonPreviousEvr);
+        const states = Object.assign({}, itemStates);
+        const items = runItems.slice();
+        let added = 0;
+        for (const op of ops) {
+            const key = "system/" + op.name;
+            if (op.action !== "Upgrade" || map[op.name] || states[key])
+                continue;
+            map[op.name] = key;
+            expected[op.name] = op.evr || "";
+            previous[op.name] = op.fromEvr || "";
+            states[key] = {
+                status: "pending",
+                fraction: 0,
+                detail: ""
+            };
+            items.push({
+                pkg: {
+                    name: op.name,
+                    repo: "system",
+                    fromVersion: op.fromEvr || "",
+                    toVersion: op.evr || ""
+                },
+                key: key
+            });
+            added++;
+        }
+        if (added === 0)
+            return;
+        _dnfNameToKey = map;
+        _daemonExpectedEvr = expected;
+        _daemonPreviousEvr = previous;
+        itemStates = states;
+        runItems = items;
+        _dnfCount += added;
+        plannedCount += added;
+    }
 
     // Same for the system helper: it can fail on a package the pending list
     // never showed — a dependency the resolver pulled in

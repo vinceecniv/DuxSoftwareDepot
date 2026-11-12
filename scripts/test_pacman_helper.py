@@ -95,6 +95,19 @@ class Transaction:
     def remove_pkg(self, pkg):
         self.to_remove.append(pkg)
 
+    def sysupgrade(self, downgrade):
+        # pacman -Su: every installed package the databases have newer, but
+        # the ignored ones
+        _trace("sysupgrade")
+        refreshed = self.handle._sync[0].refreshed
+        for name, entry in sorted(SCENARIO["packages"].items()):
+            if entry.get("installed") is None:
+                continue
+            version = entry["after"] if refreshed else entry["before"]
+            if version and vercmp(version, entry["installed"]) > 0 and name not in self.handle.ignored:
+                _trace("add %s-%s" % (name, version))
+                self.to_add.append(Pkg(name, version, entry.get("arch", "x86_64")))
+
     def prepare(self):
         # pyalpm 0.12 on a conflict or a wrong architecture: not an
         # exception, the process is gone (#39)
@@ -135,9 +148,13 @@ class Handle:
         # pycman's guess; the helper replaces it with pacman-conf's answer
         self.arch = ["x86_64"]
         self.cachedirs = [os.environ["PACMAN_STUB_CACHE"] + "/"]
+        self.ignored = []
 
     def register_syncdb(self, name, level):
         pass
+
+    def add_ignorepkg(self, name):
+        self.ignored.append(name)
 
     def get_syncdbs(self):
         return self._sync
@@ -177,7 +194,12 @@ if scenario.get("installFails"):
     print("%s: /usr/bin/x exists in filesystem" % args[-1])
     sys.exit(1)
 local = os.path.join(os.environ["DSD_PACMAN_DBPATH"], "local")
-names = args[args.index("--") + 1:]
+if "--sysupgrade" in args:
+    ignored = args[args.index("--ignore") + 1].split(",") if "--ignore" in args else []
+    names = sorted(n for n, e in scenario["packages"].items()
+                   if e.get("installed") is not None and e["after"] > e["installed"] and n not in ignored)
+else:
+    names = args[args.index("--") + 1:]
 if "--remove" not in args:
     # Downloads first, each moved into the cache whole, as pacman does
     for name in names:
@@ -551,6 +573,51 @@ def main():
                 and "dsd-test-lib-1.25-1" not in LAST["local"]
                 and [(e["event"], e.get("phase")) for e in events if e.get("name") == "dsd-test-lib"][-1] == ("op-done", "remove")
                 and (event(events, "done") or {}).get("ok") is True, json.dumps(events) + str(LAST["sudo"]))
+
+    # sysupgrade: what the update run uses on Arch. Everything the refreshed
+    # databases have newer — including what the list could not know yet —
+    # but the packages named, which stay.
+    whole = {"packages": {
+        "dolphin": dict(behind["packages"]["dolphin"]),                 # newer only after the refresh
+        "kio": {"installed": "6.20.0-1", "before": "6.21.0-1", "after": "6.21.0-1"},
+        "dms-shell": {"installed": "1.7.0-1", "before": "1.7.0-1", "after": "1.8.0-1"},
+        "sl": {"installed": None, "before": "5.05-6", "after": "5.05-6"},
+    }}
+    events, trace, proc, raw = run(whole, "sysupgrade", "dms-shell")
+    ok &= check("sysupgrade refreshes, then takes everything newer but what it was told to leave",
+                trace[:2] == ["refresh", "sysupgrade"] and "add dolphin-26.08.1-1" in trace
+                and "add kio-6.21.0-1" in trace and not any("dms-shell" in l for l in trace)
+                and not any(l.startswith("add sl-") for l in trace) and "commit" in trace, str(trace))
+    plan = event(events, "plan")
+    ok &= check("and its plan says what each package was",
+                plan is not None and {(o["name"], o["fromEvr"], o["evr"]) for o in plan["ops"]}
+                == {("dolphin", "26.08.0-2", "26.08.1-1"), ("kio", "6.20.0-1", "6.21.0-1")}, json.dumps(plan))
+    ok &= check("and the names it left alone are not reported as failed",
+                (event(events, "done") or {}) == {"event": "done", "ok": True, "failed": []}, json.dumps(events))
+    events, trace, proc, raw = run(whole, "plan", "sysupgrade")
+    ok &= check("plan sysupgrade needs no names, and no refresh",
+                proc.returncode == 0 and event(events, "plan") is not None and "refresh" not in raw
+                and "commit" not in trace, str(raw))
+    events, trace, proc, raw = run(current, "sysupgrade")
+    ok &= check("sysupgrade with nothing newer has nothing to do",
+                (event(events, "done") or {}).get("nothingToDo") is True and "commit" not in trace, str(trace))
+
+    fake_whole = {"packages": {
+        "dsd-test-viewer": dict(behind["packages"]["dolphin"]),
+        "dsd-test-kio": dict(whole["packages"]["kio"]),
+        "dsd-test-shell": dict(whole["packages"]["dms-shell"]),
+    }}
+    events, trace, proc, raw = run(fake_whole, "--via-sudo", "sysupgrade", "dsd-test-shell")
+    ok &= check("via sudo: sysupgrade is sudo pacman -Su, the packages to leave given as --ignore",
+                "sudo -n /usr/bin/pacman --sync --sysupgrade --noconfirm --noprogressbar --ignore dsd-test-shell"
+                in LAST["sudo"], str(LAST["sudo"]))
+    ok &= check("via sudo: and both upgrades land, downloads in the system cache, the shell's left alone",
+                "dsd-test-viewer-26.08.1-1" in LAST["local"] and "dsd-test-kio-6.21.0-1" in LAST["local"]
+                and "dsd-test-shell-1.7.0-1" in LAST["local"] and "dsd-test-shell-1.8.0-1" not in LAST["local"]
+                and len(LAST["syscache"]) == 2
+                and [e.get("name") for e in events if e.get("event") == "op-done" and e.get("phase") == "install"]
+                == ["dsd-test-kio", "dsd-test-viewer"]
+                and (event(events, "done") or {}).get("ok") is True, json.dumps(events) + str(LAST["local"]))
 
     # The startup check has to answer for the bindings the transaction will
     # actually use, not merely for the import. A pyalpm that imports and then

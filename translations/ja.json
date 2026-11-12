@@ -588,5 +588,17 @@
     "This list may be incomplete.": "この一覧は不完全な可能性があります。",
     "Restart the shell to finish the update": "更新を完了するにはシェルを再起動してください",
     "Until then, part of the plugin still runs the previous version.": "それまでは、プラグインの一部が以前のバージョンのまま動作します。",
-    "Restart shell": "シェルを再起動"
+    "Restart shell": "シェルを再起動",
+    "Update AUR packages without a terminal": "ターミナルを使わずに AUR パッケージを更新",
+    "Build AUR packages in the background with paru or yay and show the progress here, instead of opening a terminal. The PKGBUILD review is skipped. Installing them asks for your password, unless pacman runs without one.": "ターミナルを開かずに paru または yay で AUR パッケージをバックグラウンドでビルドし、進行状況をここに表示します。PKGBUILD の確認は省略されます。pacman がパスワードなしで実行できない限り、インストール時にパスワードを尋ねます。",
+    "Building AUR packages… (this can take a while)": "AUR パッケージをビルド中… (時間がかかることがあります)",
+    "building": "ビルド中",
+    "the AUR package was not built or installed": "AUR パッケージはビルドまたはインストールされませんでした",
+    "built, waiting to install": "ビルド済み、インストール待ち",
+    "Run pacman without a password": "パスワードなしで pacman を実行",
+    "Adds a sudoers rule that lets you run pacman without a password, so installing, removing and updating packages, AUR included, asks for nothing. Setting it up asks once. Note that any program running under your account can then install any software into the system without a password.": "パスワードなしで pacman を実行できる sudoers ルールを追加し、AUR を含むパッケージのインストール・削除・更新で何も尋ねなくなります。設定時に一度だけ尋ねます。注意: その後は、あなたのアカウントで動くあらゆるプログラムが、パスワードなしで任意のソフトウェアをシステムにインストールできるようになります。",
+    "Another sudoers rule still lets pacman run without a password.": "別の sudoers ルールにより、引き続き pacman はパスワードなしで実行できます。",
+    "Active: pacman runs without a password.": "有効: pacman はパスワードなしで実行されます。",
+    "Not set up. It adds this rule to /etc/sudoers.d:": "未設定です。次のルールを /etc/sudoers.d に追加します:",
+    "Set up": "設定"
 }

@@ -588,5 +588,17 @@
     "This list may be incomplete.": "Es posible que esta lista esté incompleta.",
     "Restart the shell to finish the update": "Reinicia el shell para terminar la actualización",
     "Until then, part of the plugin still runs the previous version.": "Hasta entonces, parte del plugin sigue ejecutando la versión anterior.",
-    "Restart shell": "Reiniciar el shell"
+    "Restart shell": "Reiniciar el shell",
+    "Update AUR packages without a terminal": "Actualizar paquetes AUR sin terminal",
+    "Build AUR packages in the background with paru or yay and show the progress here, instead of opening a terminal. The PKGBUILD review is skipped. Installing them asks for your password, unless pacman runs without one.": "Compila los paquetes AUR en segundo plano con paru o yay y muestra el progreso aquí, en lugar de abrir una terminal. Se omite la revisión del PKGBUILD. Instalarlos pide tu contraseña, salvo que pacman se ejecute sin ella.",
+    "Building AUR packages… (this can take a while)": "Compilando paquetes AUR… (puede tardar)",
+    "building": "compilando",
+    "the AUR package was not built or installed": "el paquete AUR no se compiló ni se instaló",
+    "built, waiting to install": "compilado, esperando instalación",
+    "Run pacman without a password": "Ejecutar pacman sin contraseña",
+    "Adds a sudoers rule that lets you run pacman without a password, so installing, removing and updating packages, AUR included, asks for nothing. Setting it up asks once. Note that any program running under your account can then install any software into the system without a password.": "Añade una regla de sudoers que te permite ejecutar pacman sin contraseña, así que instalar, eliminar y actualizar paquetes, AUR incluido, no pide nada. Configurarlo la pide una vez. Ten en cuenta que después cualquier programa que se ejecute con tu cuenta podrá instalar cualquier software en el sistema sin contraseña.",
+    "Another sudoers rule still lets pacman run without a password.": "Otra regla de sudoers sigue permitiendo ejecutar pacman sin contraseña.",
+    "Active: pacman runs without a password.": "Activo: pacman se ejecuta sin contraseña.",
+    "Not set up. It adds this rule to /etc/sudoers.d:": "Sin configurar. Añade esta regla en /etc/sudoers.d:",
+    "Set up": "Configurar"
 }

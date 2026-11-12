@@ -1283,6 +1283,171 @@ FloatingWindow {
                                 }
                             }
 
+                            // 5b. AUR without a terminal (Middle)
+                            Rectangle {
+                                visible: Backend.backendId === "pacman"
+                                width: prefColumn.width
+                                height: row5b.implicitHeight + Theme.spacingM * 2
+                                readonly property bool isFirst: false
+                                readonly property bool isLast: false
+                                readonly property real outerR: Theme.cornerRadius
+                                readonly property real innerR: 4
+
+                                topLeftRadius: isFirst ? outerR : innerR
+                                topRightRadius: isFirst ? outerR : innerR
+                                bottomLeftRadius: isLast ? outerR : innerR
+                                bottomRightRadius: isLast ? outerR : innerR
+
+                                color: Theme.withAlpha(Ui.chipSurface, 0.45)
+                                border.width: 0
+
+                                RowLayout {
+                                    id: row5b
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.leftMargin: Theme.spacingM
+                                    anchors.rightMargin: Theme.spacingM
+                                    spacing: Theme.spacingM
+
+                                    DankIcon {
+                                        name: "terminal"
+                                        size: 20
+                                        color: Theme.primary
+                                    }
+
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 2
+
+                                        StyledText {
+                                            text: Tr.t("Update AUR packages without a terminal")
+                                            font.pixelSize: Theme.fontSizeMedium
+                                            font.weight: Font.Medium
+                                            color: Theme.surfaceText
+                                        }
+
+                                        StyledText {
+                                            Layout.fillWidth: true
+                                            text: Tr.t("Build AUR packages in the background with paru or yay and show the progress here, instead of opening a terminal. The PKGBUILD review is skipped. Installing them asks for your password, unless pacman runs without one.")
+                                            font.pixelSize: Theme.fontSizeSmall
+                                            color: Theme.surfaceVariantText
+                                            wrapMode: Text.WordWrap
+                                        }
+                                    }
+
+                                    DankToggle {
+                                        id: t5b
+                                        hideText: true
+                                        checked: Backend.aurNoTerminal === true
+                                        onToggled: checked => PluginService.savePluginData("dankSoftwareDepot", "aurNoTerminal", checked)
+                                    }
+                                }
+                            }
+
+                            // 5c. pacman without a password (Middle)
+                            Rectangle {
+                                id: pacmanRuleRow
+                                visible: Backend.backendId === "pacman" && typeof Backend.setupPacmanRule === "function"
+                                width: prefColumn.width
+                                height: row5c.implicitHeight + Theme.spacingM * 2
+                                readonly property bool isFirst: false
+                                readonly property bool isLast: false
+                                readonly property real outerR: Theme.cornerRadius
+                                readonly property real innerR: 4
+                                readonly property var ruleState: Backend.pacmanRule || ({})
+                                readonly property bool active: ruleState.allowed === true
+
+                                topLeftRadius: isFirst ? outerR : innerR
+                                topRightRadius: isFirst ? outerR : innerR
+                                bottomLeftRadius: isLast ? outerR : innerR
+                                bottomRightRadius: isLast ? outerR : innerR
+
+                                color: Theme.withAlpha(Ui.chipSurface, 0.45)
+                                border.width: 0
+
+                                // sudoers can change behind the plugin's back: ask again on opening
+                                Component.onCompleted: {
+                                    if (typeof Backend.refreshPacmanRule === "function")
+                                        Backend.refreshPacmanRule();
+                                }
+
+                                RowLayout {
+                                    id: row5c
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.leftMargin: Theme.spacingM
+                                    anchors.rightMargin: Theme.spacingM
+                                    spacing: Theme.spacingM
+
+                                    DankIcon {
+                                        Layout.alignment: Qt.AlignTop
+                                        name: "key"
+                                        size: 20
+                                        color: Theme.primary
+                                    }
+
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 2
+
+                                        StyledText {
+                                            text: Tr.t("Run pacman without a password")
+                                            font.pixelSize: Theme.fontSizeMedium
+                                            font.weight: Font.Medium
+                                            color: Theme.surfaceText
+                                        }
+
+                                        StyledText {
+                                            Layout.fillWidth: true
+                                            text: Tr.t("Adds a sudoers rule that lets you run pacman without a password, so installing, removing and updating packages, AUR included, asks for nothing. Setting it up asks once. Note that any program running under your account can then install any software into the system without a password.")
+                                            font.pixelSize: Theme.fontSizeSmall
+                                            color: Theme.surfaceVariantText
+                                            wrapMode: Text.WordWrap
+                                        }
+
+                                        StyledText {
+                                            Layout.fillWidth: true
+                                            Layout.topMargin: Theme.spacingXS
+                                            text: {
+                                                if (Backend.pacmanRuleError)
+                                                    return Backend.pacmanRuleError;
+                                                if (pacmanRuleRow.active && Backend.pacmanRuleRemoved === true)
+                                                    return Tr.t("Another sudoers rule still lets pacman run without a password.");
+                                                if (pacmanRuleRow.active)
+                                                    return Tr.t("Active: pacman runs without a password.");
+                                                return Tr.t("Not set up. It adds this rule to /etc/sudoers.d:");
+                                            }
+                                            font.pixelSize: Theme.fontSizeSmall
+                                            color: Backend.pacmanRuleError ? Theme.error : (pacmanRuleRow.active ? Theme.primary : Theme.surfaceVariantText)
+                                            wrapMode: Text.WordWrap
+                                        }
+
+                                        StyledText {
+                                            Layout.fillWidth: true
+                                            visible: !pacmanRuleRow.active && (pacmanRuleRow.ruleState.rule || "") !== ""
+                                            text: pacmanRuleRow.ruleState.rule || ""
+                                            font.family: Theme.monoFontFamily || "monospace"
+                                            font.pixelSize: Theme.fontSizeSmall
+                                            color: Theme.surfaceText
+                                            wrapMode: Text.WrapAnywhere
+                                        }
+                                    }
+
+                                    DankButton {
+                                        Layout.alignment: Qt.AlignTop
+                                        enabled: Backend.pacmanRuleBusy !== true
+                                        buttonHeight: 28
+                                        horizontalPadding: Theme.spacingM
+                                        text: pacmanRuleRow.active ? Tr.t("Remove") : Tr.t("Set up")
+                                        backgroundColor: Ui.buttonFill(pacmanRuleRow.active ? "tonal" : "filled", false)
+                                        textColor: Ui.buttonInk(pacmanRuleRow.active ? "tonal" : "filled")
+                                        onClicked: pacmanRuleRow.active ? Backend.removePacmanRule() : Backend.setupPacmanRule()
+                                    }
+                                }
+                            }
+
                             // 6. Tint app icons with the theme colour (Middle)
                             Rectangle {
                                 width: prefColumn.width

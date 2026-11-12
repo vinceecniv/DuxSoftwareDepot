@@ -588,5 +588,17 @@
     "This list may be incomplete.": "Ez a lista hiányos lehet.",
     "Restart the shell to finish the update": "Indítsa újra a héjat a frissítés befejezéséhez",
     "Until then, part of the plugin still runs the previous version.": "Addig a bővítmény egy része még az előző verziót futtatja.",
-    "Restart shell": "Héj újraindítása"
+    "Restart shell": "Héj újraindítása",
+    "Update AUR packages without a terminal": "AUR-csomagok frissítése terminál nélkül",
+    "Build AUR packages in the background with paru or yay and show the progress here, instead of opening a terminal. The PKGBUILD review is skipped. Installing them asks for your password, unless pacman runs without one.": "Az AUR-csomagokat a háttérben építi paru vagy yay segítségével, és itt mutatja a haladást terminál megnyitása helyett. A PKGBUILD átnézése kimarad. A telepítés jelszót kér, hacsak a pacman nem fut nélküle.",
+    "Building AUR packages… (this can take a while)": "AUR-csomagok építése… (ez eltarthat egy ideig)",
+    "building": "építés",
+    "the AUR package was not built or installed": "az AUR-csomag nem épült meg vagy nem települt",
+    "built, waiting to install": "megépült, telepítésre vár",
+    "Run pacman without a password": "A pacman futtatása jelszó nélkül",
+    "Adds a sudoers rule that lets you run pacman without a password, so installing, removing and updating packages, AUR included, asks for nothing. Setting it up asks once. Note that any program running under your account can then install any software into the system without a password.": "Hozzáad egy sudoers-szabályt, amellyel jelszó nélkül futtathatod a pacmant, így a csomagok telepítése, eltávolítása és frissítése, az AUR-t is beleértve, semmit nem kérdez. A beállítás egyszer kér jelszót. Figyelem: ezután bármely program, amely a fiókod alatt fut, jelszó nélkül bármilyen szoftvert telepíthet a rendszerre.",
+    "Another sudoers rule still lets pacman run without a password.": "Egy másik sudoers-szabály továbbra is engedi a pacman jelszó nélküli futtatását.",
+    "Active: pacman runs without a password.": "Aktív: a pacman jelszó nélkül fut.",
+    "Not set up. It adds this rule to /etc/sudoers.d:": "Nincs beállítva. Ezt a szabályt adja hozzá az /etc/sudoers.d mappához:",
+    "Set up": "Beállítás"
 }

@@ -588,5 +588,17 @@
     "This list may be incomplete.": "Esta lista pode estar incompleta.",
     "Restart the shell to finish the update": "Reinicie o shell para concluir a atualização",
     "Until then, part of the plugin still runs the previous version.": "Até lá, parte do plugin ainda executa a versão anterior.",
-    "Restart shell": "Reiniciar o shell"
+    "Restart shell": "Reiniciar o shell",
+    "Update AUR packages without a terminal": "Atualizar pacotes AUR sem terminal",
+    "Build AUR packages in the background with paru or yay and show the progress here, instead of opening a terminal. The PKGBUILD review is skipped. Installing them asks for your password, unless pacman runs without one.": "Compila os pacotes AUR em segundo plano com paru ou yay e mostra o progresso aqui, em vez de abrir um terminal. A revisão do PKGBUILD é ignorada. Instalá-los pede a sua palavra-passe, a não ser que o pacman seja executado sem ela.",
+    "Building AUR packages… (this can take a while)": "A compilar pacotes AUR… (pode demorar)",
+    "building": "a compilar",
+    "the AUR package was not built or installed": "o pacote AUR não foi compilado nem instalado",
+    "built, waiting to install": "compilado, à espera de instalação",
+    "Run pacman without a password": "Executar o pacman sem palavra-passe",
+    "Adds a sudoers rule that lets you run pacman without a password, so installing, removing and updating packages, AUR included, asks for nothing. Setting it up asks once. Note that any program running under your account can then install any software into the system without a password.": "Adiciona uma regra sudoers que permite executar o pacman sem palavra-passe, para que instalar, remover e atualizar pacotes, incluindo AUR, não peça nada. A configuração pede-a uma vez. Atenção: depois, qualquer programa executado com a sua conta poderá instalar qualquer software no sistema sem palavra-passe.",
+    "Another sudoers rule still lets pacman run without a password.": "Outra regra sudoers continua a permitir executar o pacman sem palavra-passe.",
+    "Active: pacman runs without a password.": "Ativo: o pacman é executado sem palavra-passe.",
+    "Not set up. It adds this rule to /etc/sudoers.d:": "Não configurado. Adiciona esta regra em /etc/sudoers.d:",
+    "Set up": "Configurar"
 }

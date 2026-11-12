@@ -588,5 +588,17 @@
     "This list may be incomplete.": "Цей список може бути неповним.",
     "Restart the shell to finish the update": "Перезапустіть оболонку, щоб завершити оновлення",
     "Until then, part of the plugin still runs the previous version.": "Доти частина плагіна працює в попередній версії.",
-    "Restart shell": "Перезапустити оболонку"
+    "Restart shell": "Перезапустити оболонку",
+    "Update AUR packages without a terminal": "Оновлювати AUR-пакунки без термінала",
+    "Build AUR packages in the background with paru or yay and show the progress here, instead of opening a terminal. The PKGBUILD review is skipped. Installing them asks for your password, unless pacman runs without one.": "Збирати AUR-пакунки у фоні через paru або yay і показувати поступ тут, не відкриваючи термінал. Перегляд PKGBUILD пропускається. Під час встановлення питається пароль, якщо pacman не запускається без нього.",
+    "Building AUR packages… (this can take a while)": "Збирання AUR-пакунків… (це може зайняти час)",
+    "building": "збирання",
+    "the AUR package was not built or installed": "AUR-пакунок не було зібрано чи встановлено",
+    "built, waiting to install": "зібрано, чекає встановлення",
+    "Run pacman without a password": "Запускати pacman без пароля",
+    "Adds a sudoers rule that lets you run pacman without a password, so installing, removing and updating packages, AUR included, asks for nothing. Setting it up asks once. Note that any program running under your account can then install any software into the system without a password.": "Додає правило sudoers, що дозволяє запускати pacman без пароля, тож встановлення, вилучення й оновлення пакунків, разом з AUR, нічого не питають. Налаштування один раз спитає пароль. Зважте: після цього будь-яка програма, запущена від вашого користувача, зможе без пароля встановити в систему будь-який застосунок.",
+    "Another sudoers rule still lets pacman run without a password.": "Інше правило sudoers і далі дозволяє запускати pacman без пароля.",
+    "Active: pacman runs without a password.": "Увімкнено: pacman запускається без пароля.",
+    "Not set up. It adds this rule to /etc/sudoers.d:": "Не налаштовано. До /etc/sudoers.d буде додано правило:",
+    "Set up": "Налаштувати"
 }

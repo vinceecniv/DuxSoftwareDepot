@@ -588,5 +588,17 @@
     "This list may be incomplete.": "Listan kan vara ofullständig.",
     "Restart the shell to finish the update": "Starta om skalet för att slutföra uppdateringen",
     "Until then, part of the plugin still runs the previous version.": "Tills dess kör en del av tillägget fortfarande den tidigare versionen.",
-    "Restart shell": "Starta om skalet"
+    "Restart shell": "Starta om skalet",
+    "Update AUR packages without a terminal": "Uppdatera AUR-paket utan terminal",
+    "Build AUR packages in the background with paru or yay and show the progress here, instead of opening a terminal. The PKGBUILD review is skipped. Installing them asks for your password, unless pacman runs without one.": "Bygg AUR-paket i bakgrunden med paru eller yay och visa förloppet här, i stället för att öppna en terminal. Granskningen av PKGBUILD hoppas över. Installationen frågar efter ditt lösenord, om inte pacman körs utan.",
+    "Building AUR packages… (this can take a while)": "Bygger AUR-paket… (det kan ta en stund)",
+    "building": "bygger",
+    "the AUR package was not built or installed": "AUR-paketet byggdes eller installerades inte",
+    "built, waiting to install": "byggt, väntar på installation",
+    "Run pacman without a password": "Kör pacman utan lösenord",
+    "Adds a sudoers rule that lets you run pacman without a password, so installing, removing and updating packages, AUR included, asks for nothing. Setting it up asks once. Note that any program running under your account can then install any software into the system without a password.": "Lägger till en sudoers-regel som låter dig köra pacman utan lösenord, så att installera, ta bort och uppdatera paket, AUR inräknat, inte frågar något. Konfigurationen frågar en gång. Observera att alla program som körs under ditt konto därefter kan installera vilken programvara som helst i systemet utan lösenord.",
+    "Another sudoers rule still lets pacman run without a password.": "En annan sudoers-regel låter fortfarande pacman köras utan lösenord.",
+    "Active: pacman runs without a password.": "Aktivt: pacman körs utan lösenord.",
+    "Not set up. It adds this rule to /etc/sudoers.d:": "Inte konfigurerat. Lägger till den här regeln i /etc/sudoers.d:",
+    "Set up": "Konfigurera"
 }

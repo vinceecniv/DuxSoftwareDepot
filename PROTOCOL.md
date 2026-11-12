@@ -36,6 +36,15 @@ manager-agnostic — the QML layer needs no changes per backend. See
   *before* asking for a password: the helper runs under `pkexec`, which
   prompts when the process starts, so a plan produced inside the real run
   would arrive after the authentication it is meant to inform.
+- One pacman-only option: `--via-sudo` before the action runs it as the
+  user, for a machine where sudo lets the user run `/usr/bin/pacman` without
+  a password (`scripts/sudoers_rule.py` writes that rule). `sudo pacman -Sy`
+  refreshes, pyalpm resolves and downloads into a private database
+  directory and a cache of the user's own — the same `plan` and download
+  events — and `sudo pacman -S` (or `-R`) installs from that cache. Install
+  progress comes from the local database: a package's directory appearing
+  (or going) is its `op-done`. When sudo would ask, the helper prints nothing
+  and exits 3; `Backend.helperCommand` then takes the usual pkexec path.
 - One rpm-only option: `install --copr <owner/project> <spec>...` enables
   that Copr before resolving, so a package found by the Copr search costs
   one authorisation instead of two (the repository and the install are one
@@ -123,10 +132,15 @@ answer (pacman repos keep no history). Its changelog answer comes from
 reads its AppStream catalog from the same XML paths as Fedora, filled by
 `archlinux-appstream-data`. AUR is deliberately out of scope for the
 transaction helpers: detection comes from the DMS daemon's AUR backend
-(paru/yay `-Qua`), and upgrades ride that same daemon pass —
-`paru -Syu` in a visible terminal, the shell updater's own answer. The
-plugin builds no AUR packages itself; the interactive PKGBUILD review
-exists for safety.
+(paru/yay `-Qua`), and by default upgrades ride that same daemon pass —
+`paru -Syu` in a visible terminal, the shell updater's own answer, with
+the interactive PKGBUILD review. The opt-in *Update AUR packages without a
+terminal* runs `scripts/aur_helper.py` instead: `paru -S --skipreview
+--batchinstall` (or yay with its menus answered `None`) with no tty, sudo
+replaced by `scripts/aur_sudo.sh`: sudo where it would not ask, polkit
+otherwise. It speaks a subset of
+the protocol — `op-start`/`op-done` per build, `output`, `error`, `done` —
+and the package database decides what arrived, as after a daemon pass.
 
 ### An atomic Fedora is a fourth backend, not a broken third
 

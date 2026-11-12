@@ -81,8 +81,9 @@ class LocalDB:
 
 
 class Transaction:
-    def __init__(self, handle):
+    def __init__(self, handle, flags):
         self.handle = handle
+        self.flags = flags
         self.to_add = []
         self.to_remove = []
 
@@ -113,6 +114,9 @@ class Transaction:
                 filename = "%s-%s-x86_64.pkg.tar.zst" % (pkg.name, pkg.version)
                 for event in (0, 1, 2, 1, 3):
                     dlcb(filename, event, -523683652)
+        if self.flags.get("downloadonly"):
+            _trace("download-only to %s" % os.path.basename(self.handle.cachedirs[0].rstrip("/")))
+            return
         _trace("commit")
 
     def release(self):
@@ -132,6 +136,7 @@ class Handle:
         self._sync = [SyncDB()]
         # pycman's guess; the helper replaces it with pacman-conf's answer
         self.arch = ["x86_64"]
+        self.cachedirs = ["/var/cache/pacman/pkg/"]
 
     def register_syncdb(self, name, level):
         pass
@@ -145,7 +150,7 @@ class Handle:
     def init_transaction(self, **kwargs):
         if getattr(self, "_locked_out", False) and not os.environ.get("PACMAN_STUB_ROOT"):
             raise error("transaction could not be initialized, pm_errno 10 (unable to lock database)")
-        return Transaction(self)
+        return Transaction(self, kwargs)
 
     # The helper installs progress callbacks when they exist; it checks with
     # hasattr, so leaving them off is a supported shape.
@@ -158,12 +163,45 @@ scenario = json.loads(os.environ["PACMAN_STUB"])
 trace = os.environ["PACMAN_TRACE"]
 with open(trace, "a") as fh:
     fh.write("pacman " + " ".join(sys.argv[1:]) + "\\n")
-if scenario.get("refreshFails"):
-    print("error: failed retrieving file 'extra.db' from mirror.example : mirror unreachable", file=sys.stderr)
+args = sys.argv[1:]
+if "--refresh" in args:
+    if scenario.get("refreshFails"):
+        print("error: failed retrieving file 'extra.db' from mirror.example : mirror unreachable", file=sys.stderr)
+        sys.exit(1)
+    with open(trace, "a") as fh:
+        fh.write("refresh\\n")
+    open(trace + ".refreshed", "w").close()
+    sys.exit(0)
+# --via-sudo's install or removal: as pacman does it, one directory per
+# package in the local database
+if scenario.get("installFails"):
+    print("error: failed to commit transaction (conflicting files)")
+    print("%s: /usr/bin/x exists in filesystem" % args[-1])
     sys.exit(1)
-with open(trace, "a") as fh:
-    fh.write("refresh\\n")
-open(trace + ".refreshed", "w").close()
+local = os.path.join(os.environ["DSD_PACMAN_DBPATH"], "local")
+for name in args[args.index("--") + 1:]:
+    entry = scenario["packages"][name]
+    if "--remove" in args:
+        os.rmdir(os.path.join(local, "%s-%s" % (name, entry["installed"])))
+    else:
+        os.makedirs(os.path.join(local, "%s-%s" % (name, entry["after"])), exist_ok=True)
+'''
+
+# sudo, for --via-sudo: `-l` answers whether pacman may run without a
+# password (SUDO_ALLOWS), and pacman runs as the stub above
+FAKE_SUDO = '''#!/bin/sh
+echo "sudo $*" >> "$PACMAN_TRACE.sudo"
+[ "$1" = "-n" ] && shift
+if [ "$1" = "-l" ]; then
+    [ "$SUDO_ALLOWS" = 1 ]
+    exit $?
+fi
+if [ "$1" = "/usr/bin/pacman" ]; then
+    echo "$PATH" >> "$PACMAN_TRACE.sudopath"
+    shift
+    exec "$(dirname "$0")/pacman" "$@"
+fi
+exit 1
 '''
 
 
@@ -221,6 +259,8 @@ def run(scenario, *args):
         bindir.mkdir()
         (bindir / "pacman").write_text(FAKE_PACMAN)
         (bindir / "pacman").chmod(0o755)
+        (bindir / "sudo").write_text(FAKE_SUDO)
+        (bindir / "sudo").chmod(0o755)
         if scenario.get("architectures") is not None:
             (bindir / "pacman-conf").write_text(FAKE_PACMAN_CONF)
             (bindir / "pacman-conf").chmod(0o755)
@@ -231,7 +271,13 @@ def run(scenario, *args):
         # plan must not open for a transaction
         dbpath = Path(tmp) / "db"
         dbpath.mkdir()
+        (dbpath / "local").mkdir()
+        for name, entry in scenario.get("packages", {}).items():
+            if entry.get("installed"):
+                (dbpath / "local" / ("%s-%s" % (name, entry["installed"]))).mkdir()
         env["DSD_PACMAN_DBPATH"] = str(dbpath)
+        env["XDG_CACHE_HOME"] = str(Path(tmp) / "cache")
+        env["SUDO_ALLOWS"] = "0" if scenario.get("sudoAsks") else "1"
         if scenario.get("architectures") is not None:
             env["PACMAN_ARCHS"] = " ".join(scenario["architectures"])
         lock = dbpath / "db.lck"
@@ -246,8 +292,15 @@ def run(scenario, *args):
         env["PACMAN_TRACE"] = str(trace)
         # Transactions run as root under pkexec; only `plan` and `selftest`
         # are the user's own
-        if args[0] not in ("plan", "selftest"):
+        if args[0] not in ("plan", "selftest", "--via-sudo"):
             env["PACMAN_STUB_ROOT"] = "1"
+        if "--via-sudo" in args:
+            # The helper finds sudo on this PATH. Anything but the stand-in
+            # is the real sudo, and the real sudo runs the real pacman
+            import shutil
+            found = shutil.which("sudo", path=env["PATH"])
+            if found != str(bindir / "sudo"):
+                raise SystemExit("refusing to run: sudo resolves to %s, not the stand-in" % found)
         proc = subprocess.run([sys.executable, str(HELPER), *args],
                               capture_output=True, text=True, env=env, timeout=60)
         events = []
@@ -261,6 +314,13 @@ def run(scenario, *args):
         LAST.clear()
         LAST["lockRemains"] = lock.exists()
         LAST["dbpath"] = str(dbpath)
+        LAST["local"] = sorted(os.listdir(dbpath / "local"))
+        LAST["cacheLeft"] = sorted(os.listdir(Path(tmp) / "cache" / "dankSoftwareDepot")) \
+            if (Path(tmp) / "cache" / "dankSoftwareDepot").exists() else []
+        sudo_log = Path(str(trace) + ".sudo")
+        LAST["sudo"] = sudo_log.read_text().splitlines() if sudo_log.exists() else []
+        path_log = Path(str(trace) + ".sudopath")
+        LAST["sudoPath"] = path_log.read_text().splitlines() if path_log.exists() else []
         return events, lines, proc, trace.read_text().splitlines()
 
 
@@ -390,6 +450,64 @@ def main():
     ok &= check("and the failure names the package",
                 done is not None and done.get("ok") is False and "some-aur-package" in (done.get("failed") or []),
                 json.dumps(done))
+
+    # --via-sudo: pacman is the only thing run as root. The refresh and the
+    # install go through sudo; resolving and downloading are pyalpm's, as the
+    # user, and never commit anything.
+    # Names no real system has: if the real pacman were ever reached, it
+    # would answer "target not found" and change nothing
+    fake_behind = {"packages": {"dsd-test-viewer": dict(behind["packages"]["dolphin"])}}
+    fake_current = {"packages": {"dsd-test-lib": dict(current["packages"]["libdeflate"])}}
+    events, trace, proc, raw = run(fake_behind, "--via-sudo", "upgrade", "dsd-test-viewer")
+    ok &= check("via sudo: the refresh is sudo pacman -Sy, before the package is resolved",
+                "sudo -n /usr/bin/pacman --sync --refresh --noconfirm --noprogressbar" in LAST["sudo"]
+                and raw.index("refresh") < raw.index("resolve dsd-test-viewer -> 26.08.1-1"), str(raw) + str(LAST["sudo"]))
+    ok &= check("via sudo: pyalpm only downloads, into a cache of the user's own",
+                any(line.startswith("download-only to pkg-") for line in raw) and "commit" not in raw, str(raw))
+    install = [l for l in LAST["sudo"] if l.startswith("sudo -n /usr/bin/pacman --sync --noconfirm")]
+    ok &= check("via sudo: then sudo pacman -S --needed installs from the system cache and that one",
+                len(install) == 1 and "--needed" in install[0] and "--cachedir /var/cache/pacman/pkg/" in install[0]
+                and "/dankSoftwareDepot/pkg-" in install[0] and install[0].endswith("-- dsd-test-viewer"), str(LAST["sudo"]))
+    kinds = [(e["event"], e.get("phase")) for e in events if e.get("name") == "dsd-test-viewer"]
+    ok &= check("via sudo: the events are a root run's — download, then the install as it lands",
+                event(events, "plan") is not None and ("op-done", "download") in kinds
+                and kinds[-2:] == [("progress", "install"), ("op-done", "install")]
+                and ("op-start", "install") in kinds and "dsd-test-viewer-26.08.1-1" in LAST["local"], json.dumps(events))
+    ok &= check("via sudo: pacman gets the system's PATH, not the caller's, for the hooks it runs as root",
+                LAST["sudoPath"] and set(LAST["sudoPath"]) == {"/usr/local/sbin:/usr/local/bin:/usr/bin"},
+                str(LAST["sudoPath"]))
+    ok &= check("via sudo: and it ends well, its download cache gone",
+                proc.returncode == 0 and (event(events, "done") or {}).get("ok") is True and LAST["cacheLeft"] == [],
+                json.dumps(event(events, "done")) + str(LAST["cacheLeft"]))
+
+    asks = dict(fake_behind)
+    asks["sudoAsks"] = True
+    events, trace, proc, raw = run(asks, "--via-sudo", "upgrade", "dsd-test-viewer")
+    ok &= check("via sudo: when sudo would ask, nothing is done or said, and the exit code is 3",
+                proc.returncode == 3 and proc.stdout == "" and not [l for l in raw if not l.startswith("pacman-conf")]
+                and all(l.startswith("sudo -n -l ") for l in LAST["sudo"]), proc.stdout + str(raw) + str(LAST["sudo"]))
+
+    failing = dict(fake_behind)
+    failing["installFails"] = True
+    events, trace, proc, raw = run(failing, "--via-sudo", "upgrade", "dsd-test-viewer")
+    ok &= check("via sudo: a failed install carries pacman's reason, and its whole output on stderr",
+                proc.returncode == 1 and (event(events, "done") or {}).get("ok") is False
+                and any(e.get("event") == "error" and "conflicting files" in e.get("message", "") for e in events)
+                and "exists in filesystem" in proc.stderr and LAST["cacheLeft"] == [], json.dumps(events) + proc.stderr)
+
+    events, trace, proc, raw = run(fake_current, "--via-sudo", "upgrade", "dsd-test-lib")
+    ok &= check("via sudo: nothing to do runs no pacman -S",
+                (event(events, "done") or {}).get("nothingToDo") is True
+                and not any(l.startswith("sudo -n /usr/bin/pacman --sync --noconfirm") for l in LAST["sudo"]),
+                str(LAST["sudo"]))
+
+    events, trace, proc, raw = run(fake_current, "--via-sudo", "remove", "dsd-test-lib")
+    ok &= check("via sudo: a removal is resolved by pyalpm and done by sudo pacman -R, with no refresh",
+                "sudo -n /usr/bin/pacman --remove --noconfirm --noprogressbar -- dsd-test-lib" in LAST["sudo"]
+                and not any("--refresh" in l for l in LAST["sudo"] if not l.startswith("sudo -n -l"))
+                and "dsd-test-lib-1.25-1" not in LAST["local"]
+                and [(e["event"], e.get("phase")) for e in events if e.get("name") == "dsd-test-lib"][-1] == ("op-done", "remove")
+                and (event(events, "done") or {}).get("ok") is True, json.dumps(events) + str(LAST["sudo"]))
 
     # The startup check has to answer for the bindings the transaction will
     # actually use, not merely for the import. A pyalpm that imports and then

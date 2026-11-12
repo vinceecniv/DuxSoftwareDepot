@@ -29,7 +29,7 @@ selectable would stop being a card you can click.
 |---|---|
 | `UpdaterWidget.qml` | Bar pill, popout, IPC, reboot logic, settings |
 | `UpdaterWindow.qml` | Tabbed window (Updates / Installed / Install / Firmware / Log) |
-| `UpdateEngine.qml` | Run orchestration (system packages → Flatpak → fwupd → AppImages → plugins → Homebrew → DMS packages) and per-package progress |
+| `UpdateEngine.qml` | Run orchestration (system packages → Flatpak → fwupd → AppImages → plugins → Homebrew → AUR → DMS packages) and per-package progress |
 | `Backend.qml` | The package-backend seam: every entry point specific to the system package manager, plus how a privileged command is authorised |
 | `UpdateCard.qml` | Rich per-update card |
 | `InstalledView.qml` | Installed software browser + actions |
@@ -62,6 +62,8 @@ selectable would stop being a card you can click.
 | `scripts/dnf4_helper.py` | The same protocol on dnf 4, for RHEL and its rebuilds; `rpm_helper.py` hands over to it when libdnf5 will not import |
 | `scripts/ostree_helper.py` | rpm-ostree counterpart — atomic Fedora (layering, staged until reboot) |
 | `scripts/apt_helper.py` · `scripts/pacman_helper.py` | python-apt and pyalpm counterparts (Arch: official repos, no AUR) |
+| `scripts/aur_helper.py` · `scripts/aur_sudo.sh` | AUR without a terminal (opt-in): paru or yay with no tty and their menus answered, sudo replaced by sudo where it would not ask and a polkit prompt where it would |
+| `scripts/sudoers_rule.py` | pacman without a password (opt-in, pacman systems): writes or removes the one sudoers line for `/usr/bin/pacman`, checked by visudo; `status` is sudo's own answer. With it, `pacman_helper.py --via-sudo` runs as the user and only pacman is root |
 | `scripts/pkg_backend.py` | Per-distro metadata backend (search, sizes, inventory, holds, changelogs); also which packages own a launchable desktop entry |
 | `scripts/flatpak_helper.py` | libflatpak transactions with exact byte progress, end-of-life detection, and installing a `.flatpak` bundle or `.flatpakref` |
 | `scripts/fedora_upgrade.py` | The next Fedora release: what upgrading involves (libdnf5, no root), `dnf5 system-upgrade download` as events, and whether an upgrade waits for its reboot |
@@ -81,7 +83,7 @@ selectable would stop being a card you can click.
 Everything in CI runs on any distribution, with the network and the package
 managers stubbed: `check_translations.py` (the 15 catalogs against the QML),
 `test_dep11.py`, `test_gitnotes.py`, `test_plugin_notes.py`, `test_reconcile.py`, `test_ostree_helper.py`,
-`test_arch_news.py`, `test_brew_helper.py`, `test_pacman_helper.py`,
+`test_arch_news.py`, `test_brew_helper.py`, `test_pacman_helper.py`, `test_aur_helper.py`, `test_sudoers_rule.py`,
 `test_flatpak_helper.py`, `test_fedora_upgrade.py`, `test_simulate.py`,
 `test_appimage_squashfs.py`, `test_shell_portability.py` —
 which reads every `sh -c` snippet in the QML for bash-only syntax, because

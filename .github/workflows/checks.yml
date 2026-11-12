@@ -57,6 +57,12 @@ jobs:
       - name: An app installed under another package than its catalog names
         run: python3 scripts/test_installed_owner.py
 
+      - name: AUR packages without a terminal
+        run: python3 scripts/test_aur_helper.py
+
+      - name: pacman without a password, and the way back when sudo would ask
+        run: python3 scripts/test_sudoers_rule.py
+
       - name: The Flatpak path
         run: python3 scripts/test_flatpak_helper.py
 

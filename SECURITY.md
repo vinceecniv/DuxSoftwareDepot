@@ -33,6 +33,9 @@ there are no backports to earlier versions.
   is opened but not yet trusted
 - Release notes and reviews rendered in the UI: everything external is reduced
   to an escaped minimal markup subset, and a way past that is a bug
+- The opt-in sudoers rule on Arch (`scripts/sudoers_rule.py`): it is meant to
+  be one line naming `/usr/bin/pacman` for the user who asked. A rule that
+  grants more, or reaches another user, is a bug
 - Repository and Copr handling, including anything that would enable a source
   or accept a key without the user pressing the button that says so
 - Data leaving the machine beyond what the README's *Network and privacy*

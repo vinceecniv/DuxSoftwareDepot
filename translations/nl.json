@@ -596,5 +596,17 @@
     "Show again": "Weer tonen",
     "fwupd is not installed, so there is no firmware to show. Install the fwupd package, then try again.": "fwupd is niet geïnstalleerd, dus er is geen firmware om te tonen. Installeer het pakket fwupd en probeer het opnieuw.",
     "fwupd could not read the device list.": "fwupd kon de apparatenlijst niet lezen.",
-    "Try again": "Opnieuw proberen"
+    "Try again": "Opnieuw proberen",
+    "Update AUR packages without a terminal": "AUR-pakketten bijwerken zonder terminal",
+    "Build AUR packages in the background with paru or yay and show the progress here, instead of opening a terminal. The PKGBUILD review is skipped. Installing them asks for your password, unless pacman runs without one.": "Bouw AUR-pakketten op de achtergrond met paru of yay en toon de voortgang hier, in plaats van een terminal te openen. De PKGBUILD-controle wordt overgeslagen. Installeren vraagt om je wachtwoord, tenzij pacman zonder draait.",
+    "Building AUR packages… (this can take a while)": "AUR-pakketten worden gebouwd… (dit kan even duren)",
+    "building": "bouwen",
+    "the AUR package was not built or installed": "het AUR-pakket is niet gebouwd of geïnstalleerd",
+    "built, waiting to install": "gebouwd, wacht op installatie",
+    "Run pacman without a password": "pacman zonder wachtwoord uitvoeren",
+    "Adds a sudoers rule that lets you run pacman without a password, so installing, removing and updating packages, AUR included, asks for nothing. Setting it up asks once. Note that any program running under your account can then install any software into the system without a password.": "Voegt een sudoers-regel toe waarmee je pacman zonder wachtwoord uitvoert, zodat installeren, verwijderen en bijwerken van pakketten, AUR inbegrepen, nergens om vraagt. Instellen vraagt er één keer om. Let op: daarna kan elk programma dat onder jouw account draait zonder wachtwoord willekeurige software in het systeem installeren.",
+    "Another sudoers rule still lets pacman run without a password.": "Een andere sudoers-regel laat pacman nog steeds zonder wachtwoord draaien.",
+    "Active: pacman runs without a password.": "Actief: pacman draait zonder wachtwoord.",
+    "Not set up. It adds this rule to /etc/sudoers.d:": "Niet ingesteld. Deze regel komt in /etc/sudoers.d:",
+    "Set up": "Instellen"
 }

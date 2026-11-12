@@ -3,7 +3,7 @@
 protocol documented in PROTOCOL.md — the Arch counterpart of
 rpm_helper.py.
 
-Usage: pacman_helper.py <install|remove|upgrade|plan|selftest> <name>...
+Usage: pacman_helper.py [--via-sudo] <install|remove|upgrade|plan|selftest> <name>...
 
 Transactions need root (run via pkexec); `plan` resolves against the
 existing sync databases and works unprivileged, and `selftest` reports
@@ -13,6 +13,18 @@ its import. `downgrade` is not offered:
 pacman keeps no version history in its repositories (that is the Arch
 Linux Archive's job, out of scope here). Official repositories only —
 AUR packages are never touched.
+
+`--via-sudo` runs the transaction without being root, for a machine where
+sudo lets this user run pacman without a password (the rule the settings
+can add). Only pacman is privileged: the databases are refreshed with
+`sudo pacman -Sy`, the request is resolved and its packages downloaded by
+pyalpm as the user — into a private database directory and a cache of the
+user's own, with the same events as a run as root — and `sudo pacman -S`
+installs them from that cache, checking every signature again. How far the
+install has got is read from the local database, where each package
+appears as a directory once it is in. When sudo would ask for a password
+the helper prints nothing and exits 3, and the caller takes the usual path.
+
 """
 import json
 import os
@@ -28,6 +40,27 @@ def emit(obj):
 # Missing bindings must be reported inside the protocol: an import that kills
 # the process ends the stream before its first event, and the caller can only
 # guess that every package failed. See the same guard in rpm_helper.py.
+# Run as root, nothing from the caller's environment decides which programs
+# run: sudo keeps the user's PATH unless secure_path is set, and libalpm hands
+# its environment to every scriptlet and hook of the transaction.
+if os.geteuid() == 0:
+    os.environ["PATH"] = "/usr/local/sbin:/usr/local/bin:/usr/bin"
+
+
+def _sudo_env():
+    """The environment pacman gets through sudo. sudo passes the caller's
+    PATH on unless secure_path is set, which Arch does not set by default, and
+    pacman hands it to every hook it runs as root."""
+    return dict(os.environ, PATH="/usr/local/sbin:/usr/local/bin:/usr/bin", LC_ALL="C.UTF-8")
+
+
+def _sudo():
+    """sudo -n, found on the caller's PATH. Only the environment handed to
+    it is the system's: finding sudo there too would make the tests' stand-in
+    unreachable, and a test that reaches the real sudo runs the real pacman."""
+    import shutil
+    return [shutil.which("sudo") or "sudo", "-n"]
+
 import interp
 
 interp.ensure("pyalpm")
@@ -45,6 +78,9 @@ except ImportError as exc:
 
 
 DBPATH = "/var/lib/pacman"
+PACMAN = "/usr/bin/pacman"
+# --via-sudo, when sudo would ask for a password: nothing was done or said
+SUDO_WOULD_ASK = 3
 
 
 def _test_hook(name):
@@ -245,7 +281,7 @@ class Callbacks:
             emit({"event": "op-done", "name": target, "phase": phase})
 
 
-def refresh_syncdbs():
+def refresh_syncdbs(via_sudo=False):
     """`pacman -Sy` — which nothing else in this path does.
 
     A transaction resolves names against the sync databases as they are on
@@ -269,12 +305,13 @@ def refresh_syncdbs():
     """
     import shutil
     import subprocess
-    pacman = shutil.which("pacman") or "/usr/bin/pacman"
+    # Through sudo, the program its rule names
+    pacman = PACMAN if via_sudo else (shutil.which("pacman") or PACMAN)
     try:
-        proc = subprocess.run([pacman, "--sync", "--refresh", "--noconfirm",
-                               "--noprogressbar"],
+        proc = subprocess.run((_sudo() if via_sudo else []) + [pacman, "--sync", "--refresh", "--noconfirm",
+                                              "--noprogressbar"],
                               stdin=subprocess.DEVNULL, capture_output=True,
-                              text=True, timeout=1800)
+                              text=True, timeout=1800, env=_sudo_env() if via_sudo else None)
     except (OSError, subprocess.SubprocessError) as exc:
         emit({"event": "error", "message": "could not refresh the databases: %s" % exc})
         return
@@ -488,12 +525,20 @@ def run(action, specs, dry_run=False):
         shutil.rmtree(dbpath, ignore_errors=True)
 
 
-def transact(handle, action, specs, dry_run):
+def transact(handle, action, specs, dry_run, download_only=False, out=None):
+    """Resolve and run a request. With `download_only` it stops once the
+    packages are in the handle's cache — removals are only resolved — and
+    leaves the resolved operations in `out["ops"]` for the caller to finish
+    (run_via_sudo); a request that ends early (refused, nothing to do) says
+    so itself and leaves `out` empty."""
     callbacks = Callbacks(handle)
     localdb = handle.get_localdb()
     accepted = list(getattr(handle, "arch", None) or [])
 
-    transaction = handle.init_transaction()
+    if download_only and action != "remove":
+        transaction = handle.init_transaction(downloadonly=True)
+    else:
+        transaction = handle.init_transaction()
     try:
         for spec in specs:
             name = spec.partition("=")[0]
@@ -556,6 +601,11 @@ def transact(handle, action, specs, dry_run):
         if dry_run:
             emit({"event": "done", "ok": True, "failed": []})
             return 0
+        if download_only:
+            if action != "remove":
+                transaction.commit()
+            out["ops"] = ops
+            return 0
         transaction.commit()
     except pyalpm.error as exc:
         emit({"event": "error", "message": str(exc)})
@@ -568,6 +618,140 @@ def transact(handle, action, specs, dry_run):
             pass
     emit({"event": "done", "ok": True, "failed": []})
     return 0
+
+
+def _sudo_allows(argv):
+    """Whether sudo would run pacman with these arguments without asking."""
+    import subprocess
+    try:
+        return subprocess.run(_sudo() + ["-l", PACMAN] + argv, stdin=subprocess.DEVNULL,
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                              timeout=30).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def _local_entries(dbpath):
+    try:
+        return set(os.listdir(os.path.join(dbpath, "local")))
+    except OSError:
+        return set()
+
+
+def run_via_sudo(action, specs):
+    """The transaction with pacman as the only thing run as root. See the
+    module docstring; the events are the ones a run as root sends."""
+    import shutil
+    import subprocess
+    import tempfile
+    import threading
+    import time
+    base = os.path.join(os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache"),
+                        "dankSoftwareDepot")
+    os.makedirs(base, exist_ok=True)
+    # A run that was killed never reached its cleanup; what it left is swept
+    # here, as plan_dbpath() does for its own directories
+    for name in os.listdir(base):
+        path = os.path.join(base, name)
+        try:
+            if name.startswith("pkg-") and os.path.isdir(path) and not os.path.islink(path) \
+                    and time.time() - os.stat(path).st_mtime > 24 * 3600:
+                shutil.rmtree(path, ignore_errors=True)
+        except OSError:
+            pass
+    # In the user's cache rather than /tmp: an update can be gigabytes, and
+    # /tmp is often memory
+    cache = tempfile.mkdtemp(prefix="pkg-", dir=base)
+    try:
+        if action != "remove":
+            refresh_syncdbs(via_sudo=True)
+        dbpath = plan_dbpath()
+        try:
+            handle = init_handle(dbpath)
+            system_caches = list(getattr(handle, "cachedirs", None) or []) or ["/var/cache/pacman/pkg/"]
+            # The first writable one is where libalpm downloads to: ours
+            handle.cachedirs = [cache] + system_caches
+            out = {}
+            code = transact(handle, action, specs, False, download_only=True, out=out)
+        finally:
+            shutil.rmtree(dbpath, ignore_errors=True)
+        if "ops" not in out:
+            return code
+
+        if action == "remove":
+            argv = ["--remove", "--noconfirm", "--noprogressbar"]
+        else:
+            argv = ["--sync", "--noconfirm", "--noprogressbar"] + (["--needed"] if action == "upgrade" else [])
+            # The system's first, so whatever is still missing lands there
+            for folder in system_caches + [cache]:
+                argv += ["--cachedir", folder]
+        argv += ["--"] + list(specs)
+
+        ops = out["ops"]
+        real = configured_dbpath()
+
+        def arrived(op, entries):
+            key = "%s-%s" % (op["name"], op["evr"])
+            return key not in entries if op["action"] == "Remove" else key in entries
+
+        def phase(op):
+            return "remove" if op["action"] == "Remove" else "install"
+
+        done = set()
+
+        def start(i):
+            emit({"event": "op-start", "name": ops[i]["name"], "phase": phase(ops[i]),
+                  "index": len(done) + 1, "total": len(ops)})
+
+        def next_pending():
+            return next((i for i in range(len(ops)) if i not in done), None)
+
+        try:
+            proc = subprocess.Popen(_sudo() + [PACMAN] + argv, stdin=subprocess.DEVNULL,
+                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                    text=True, errors="replace", env=_sudo_env())
+        except OSError as exc:
+            emit({"event": "error", "message": "sudo could not start pacman: %s" % exc})
+            emit({"event": "done", "ok": False, "failed": list(specs)})
+            return 1
+        said = []
+        reader = threading.Thread(target=lambda: said.extend(proc.stdout), daemon=True)
+        reader.start()
+        current = next_pending()
+        if current is not None:
+            start(current)
+        while True:
+            finished = proc.poll() is not None
+            entries = _local_entries(real)
+            for i, op in enumerate(ops):
+                if i in done or not arrived(op, entries):
+                    continue
+                if i != current:
+                    start(i)
+                done.add(i)
+                emit({"event": "progress", "name": op["name"], "phase": phase(op), "percent": 100})
+                emit({"event": "op-done", "name": op["name"], "phase": phase(op)})
+                if i == current:
+                    current = next_pending()
+                    if current is not None:
+                        start(current)
+            if finished:
+                break
+            time.sleep(0.25)
+        reader.join(timeout=5)
+        text = "".join(said).strip()
+        if proc.returncode != 0:
+            # pacman's own words, whole, for the details panel
+            print(text, file=sys.stderr)
+            errors = [line.strip() for line in text.splitlines() if line.strip().startswith("error:")]
+            emit({"event": "error",
+                  "message": "; ".join(errors) or "pacman exited with code %d" % proc.returncode})
+            emit({"event": "done", "ok": False, "failed": list(specs)})
+            return 1
+        emit({"event": "done", "ok": True, "failed": []})
+        return 0
+    finally:
+        shutil.rmtree(cache, ignore_errors=True)
 
 
 def main():
@@ -595,12 +779,28 @@ def main():
         return 0
     # `plan <action> …` resolves without root and without changing anything
     argv = sys.argv[1:]
+    via_sudo = bool(argv) and argv[0] == "--via-sudo"
+    if via_sudo:
+        argv = argv[1:]
     dry_run = bool(argv) and argv[0] == "plan"
     if dry_run:
         argv = argv[1:]
     if len(argv) < 2 or argv[0] not in ("install", "remove", "upgrade"):
         print(__doc__, file=sys.stderr)
         return 2
+    if via_sudo and not dry_run and os.geteuid() != 0:
+        checks = ([["--remove", "--noconfirm"]] if argv[0] == "remove" else
+                  [["--sync", "--refresh", "--noconfirm", "--noprogressbar"], ["--sync", "--noconfirm"]])
+        # Asked before anything is said: a caller that gets this code takes
+        # the usual path, and must not have seen half a run first
+        if not all(_sudo_allows(c) for c in checks):
+            return SUDO_WOULD_ASK
+        try:
+            return run_via_sudo(argv[0], argv[1:])
+        except Exception as exc:
+            emit({"event": "error", "message": str(exc)})
+            emit({"event": "done", "ok": False, "failed": argv[1:]})
+            return 1
     try:
         return run(argv[0], argv[1:], dry_run)
     except Exception as exc:

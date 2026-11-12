@@ -43,8 +43,11 @@ manager-agnostic — the QML layer needs no changes per backend. See
   directory and a cache of the user's own — the same `plan` and download
   events — and `sudo pacman -S` (or `-R`) installs from that cache. Install
   progress comes from the local database: a package's directory appearing
-  (or going) is its `op-done`. When sudo would ask, the helper prints nothing
-  and exits 3; `Backend.helperCommand` then takes the usual pkexec path.
+  (or going) is its `op-done`. When sudo would ask, or a pacman lock that no
+  running package manager explains is in the way (clearing it needs root,
+  which the rule does not give), the helper prints nothing and exits 3;
+  `Backend.helperCommand` then takes the usual pkexec path. A lock a running
+  package manager holds is reported as such, with no prompt.
 - One rpm-only option: `install --copr <owner/project> <spec>...` enables
   that Copr before resolving, so a package found by the Copr search costs
   one authorisation instead of two (the repository and the install are one
@@ -138,7 +141,8 @@ the interactive PKGBUILD review. The opt-in *Update AUR packages without a
 terminal* runs `scripts/aur_helper.py` instead: `paru -S --skipreview
 --batchinstall` (or yay with its menus answered `None`) with no tty, sudo
 replaced by `scripts/aur_sudo.sh`: sudo where it would not ask, polkit
-otherwise. It speaks a subset of
+otherwise. A run with no official pass adds `-y`: that pass is what
+refreshes the sync databases otherwise. It speaks a subset of
 the protocol — `op-start`/`op-done` per build, `output`, `error`, `done` —
 and the package database decides what arrived, as after a daemon pass.
 

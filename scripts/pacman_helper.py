@@ -22,8 +22,10 @@ pyalpm as the user — into a private database directory and a cache of the
 user's own, with the same events as a run as root — and `sudo pacman -S`
 installs them from that cache, checking every signature again. How far the
 install has got is read from the local database, where each package
-appears as a directory once it is in. When sudo would ask for a password
-the helper prints nothing and exits 3, and the caller takes the usual path.
+appears as a directory once it is in. When sudo would ask for a password,
+or a pacman lock that nothing visibly holds is in the way (only the root
+path can clear it), the helper prints nothing and exits 3, and the caller
+takes the usual path.
 
 """
 import json
@@ -79,8 +81,10 @@ except ImportError as exc:
 
 DBPATH = "/var/lib/pacman"
 PACMAN = "/usr/bin/pacman"
-# --via-sudo, when sudo would ask for a password: nothing was done or said
-SUDO_WOULD_ASK = 3
+# --via-sudo, when the usual path has to do it: sudo would ask for a
+# password, or a lock is in the way that only root can clear. Nothing was
+# done or said
+USUAL_PATH = 3
 
 
 def _test_hook(name):
@@ -410,6 +414,29 @@ def _describe(proc_root, pid):
     return "pid %d%s" % (pid, (" (" + " ".join(words[:3]) + ")") if words else "")
 
 
+def _manager_running(proc_root, pids, own, lockfile):
+    """Another package manager, or another update run of this helper, said
+    as the reason the lock stays; None when there is none. Names and command
+    lines are readable to anyone, so this needs no root — unlike the open
+    files clear_stale_lock() also looks at."""
+    for pid in pids:
+        if pid in own:
+            continue
+        try:
+            with open(os.path.join(proc_root, str(pid), "comm")) as fh:
+                comm = fh.read().strip()
+            with open(os.path.join(proc_root, str(pid), "cmdline"), "rb") as fh:
+                argv = [w.decode(errors="replace") for w in fh.read().split(b"\0") if w]
+        except OSError:
+            continue
+        if comm in PACKAGE_MANAGERS:
+            return "%s is running (%s); %s is left alone" % (comm, _describe(proc_root, pid), lockfile)
+        helper = [i for i, w in enumerate(argv) if os.path.basename(w) == "pacman_helper.py"]
+        if helper and argv[helper[0] + 1:helper[0] + 2] != ["plan"]:
+            return "another update is running (%s); %s is left alone" % (_describe(proc_root, pid), lockfile)
+    return None
+
+
 def clear_stale_lock():
     """Remove a pacman lock nothing holds. None when the way is clear,
     otherwise why it is not.
@@ -460,21 +487,9 @@ def clear_stale_lock():
     # Root reads every process; anything less cannot rule a holder out
     if unreadable:
         return "%s exists, and whether a package manager holds it cannot be told" % lockfile
-    for pid in pids:
-        if pid in own:
-            continue
-        try:
-            with open(os.path.join(proc_root, str(pid), "comm")) as fh:
-                comm = fh.read().strip()
-            with open(os.path.join(proc_root, str(pid), "cmdline"), "rb") as fh:
-                argv = [w.decode(errors="replace") for w in fh.read().split(b"\0") if w]
-        except OSError:
-            continue
-        if comm in PACKAGE_MANAGERS:
-            return "%s is running (%s); %s is left alone" % (comm, _describe(proc_root, pid), lockfile)
-        helper = [i for i, w in enumerate(argv) if os.path.basename(w) == "pacman_helper.py"]
-        if helper and argv[helper[0] + 1:helper[0] + 2] != ["plan"]:
-            return "another update is running (%s); %s is left alone" % (_describe(proc_root, pid), lockfile)
+    running = _manager_running(proc_root, pids, own, lockfile)
+    if running:
+        return running
     try:
         age = time.time() - os.stat(lockfile).st_mtime
     except OSError:
@@ -794,7 +809,26 @@ def main():
         # Asked before anything is said: a caller that gets this code takes
         # the usual path, and must not have seen half a run first
         if not all(_sudo_allows(c) for c in checks):
-            return SUDO_WOULD_ASK
+            return USUAL_PATH
+        # A lock left behind is cleared by the root path (clear_stale_lock),
+        # which the rule cannot reach: it allows pacman, and pacman leaves
+        # that file to whoever is sure nothing holds it. So a lock with no
+        # package manager in sight goes down the usual path, password and
+        # all; one with a package manager running is that manager's, and
+        # waiting for it needs no password
+        lockfile = os.path.join(os.path.realpath(configured_dbpath()), "db.lck")
+        if os.path.exists(lockfile):
+            proc_root = _test_hook("DSD_PROC") or "/proc"
+            try:
+                pids = [int(p) for p in os.listdir(proc_root) if p.isdigit()]
+            except OSError:
+                pids = []
+            busy = _manager_running(proc_root, pids, _ancestors(proc_root), lockfile)
+            if not busy:
+                return USUAL_PATH
+            emit({"event": "error", "message": busy})
+            emit({"event": "done", "ok": False, "failed": argv[1:]})
+            return 1
         try:
             return run_via_sudo(argv[0], argv[1:])
         except Exception as exc:

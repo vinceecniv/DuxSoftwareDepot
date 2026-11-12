@@ -1004,6 +1004,11 @@ Item {
         _aurOutput = "";
         _aurFinished = 0;
         const cmd = [Backend.python, Qt.resolvedUrl("scripts/aur_helper.py").toString().replace("file://", "")];
+        // The official pass refreshes the sync databases; without one in this
+        // run they are as old as the last refresh, and paru would resolve the
+        // AUR packages' repository dependencies against that
+        if (!_wantDnf)
+            cmd.push("--refresh");
         for (const base in _aurNameToKey)
             cmd.push(base);
         aurProcess.command = Backend.instrument("aur", cmd);

@@ -501,6 +501,24 @@ def main():
                 and not any(l.startswith("sudo -n /usr/bin/pacman --sync --noconfirm") for l in LAST["sudo"]),
                 str(LAST["sudo"]))
 
+    # A lock nothing visibly holds needs root to clear, which the rule does
+    # not give: the usual path does it, password and all. A lock a package
+    # manager holds is that manager's, and waiting for it needs no password.
+    stale = dict(fake_behind)
+    stale["lock"] = "stale"
+    events, trace, proc, raw = run(stale, "--via-sudo", "upgrade", "dsd-test-viewer")
+    ok &= check("via sudo: a stale lock sends the run down the usual path, having done nothing",
+                proc.returncode == 3 and proc.stdout == "" and LAST["lockRemains"]
+                and not [l for l in LAST["sudo"] if not l.startswith("sudo -n -l ")], proc.stdout + str(LAST["sudo"]))
+    busy = dict(fake_behind)
+    busy["lock"] = "manager"
+    events, trace, proc, raw = run(busy, "--via-sudo", "upgrade", "dsd-test-viewer")
+    ok &= check("via sudo: a lock while paru runs is reported, with no password and nothing done",
+                proc.returncode == 1 and LAST["lockRemains"]
+                and any(e.get("event") == "error" and "paru is running" in e.get("message", "") for e in events)
+                and (event(events, "done") or {}).get("ok") is False
+                and not [l for l in LAST["sudo"] if not l.startswith("sudo -n -l ")], json.dumps(events) + str(LAST["sudo"]))
+
     events, trace, proc, raw = run(fake_current, "--via-sudo", "remove", "dsd-test-lib")
     ok &= check("via sudo: a removal is resolved by pyalpm and done by sudo pacman -R, with no refresh",
                 "sudo -n /usr/bin/pacman --remove --noconfirm --noprogressbar -- dsd-test-lib" in LAST["sudo"]

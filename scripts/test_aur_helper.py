@@ -67,6 +67,7 @@ check(os.path.basename(argv[0]) == "paru", "paru is preferred over yay")
 for flag in ("-S", "--skipreview", "--nosudoloop", "--batchinstall", "--noconfirm"):
     check(flag in argv, "paru gets " + flag)
 check("--rebuild" not in argv, "a package built earlier is reused, not rebuilt")
+check("-Sy" not in argv, "no refresh unless asked: the official pass did it")
 check(argv[argv.index("--sudo") + 1].endswith("aur_sudo.sh"), "sudo is replaced by aur_sudo.sh")
 check(argv[-2:] == ["foo-git", "bar"], "the packages are passed as targets")
 kinds = [(e["event"], e.get("name")) for e in events]
@@ -81,6 +82,12 @@ check(os.path.basename(argv[0]) == "yay", "yay is used when paru is missing")
 for flag in ("--answerclean", "--answerdiff", "--answeredit"):
     check(flag in argv and argv[argv.index(flag) + 1] == "None", "yay gets %s None" % flag)
 check("--nosudoloop" not in argv and "--skipreview" not in argv, "yay gets no paru-only flags")
+
+# --refresh: the run had no official pass to refresh the databases first
+_, _, argv = run(["paru"], ["bar"], extra=["--refresh"])
+check(argv[1] == "-Sy" and "--refresh" not in argv, "paru --refresh refreshes: %r" % argv)
+_, _, argv = run(["yay"], ["bar"], extra=["--refresh"])
+check(argv[1] == "-Sy" and "--refresh" not in argv, "yay --refresh refreshes: %r" % argv)
 
 # A failed build: the error carries the output, the packages are failed
 code, events, _ = run(["paru"], ["foo-git", "bar"], mode="fail")

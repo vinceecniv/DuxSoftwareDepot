@@ -5,6 +5,16 @@ in-app when the plugin offers its own update.
 
 ## Unreleased
 
+- **Updating on Arch updates everything, not only the list.** The update
+  list is as old as its last check, and the run starts by refreshing the
+  package databases, which can know of updates the list does not: a new
+  kernel pushed an hour ago, say. The run used to install only what the
+  list showed, which left the system partly upgraded — something Arch does
+  not support — and those updates turning up right after it. It now runs
+  the full upgrade, and each update the refresh revealed gets its own row.
+  Held packages are left alone as before, and the shell's own packages
+  still go last.
+
 - **AUR updates can run without a terminal.** On Arch and other pacman
   systems, *Update AUR packages without a terminal* builds them in the
   background with paru or yay and shows each package being built in the

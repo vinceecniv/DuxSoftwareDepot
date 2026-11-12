@@ -36,6 +36,15 @@ manager-agnostic — the QML layer needs no changes per backend. See
   *before* asking for a password: the helper runs under `pkexec`, which
   prompts when the process starts, so a plan produced inside the real run
   would arrive after the authentication it is meant to inform.
+- One pacman-only action: `sysupgrade [<name>...]` is `pacman -Su`, every
+  installed package the repositories have newer, except the names given —
+  which here are the ones to leave alone, not the targets. The update run
+  uses it on Arch: it refreshes the databases first, and they can know of
+  updates its list was checked too early to show; upgrading only the listed
+  ones after that refresh would be a partial upgrade, which Arch does not
+  support. It names the held packages and the shell's own (those have a
+  final pass of their own); `IgnorePkg` is pacman's to apply. `done.failed`
+  stays empty for it, the names given not being its targets.
 - One pacman-only option: `--via-sudo` before the action runs it as the
   user, for a machine where sudo lets the user run `/usr/bin/pacman` without
   a password (`scripts/sudoers_rule.py` writes that rule). `sudo pacman -Sy`
@@ -67,7 +76,7 @@ ignored by consumers (forward compatibility).
 | Event | Fields | Meaning |
 |---|---|---|
 | `status` | `message` | Coarse state before the plan exists (`"repos"` = refreshing repo metadata) |
-| `plan` | `ops: [{name, evr, action, downloadBytes, installBytes}]`, `totalDownloadBytes`, `installDeltaBytes` | The resolved transaction — **the whole of it**, including packages the caller never asked for: dependencies pulled in, and anything the resolver decided to remove. `action` is a human string (`Install`, `Upgrade`, `Remove`, …); outbound-only ops have `downloadBytes: 0`. `installDeltaBytes` is the net disk change, incoming sizes minus outgoing |
+| `plan` | `ops: [{name, evr, action, downloadBytes, installBytes, fromEvr?}]`, `totalDownloadBytes`, `installDeltaBytes` | The resolved transaction — **the whole of it**, including packages the caller never asked for: dependencies pulled in, and anything the resolver decided to remove. `action` is a human string (`Install`, `Upgrade`, `Remove`, …); outbound-only ops have `downloadBytes: 0`. `installDeltaBytes` is the net disk change, incoming sizes minus outgoing. `fromEvr` (pacman) is the version installed now, where there is one |
 | `op-start` | `name`, `phase`, `bytesTotal`? (download), `index`/`total`? (install/remove) | Work on one package begins in the given phase |
 | `progress` | `name`, `phase`, `percent`, download also: `bytesTransferred`, `bytesTotal`, `totalTransferred` | Per-package progress. `percent` is the package's own 0–100 |
 | `op-done` | `name`, `phase`, `totalTransferred`? | The package finished this phase |
@@ -142,8 +151,8 @@ the interactive PKGBUILD review. The opt-in *Update AUR packages without a
 terminal* runs `scripts/aur_helper.py` instead: `paru -S --skipreview
 --batchinstall` (or yay with its menus answered `None`) with no tty, sudo
 replaced by `scripts/aur_sudo.sh`: sudo where it would not ask, polkit
-otherwise. A run with no official pass adds `-y`: that pass is what
-refreshes the sync databases otherwise. It speaks a subset of
+otherwise. The AUR pass always follows the full official upgrade, which
+refreshes the sync databases and brings the system up to them. It speaks a subset of
 the protocol — `op-start`/`op-done` per build, `output`, `error`, `done` —
 and the package database decides what arrived, as after a daemon pass.
 

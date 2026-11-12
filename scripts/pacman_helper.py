@@ -4,6 +4,7 @@ protocol documented in PROTOCOL.md — the Arch counterpart of
 rpm_helper.py.
 
 Usage: pacman_helper.py [--via-sudo] <install|remove|upgrade|plan|selftest> <name>...
+       pacman_helper.py [--via-sudo] [plan] sysupgrade [<name to leave alone>...]
 
 Transactions need root (run via pkexec); `plan` resolves against the
 existing sync databases and works unprivileged, and `selftest` reports
@@ -13,6 +14,15 @@ its import. `downgrade` is not offered:
 pacman keeps no version history in its repositories (that is the Arch
 Linux Archive's job, out of scope here). Official repositories only —
 AUR packages are never touched.
+
+`sysupgrade` is `pacman -Su`: every installed package the repositories
+have a newer version of, except the ones named. The update list a run
+starts from is as old as its check, and the refresh the run begins with can
+reveal more; upgrading only the listed packages after that refresh is a
+partial upgrade, which Arch does not support, and left the rest to appear
+in the list right after the run. So the update run uses this, naming what
+must stay: held packages, and the shell's own, which have a pass of their
+own at the end.
 
 `--via-sudo` runs the transaction without being root, for a machine where
 sudo lets this user run pacman without a password (the rule the settings
@@ -372,14 +382,14 @@ def preresolve(action, specs):
         emit({"event": "error",
               "message": "%s — resolving it crashed pyalpm (%s), so nothing was changed"
                          % ("; ".join(said) if said else "pacman could not resolve the request", what)})
-        emit({"event": "done", "ok": False, "failed": list(specs)})
+        emit({"event": "done", "ok": False, "failed": _targets(action, specs)})
         return 1
     done = next((e for e in reversed(events) if e.get("event") == "done"), None)
     if done is not None and done.get("ok") is False:
         for event in events:
             if event.get("event") == "error":
                 emit(event)
-        emit({"event": "done", "ok": False, "failed": list(specs)})
+        emit({"event": "done", "ok": False, "failed": _targets(action, specs)})
         return 1
     return None
 
@@ -520,7 +530,7 @@ def run(action, specs, dry_run=False):
         reason = clear_stale_lock()
         if reason:
             emit({"event": "error", "message": reason})
-            emit({"event": "done", "ok": False, "failed": list(specs)})
+            emit({"event": "done", "ok": False, "failed": _targets(action, specs)})
             return 1
     # Reading the repositories is the whole point of install and upgrade, so
     # they get a fresh copy first. `plan` is deliberately left out: it runs
@@ -550,22 +560,27 @@ def transact(handle, action, specs, dry_run, out=None):
     localdb = handle.get_localdb()
     accepted = list(getattr(handle, "arch", None) or [])
 
+    if action == "sysupgrade":
+        for name in specs:
+            handle.add_ignorepkg(name)
     transaction = handle.init_transaction()
     try:
-        for spec in specs:
+        if action == "sysupgrade":
+            transaction.sysupgrade(False)
+        for spec in (specs if action != "sysupgrade" else []):
             name = spec.partition("=")[0]
             if action == "remove":
                 pkg = localdb.get_pkg(name)
                 if pkg is None:
                     emit({"event": "error", "message": f"package not installed: {name}"})
-                    emit({"event": "done", "ok": False, "failed": list(specs)})
+                    emit({"event": "done", "ok": False, "failed": _targets(action, specs)})
                     return 1
                 transaction.remove_pkg(pkg)
             else:
                 pkg = find_sync_pkg(handle, name)
                 if pkg is None:
                     emit({"event": "error", "message": f"package not found: {name}"})
-                    emit({"event": "done", "ok": False, "failed": list(specs)})
+                    emit({"event": "done", "ok": False, "failed": _targets(action, specs)})
                     return 1
                 # The check libalpm makes in prepare(), made here, where a
                 # refusal is an event and not a segfault (see architectures())
@@ -574,7 +589,7 @@ def transact(handle, action, specs, dry_run, out=None):
                     emit({"event": "error",
                           "message": "package architecture is not valid: %s-%s-%s (this pacman accepts %s)"
                                      % (pkg.name, pkg.version, arch, ", ".join(accepted))})
-                    emit({"event": "done", "ok": False, "failed": list(specs)})
+                    emit({"event": "done", "ok": False, "failed": _targets(action, specs)})
                     return 1
                 # --needed, which is what the daemon's own `pacman -Syu` uses.
                 # After the refresh a package can already be at the version
@@ -598,6 +613,7 @@ def transact(handle, action, specs, dry_run, out=None):
             callbacks.plan_names.add(pkg.name)
             callbacks.totals[pkg.name] = down
             ops.append({"name": pkg.name, "evr": pkg.version, "action": act,
+                        "fromEvr": installed.version if installed is not None else "",
                         "downloadBytes": down, "installBytes": int(pkg.isize or 0)})
         disk_delta = sum(o["installBytes"] for o in ops)
         for pkg in transaction.to_remove:
@@ -620,7 +636,7 @@ def transact(handle, action, specs, dry_run, out=None):
         transaction.commit()
     except pyalpm.error as exc:
         emit({"event": "error", "message": str(exc)})
-        emit({"event": "done", "ok": False, "failed": list(specs)})
+        emit({"event": "done", "ok": False, "failed": _targets(action, specs)})
         return 1
     finally:
         try:
@@ -629,6 +645,12 @@ def transact(handle, action, specs, dry_run, out=None):
             pass
     emit({"event": "done", "ok": True, "failed": []})
     return 0
+
+
+def _targets(action, specs):
+    """What `done` reports as failed: the request's own packages. For a
+    sysupgrade the names given are the ones it leaves alone, so none."""
+    return [] if action == "sysupgrade" else list(specs)
 
 
 def _sudo_allows(argv):
@@ -670,10 +692,13 @@ def run_via_sudo(action, specs):
         return code
 
     if action == "remove":
-        argv = ["--remove", "--noconfirm", "--noprogressbar"]
+        argv = ["--remove", "--noconfirm", "--noprogressbar", "--"] + list(specs)
+    elif action == "sysupgrade":
+        argv = ["--sync", "--sysupgrade", "--noconfirm", "--noprogressbar"] \
+            + (["--ignore", ",".join(specs)] if specs else [])
     else:
-        argv = ["--sync", "--noconfirm", "--noprogressbar"] + (["--needed"] if action == "upgrade" else [])
-    argv += ["--"] + list(specs)
+        argv = ["--sync", "--noconfirm", "--noprogressbar"] + (["--needed"] if action == "upgrade" else []) \
+            + ["--"] + list(specs)
 
     ops = out["ops"]
     files = out["files"]
@@ -713,7 +738,7 @@ def run_via_sudo(action, specs):
                                 text=True, errors="replace", env=_sudo_env())
     except OSError as exc:
         emit({"event": "error", "message": "sudo could not start pacman: %s" % exc})
-        emit({"event": "done", "ok": False, "failed": list(specs)})
+        emit({"event": "done", "ok": False, "failed": _targets(action, specs)})
         return 1
     said = []
     reader = threading.Thread(target=lambda: said.extend(proc.stdout), daemon=True)
@@ -766,7 +791,8 @@ def run_via_sudo(action, specs):
         errors = [line.strip() for line in text.splitlines() if line.strip().startswith("error:")]
         emit({"event": "error",
               "message": "; ".join(errors) or "pacman exited with code %d" % proc.returncode})
-        emit({"event": "done", "ok": False, "failed": list(specs)})
+        emit({"event": "done", "ok": False,
+              "failed": [op["name"] for op in ops] if action == "sysupgrade" else _targets(action, specs)})
         return 1
     emit({"event": "done", "ok": True, "failed": []})
     return 0
@@ -803,7 +829,8 @@ def main():
     dry_run = bool(argv) and argv[0] == "plan"
     if dry_run:
         argv = argv[1:]
-    if len(argv) < 2 or argv[0] not in ("install", "remove", "upgrade"):
+    if not argv or argv[0] not in ("install", "remove", "upgrade", "sysupgrade") \
+            or (len(argv) < 2 and argv[0] != "sysupgrade"):
         print(__doc__, file=sys.stderr)
         return 2
     if via_sudo and not dry_run and os.geteuid() != 0:
@@ -830,19 +857,19 @@ def main():
             if not busy:
                 return USUAL_PATH
             emit({"event": "error", "message": busy})
-            emit({"event": "done", "ok": False, "failed": argv[1:]})
+            emit({"event": "done", "ok": False, "failed": _targets(argv[0], argv[1:])})
             return 1
         try:
             return run_via_sudo(argv[0], argv[1:])
         except Exception as exc:
             emit({"event": "error", "message": str(exc)})
-            emit({"event": "done", "ok": False, "failed": argv[1:]})
+            emit({"event": "done", "ok": False, "failed": _targets(argv[0], argv[1:])})
             return 1
     try:
         return run(argv[0], argv[1:], dry_run)
     except Exception as exc:
         emit({"event": "error", "message": str(exc)})
-        emit({"event": "done", "ok": False, "failed": argv[1:]})
+        emit({"event": "done", "ok": False, "failed": _targets(argv[0], argv[1:])})
         return 1
 
 

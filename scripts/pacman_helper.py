@@ -34,8 +34,9 @@ pacman run does. How far it has got is read from the file system: a
 package is downloaded once its file is in the cache (pacman moves it there
 whole), and installed once its directory is in the local database. When sudo would ask for a password,
 or a pacman lock that nothing visibly holds is in the way (only the root
-path can clear it), the helper prints nothing and exits 3, and the caller
-takes the usual path.
+path can clear it), the helper says which in a `status` event — "sudo-asks"
+or "stale-lock", for the window to show while the password prompt is up —
+and exits 3, having done nothing; the caller takes the usual path.
 
 """
 import json
@@ -93,7 +94,8 @@ DBPATH = "/var/lib/pacman"
 PACMAN = "/usr/bin/pacman"
 # --via-sudo, when the usual path has to do it: sudo would ask for a
 # password, or a lock is in the way that only root can clear. Nothing was
-# done or said
+# done; the one thing said is why (a `status` event), because the password
+# prompt that follows cannot say it — its text is polkit's, not the caller's
 USUAL_PATH = 3
 
 
@@ -839,6 +841,7 @@ def main():
         # Asked before anything is said: a caller that gets this code takes
         # the usual path, and must not have seen half a run first
         if not all(_sudo_allows(c) for c in checks):
+            emit({"event": "status", "message": "sudo-asks"})
             return USUAL_PATH
         # A lock left behind is cleared by the root path (clear_stale_lock),
         # which the rule cannot reach: it allows pacman, and pacman leaves
@@ -855,6 +858,7 @@ def main():
                 pids = []
             busy = _manager_running(proc_root, pids, _ancestors(proc_root), lockfile)
             if not busy:
+                emit({"event": "status", "message": "stale-lock"})
                 return USUAL_PATH
             emit({"event": "error", "message": busy})
             emit({"event": "done", "ok": False, "failed": _targets(argv[0], argv[1:])})

@@ -600,5 +600,7 @@
     "Another sudoers rule still lets pacman run without a password.": "Outra regra sudoers continua a permitir executar o pacman sem palavra-passe.",
     "Active: pacman runs without a password.": "Ativo: o pacman é executado sem palavra-passe.",
     "Not set up. It adds this rule to /etc/sudoers.d:": "Não configurado. Adiciona esta regra em /etc/sudoers.d:",
-    "Set up": "Configurar"
+    "Set up": "Configurar",
+    "Unlocking pacman after an interrupted update — waiting for authorisation…": "A desbloquear o pacman após uma atualização interrompida — à espera de autorização…",
+    "Waiting for authorisation to change system packages…": "À espera de autorização para alterar pacotes do sistema…"
 }

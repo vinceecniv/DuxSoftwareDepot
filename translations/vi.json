@@ -600,5 +600,7 @@
     "Another sudoers rule still lets pacman run without a password.": "Một quy tắc sudoers khác vẫn cho phép chạy pacman không cần mật khẩu.",
     "Active: pacman runs without a password.": "Đang bật: pacman chạy không cần mật khẩu.",
     "Not set up. It adds this rule to /etc/sudoers.d:": "Chưa thiết lập. Quy tắc này sẽ được thêm vào /etc/sudoers.d:",
-    "Set up": "Thiết lập"
+    "Set up": "Thiết lập",
+    "Unlocking pacman after an interrupted update — waiting for authorisation…": "Đang mở khóa pacman sau một lần cập nhật bị gián đoạn — đang chờ xác thực…",
+    "Waiting for authorisation to change system packages…": "Đang chờ xác thực để thay đổi các gói hệ thống…"
 }

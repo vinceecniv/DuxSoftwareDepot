@@ -1239,7 +1239,7 @@ Item {
         case "status":
             installStep = 0;
             installFraction = 0.1;
-            installProgress = Tr.t("Loading repositories…");
+            installProgress = Ui.authNotice(event.message || "") || Tr.t("Loading repositories…");
             break;
         case "plan":
             _fpOpCount = (event.ops || []).length;

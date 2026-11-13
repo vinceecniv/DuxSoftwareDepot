@@ -600,5 +600,7 @@
     "Another sudoers rule still lets pacman run without a password.": "另一条 sudoers 规则仍允许无需密码运行 pacman。",
     "Active: pacman runs without a password.": "已启用：pacman 无需密码运行。",
     "Not set up. It adds this rule to /etc/sudoers.d:": "尚未设置。将向 /etc/sudoers.d 添加以下规则：",
-    "Set up": "设置"
+    "Set up": "设置",
+    "Unlocking pacman after an interrupted update — waiting for authorisation…": "正在解锁中断更新后的 pacman — 等待授权…",
+    "Waiting for authorisation to change system packages…": "正在等待授权以更改系统软件包…"
 }

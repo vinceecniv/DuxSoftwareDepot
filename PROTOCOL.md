@@ -55,8 +55,11 @@ manager-agnostic — the QML layer needs no changes per backend. See
   its download `op-done`, its directory appearing in the local database (or
   going, for a removal) its install `op-done`. When sudo would ask, or a pacman lock that no
   running package manager explains is in the way (clearing it needs root,
-  which the rule does not give), the helper prints nothing and exits 3;
-  `Backend.helperCommand` then takes the usual pkexec path. A lock a running
+  which the rule does not give), the helper does nothing, sends one `status`
+  event saying which (`sudo-asks` or `stale-lock`) and exits 3;
+  `Backend.helperCommand` then takes the usual pkexec path, and the window
+  shows that reason while the password prompt is up — the prompt's own text
+  is polkit's and cannot carry it. A lock a running
   package manager holds is reported as such, with no prompt.
 - One rpm-only option: `install --copr <owner/project> <spec>...` enables
   that Copr before resolving, so a package found by the Copr search costs
@@ -75,7 +78,7 @@ ignored by consumers (forward compatibility).
 
 | Event | Fields | Meaning |
 |---|---|---|
-| `status` | `message` | Coarse state before the plan exists (`"repos"` = refreshing repo metadata) |
+| `status` | `message` | Coarse state before the plan exists (`"repos"` = refreshing repo metadata; pacman `--via-sudo` handing over to the usual path: `"sudo-asks"`, `"stale-lock"`) |
 | `plan` | `ops: [{name, evr, action, downloadBytes, installBytes, fromEvr?}]`, `totalDownloadBytes`, `installDeltaBytes` | The resolved transaction — **the whole of it**, including packages the caller never asked for: dependencies pulled in, and anything the resolver decided to remove. `action` is a human string (`Install`, `Upgrade`, `Remove`, …); outbound-only ops have `downloadBytes: 0`. `installDeltaBytes` is the net disk change, incoming sizes minus outgoing. `fromEvr` (pacman) is the version installed now, where there is one |
 | `op-start` | `name`, `phase`, `bytesTotal`? (download), `index`/`total`? (install/remove) | Work on one package begins in the given phase |
 | `progress` | `name`, `phase`, `percent`, download also: `bytesTransferred`, `bytesTotal`, `totalTransferred` | Per-package progress. `percent` is the package's own 0–100 |

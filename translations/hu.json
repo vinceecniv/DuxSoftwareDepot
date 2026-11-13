@@ -608,5 +608,7 @@
     "Another sudoers rule still lets pacman run without a password.": "Egy másik sudoers-szabály továbbra is engedi a pacman jelszó nélküli futtatását.",
     "Active: pacman runs without a password.": "Aktív: a pacman jelszó nélkül fut.",
     "Not set up. It adds this rule to /etc/sudoers.d:": "Nincs beállítva. Ezt a szabályt adja hozzá az /etc/sudoers.d mappához:",
-    "Set up": "Beállítás"
+    "Set up": "Beállítás",
+    "Unlocking pacman after an interrupted update — waiting for authorisation…": "A pacman feloldása egy megszakadt frissítés után — várakozás a hitelesítésre…",
+    "Waiting for authorisation to change system packages…": "Várakozás a hitelesítésre a rendszercsomagok módosításához…"
 }

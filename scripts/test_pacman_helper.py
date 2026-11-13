@@ -530,8 +530,9 @@ def main():
     asks = dict(fake_behind)
     asks["sudoAsks"] = True
     events, trace, proc, raw = run(asks, "--via-sudo", "upgrade", "dsd-test-viewer")
-    ok &= check("via sudo: when sudo would ask, nothing is done or said, and the exit code is 3",
-                proc.returncode == 3 and proc.stdout == "" and not [l for l in raw if not l.startswith("pacman-conf")]
+    ok &= check("via sudo: when sudo would ask, nothing is done, the reason is all that is said, and the exit code is 3",
+                proc.returncode == 3 and events == [{"event": "status", "message": "sudo-asks"}]
+                and not [l for l in raw if not l.startswith("pacman-conf")]
                 and all(l.startswith("sudo -n -l ") for l in LAST["sudo"]), proc.stdout + str(raw) + str(LAST["sudo"]))
 
     failing = dict(fake_behind)
@@ -554,8 +555,8 @@ def main():
     stale = dict(fake_behind)
     stale["lock"] = "stale"
     events, trace, proc, raw = run(stale, "--via-sudo", "upgrade", "dsd-test-viewer")
-    ok &= check("via sudo: a stale lock sends the run down the usual path, having done nothing",
-                proc.returncode == 3 and proc.stdout == "" and LAST["lockRemains"]
+    ok &= check("via sudo: a stale lock sends the run down the usual path, having done nothing but say why",
+                proc.returncode == 3 and events == [{"event": "status", "message": "stale-lock"}] and LAST["lockRemains"]
                 and not [l for l in LAST["sudo"] if not l.startswith("sudo -n -l ")], proc.stdout + str(LAST["sudo"]))
     busy = dict(fake_behind)
     busy["lock"] = "manager"

@@ -47,6 +47,9 @@ Item {
             // sitting on a silent 0%
             if (_helperPlanBytes > 0)
                 return Tr.t("%1 of %2").arg(formatBytes(_helperTransferred)).arg(formatBytes(_helperPlanBytes));
+            // Why the password prompt that is up now is up
+            if (_helperNotice !== "" && !_helperSawPlan)
+                return _helperNotice;
             return _dnfStageY > 0 && _daemonKind === "shell" ? Tr.t("package %1 of %2").arg(Math.min(_dnfStageX + 1, _dnfStageY)).arg(_dnfStageY) : Tr.t("Loading repositories…");
         case "dnf-install":
         case "dms":
@@ -1185,6 +1188,7 @@ Item {
     // reading; they are what tells a crash apart from a clean refusal.
     property string _helperExitNote: ""
     property bool _helperSawPlan: false
+    property string _helperNotice: ""
 
     // Raw failure text of the last run, per item key, alongside the short
     // reason in itemStates[key].detail. Survives the run so the details
@@ -1248,6 +1252,7 @@ Item {
         _helperStderr = "";
         _helperExitNote = "";
         _helperSawPlan = false;
+        _helperNotice = "";
         _helperPlanBytes = 0;
         _helperTransferred = 0;
         phase = "dnf-download";
@@ -1280,6 +1285,9 @@ Item {
         const key = _dnfNameToKey[event.name] || "";
         const state = key ? (itemStates[key] || null) : null;
         switch (event.event) {
+        case "status":
+            _helperNotice = Ui.authNotice(event.message || "");
+            break;
         case "plan": {
             _helperSawPlan = true;
             _helperPlanBytes = event.totalDownloadBytes || 0;

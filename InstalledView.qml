@@ -1123,7 +1123,7 @@ Item {
         switch (event.event) {
         case "status":
             mutationFraction = 0.1;
-            mutationProgress = Tr.t("Loading repositories…");
+            mutationProgress = Ui.authNotice(event.message || "") || Tr.t("Loading repositories…");
             break;
         case "plan":
             _mutPlanBytes = event.totalDownloadBytes || 0;

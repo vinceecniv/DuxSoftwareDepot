@@ -608,5 +608,7 @@
     "Another sudoers rule still lets pacman run without a password.": "다른 sudoers 규칙이 여전히 비밀번호 없는 pacman 실행을 허용합니다.",
     "Active: pacman runs without a password.": "활성: pacman이 비밀번호 없이 실행됩니다.",
     "Not set up. It adds this rule to /etc/sudoers.d:": "설정되지 않았습니다. 다음 규칙을 /etc/sudoers.d에 추가합니다:",
-    "Set up": "설정"
+    "Set up": "설정",
+    "Unlocking pacman after an interrupted update — waiting for authorisation…": "중단된 업데이트 후 pacman 잠금 해제 중 — 인증을 기다리는 중…",
+    "Waiting for authorisation to change system packages…": "시스템 패키지를 변경하기 위한 인증을 기다리는 중…"
 }

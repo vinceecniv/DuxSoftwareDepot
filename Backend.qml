@@ -320,8 +320,9 @@ Item {
     // run pacman without a password (the rule the settings can add), it runs
     // as the user and only pacman is privileged (pacman_helper.py --via-sudo).
     // Where sudo would ask, or a stale pacman lock needs root to clear, it
-    // exits 3 having done and said nothing, and the usual path follows: the
-    // one privileged() takes, decided the same way.
+    // exits 3 having done nothing — only said why, for the window to show
+    // under the password prompt — and the usual path follows: the one
+    // privileged() takes, decided the same way.
     function _pacmanCommand(action, specs) {
         return ["sh", "-c", "py=$1; helper=$2; first=$3; shift 3; "
             + "\"$py\" \"$helper\" --via-sudo \"$@\"; rc=$?; [ \"$rc\" -eq 3 ] || exit \"$rc\"; "

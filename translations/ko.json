@@ -596,5 +596,19 @@
     "Show again": "다시 표시",
     "fwupd is not installed, so there is no firmware to show. Install the fwupd package, then try again.": "fwupd가 설치되어 있지 않아 표시할 펌웨어가 없습니다. fwupd 패키지를 설치한 후 다시 시도하세요.",
     "fwupd could not read the device list.": "fwupd가 장치 목록을 읽지 못했습니다.",
-    "Try again": "다시 시도"
+    "Try again": "다시 시도",
+    "Update AUR packages without a terminal": "터미널 없이 AUR 패키지 업데이트",
+    "Build AUR packages in the background with paru or yay and show the progress here, instead of opening a terminal. The PKGBUILD review is skipped. Installing them asks for your password, unless pacman runs without one.": "터미널을 여는 대신 paru 또는 yay로 AUR 패키지를 백그라운드에서 빌드하고 진행 상황을 여기에 표시합니다. PKGBUILD 검토는 건너뜁니다. pacman이 비밀번호 없이 실행되지 않으면 설치할 때 비밀번호를 묻습니다.",
+    "Building AUR packages… (this can take a while)": "AUR 패키지 빌드 중… (시간이 걸릴 수 있습니다)",
+    "building": "빌드 중",
+    "the AUR package was not built or installed": "AUR 패키지가 빌드되거나 설치되지 않았습니다",
+    "built, waiting to install": "빌드됨, 설치 대기 중",
+    "Run pacman without a password": "비밀번호 없이 pacman 실행",
+    "Adds a sudoers rule that lets you run pacman without a password, so installing, removing and updating packages, AUR included, asks for nothing. Setting it up asks once. Note that any program running under your account can then install any software into the system without a password.": "비밀번호 없이 pacman을 실행할 수 있는 sudoers 규칙을 추가하여, AUR을 포함한 패키지 설치·제거·업데이트에서 아무것도 묻지 않습니다. 설정할 때 한 번 묻습니다. 주의: 그 뒤에는 사용자 계정으로 실행되는 모든 프로그램이 비밀번호 없이 어떤 소프트웨어든 시스템에 설치할 수 있습니다.",
+    "Another sudoers rule still lets pacman run without a password.": "다른 sudoers 규칙이 여전히 비밀번호 없는 pacman 실행을 허용합니다.",
+    "Active: pacman runs without a password.": "활성: pacman이 비밀번호 없이 실행됩니다.",
+    "Not set up. It adds this rule to /etc/sudoers.d:": "설정되지 않았습니다. 다음 규칙을 /etc/sudoers.d에 추가합니다:",
+    "Set up": "설정",
+    "Unlocking pacman after an interrupted update — waiting for authorisation…": "중단된 업데이트 후 pacman 잠금 해제 중 — 인증을 기다리는 중…",
+    "Waiting for authorisation to change system packages…": "시스템 패키지를 변경하기 위한 인증을 기다리는 중…"
 }

@@ -596,5 +596,19 @@
     "Show again": "Hiện lại",
     "fwupd is not installed, so there is no firmware to show. Install the fwupd package, then try again.": "fwupd chưa được cài đặt nên không có firmware nào để hiển thị. Hãy cài gói fwupd rồi thử lại.",
     "fwupd could not read the device list.": "fwupd không đọc được danh sách thiết bị.",
-    "Try again": "Thử lại"
+    "Try again": "Thử lại",
+    "Update AUR packages without a terminal": "Cập nhật gói AUR không cần terminal",
+    "Build AUR packages in the background with paru or yay and show the progress here, instead of opening a terminal. The PKGBUILD review is skipped. Installing them asks for your password, unless pacman runs without one.": "Dựng các gói AUR ở chế độ nền bằng paru hoặc yay và hiển thị tiến trình tại đây, thay vì mở terminal. Bước xem lại PKGBUILD bị bỏ qua. Khi cài đặt sẽ hỏi mật khẩu, trừ khi pacman chạy không cần mật khẩu.",
+    "Building AUR packages… (this can take a while)": "Đang dựng gói AUR… (có thể mất một lúc)",
+    "building": "đang dựng",
+    "the AUR package was not built or installed": "gói AUR chưa được dựng hoặc cài đặt",
+    "built, waiting to install": "đã dựng, đang chờ cài đặt",
+    "Run pacman without a password": "Chạy pacman không cần mật khẩu",
+    "Adds a sudoers rule that lets you run pacman without a password, so installing, removing and updating packages, AUR included, asks for nothing. Setting it up asks once. Note that any program running under your account can then install any software into the system without a password.": "Thêm một quy tắc sudoers cho phép bạn chạy pacman không cần mật khẩu, để việc cài, gỡ và cập nhật gói, kể cả AUR, không hỏi gì nữa. Bước thiết lập hỏi một lần. Lưu ý: sau đó, mọi chương trình chạy dưới tài khoản của bạn đều có thể cài bất kỳ phần mềm nào vào hệ thống mà không cần mật khẩu.",
+    "Another sudoers rule still lets pacman run without a password.": "Một quy tắc sudoers khác vẫn cho phép chạy pacman không cần mật khẩu.",
+    "Active: pacman runs without a password.": "Đang bật: pacman chạy không cần mật khẩu.",
+    "Not set up. It adds this rule to /etc/sudoers.d:": "Chưa thiết lập. Quy tắc này sẽ được thêm vào /etc/sudoers.d:",
+    "Set up": "Thiết lập",
+    "Unlocking pacman after an interrupted update — waiting for authorisation…": "Đang mở khóa pacman sau một lần cập nhật bị gián đoạn — đang chờ xác thực…",
+    "Waiting for authorisation to change system packages…": "Đang chờ xác thực để thay đổi các gói hệ thống…"
 }

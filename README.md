@@ -50,8 +50,13 @@ and polkit prompts appear through the DMS agent.
   default
 - **Debian/Ubuntu, Arch, atomic Fedora** — implemented, experimental, and said
   so in a banner. Atomic runs through `rpm-ostree`, so everything lands in the
-  *next* boot. On Arch, AUR updates are detected and installed through the DMS
-  daemon's own paru/yay pass; the plugin builds no AUR packages itself.
+  *next* boot. On Arch, AUR updates are detected by the DMS daemon and by
+  default installed through its own paru/yay pass, in a terminal. *Update AUR
+  packages without a terminal* in the settings runs paru or yay in the
+  background instead, with no PKGBUILD review. *Run pacman without a
+  password* adds a sudoers rule for `/usr/bin/pacman` (one prompt to set it
+  up), after which installing, removing and updating packages, AUR included,
+  asks nothing.
   `-git` packages join that pass once devel is on in your helper:
   `yay -Y --devel --save`, or `Devel` in `paru.conf`
 - **Flatpak, AppImage and firmware** work the same everywhere

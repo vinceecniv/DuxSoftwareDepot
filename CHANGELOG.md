@@ -67,6 +67,31 @@ in-app when the plugin offers its own update.
   ([#34](https://github.com/vinceecniv/DuxSoftwareDepot/pull/34), thanks
   to @hthienloc).
 
+- **Updating on Arch updates everything, not only the list.** The update
+  list is as old as its last check, and the run starts by refreshing the
+  package databases, which can know of updates the list does not: a new
+  kernel pushed an hour ago, say. The run used to install only what the
+  list showed, which left the system partly upgraded — something Arch does
+  not support — and those updates turning up right after it. It now runs
+  the full upgrade, and each update the refresh revealed gets its own row.
+  Held packages are left alone as before, and the shell's own packages
+  still go last.
+
+- **AUR updates can run without a terminal.** On Arch and other pacman
+  systems, *Update AUR packages without a terminal* builds them in the
+  background with paru or yay and shows each package being built in the
+  update list, instead of the DMS daemon's `paru -Syu` in a terminal
+  window. The PKGBUILD review is skipped; that is the trade the switch
+  makes, and it is off until you turn it on.
+
+- **pacman can run without a password.** *Run pacman without a password*
+  adds one sudoers line for `/usr/bin/pacman`, at the cost of a single
+  password prompt, after which installing, removing and updating packages
+  asks nothing — AUR included. The plugin's own helper then runs as you,
+  and only pacman runs as root. Any program running under your account can
+  then install any software as root; the setting says so, and *Remove*
+  takes the line away again.
+
 ## 1.8.4 — 2026-11-06
 
 - **The plugin no longer offers an update your shell cannot load.** The

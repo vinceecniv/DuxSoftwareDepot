@@ -596,5 +596,19 @@
     "Show again": "重新显示",
     "fwupd is not installed, so there is no firmware to show. Install the fwupd package, then try again.": "未安装 fwupd，因此没有可显示的固件。请安装 fwupd 软件包，然后重试。",
     "fwupd could not read the device list.": "fwupd 无法读取设备列表。",
-    "Try again": "重试"
+    "Try again": "重试",
+    "Update AUR packages without a terminal": "无需终端更新 AUR 软件包",
+    "Build AUR packages in the background with paru or yay and show the progress here, instead of opening a terminal. The PKGBUILD review is skipped. Installing them asks for your password, unless pacman runs without one.": "在后台使用 paru 或 yay 构建 AUR 软件包，并在此处显示进度，而不是打开终端。将跳过 PKGBUILD 审查。安装时会询问密码，除非 pacman 可以无需密码运行。",
+    "Building AUR packages… (this can take a while)": "正在构建 AUR 软件包…（可能需要一段时间）",
+    "building": "正在构建",
+    "the AUR package was not built or installed": "AUR 软件包未被构建或安装",
+    "built, waiting to install": "已构建，等待安装",
+    "Run pacman without a password": "无需密码运行 pacman",
+    "Adds a sudoers rule that lets you run pacman without a password, so installing, removing and updating packages, AUR included, asks for nothing. Setting it up asks once. Note that any program running under your account can then install any software into the system without a password.": "添加一条 sudoers 规则，让你无需密码运行 pacman，这样安装、删除和更新软件包（包括 AUR）都不再询问。设置时询问一次。注意：之后，以你的账户运行的任何程序都能无需密码向系统安装任何软件。",
+    "Another sudoers rule still lets pacman run without a password.": "另一条 sudoers 规则仍允许无需密码运行 pacman。",
+    "Active: pacman runs without a password.": "已启用：pacman 无需密码运行。",
+    "Not set up. It adds this rule to /etc/sudoers.d:": "尚未设置。将向 /etc/sudoers.d 添加以下规则：",
+    "Set up": "设置",
+    "Unlocking pacman after an interrupted update — waiting for authorisation…": "正在解锁中断更新后的 pacman — 等待授权…",
+    "Waiting for authorisation to change system packages…": "正在等待授权以更改系统软件包…"
 }

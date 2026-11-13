@@ -47,6 +47,9 @@ Item {
             // sitting on a silent 0%
             if (_helperPlanBytes > 0)
                 return Tr.t("%1 of %2").arg(formatBytes(_helperTransferred)).arg(formatBytes(_helperPlanBytes));
+            // Why the password prompt that is up now is up
+            if (_helperNotice !== "" && !_helperSawPlan)
+                return _helperNotice;
             return _dnfStageY > 0 && _daemonKind === "shell" ? Tr.t("package %1 of %2").arg(Math.min(_dnfStageX + 1, _dnfStageY)).arg(_dnfStageY) : Tr.t("Loading repositories…");
         case "dnf-install":
         case "dms":
@@ -89,7 +92,22 @@ Item {
     // shell reloads while it runs.
     // The dux-* names are the ones Dux Labs suggests packagers move to with
     // 2.0; dms-shell is what Arch and Debian already call it.
-    readonly property var shellPackagePattern: /^(dms(-git)?|dms-cli|dms-greeter|dms-shell(-git|-bin)?|dux-shell(-git)?|dux-greeter|quickshell(-git)?)$/
+    readonly property var shellPackageNames: ["dms", "dms-git", "dms-cli", "dms-greeter", "dms-shell", "dms-shell-git", "dms-shell-bin", "dux-shell", "dux-shell-git", "dux-greeter", "quickshell", "quickshell-git"]
+    readonly property var shellPackagePattern: new RegExp("^(" + shellPackageNames.join("|") + ")$")
+
+    // What a full upgrade on a pacman system leaves alone: the shell's own
+    // packages, which have the last pass to themselves, and everything held.
+    // Named whether or not they are pending — the refresh the run starts with
+    // can make one of them pending that the list never showed. IgnorePkg in
+    // pacman.conf needs no naming: pacman and pyalpm read it themselves.
+    function _pacmanLeaveAlone() {
+        const names = new Set(shellPackageNames.concat(SettingsData.updaterIgnoredPackages || []));
+        for (const key of heldKeys || []) {
+            if (key.indexOf("system/") === 0)
+                names.add(key.slice("system/".length));
+        }
+        return Array.from(names).sort();
+    }
 
     // FirmwareService instance (bound by the widget); firmware updates run
     // as the last phase via fwupdmgr.
@@ -169,6 +187,7 @@ Item {
             return _appimageDownloading ? 1 : 2;
         case "firmware":
         case "brew":
+        case "aur":
         case "plugins":
             return 2;
         case "verifying":
@@ -198,6 +217,8 @@ Item {
             return Tr.t("Updating firmware…");
         case "dms":
             return Tr.t("Updating Dux Shell… (shell may reload)");
+        case "aur":
+            return Tr.t("Building AUR packages… (this can take a while)");
         case "brew":
             return Tr.t("Upgrading Homebrew formulae… (building from source can take a while)");
         case "plugins":
@@ -225,6 +246,14 @@ Item {
     property bool _wantFlatpak: false
     property bool _wantFirmware: false
     property bool _wantShell: false
+    // AUR packages built in the background by scripts/aur_helper.py
+    property bool _wantAur: false
+    property bool _aurDone: true
+    property var _aurNameToKey: ({})
+    property int _aurFinished: 0
+    property string _aurError: ""
+    property string _aurOutput: ""
+    readonly property real aurItemWeight: 20 * 1024 * 1024
     property bool _shellDone: true
     property int _shellCount: 0
     property var _shellNames: []
@@ -379,7 +408,11 @@ Item {
             return;
         }
         previewProcess._selected = new Set(names.map(n => _stripArch(n)));
-        previewProcess.command = Backend.instrument("plan", Backend.planCommand("upgrade", names));
+        // pacman: the whole upgrade the run will do, which is more than the
+        // list whenever the repositories have moved since its check
+        previewProcess.command = Backend.instrument("plan", Backend.backendId === "pacman"
+            ? Backend.planCommand("sysupgrade", _pacmanLeaveAlone())
+            : Backend.planCommand("upgrade", names));
         previewProcess.running = true;
     }
 
@@ -544,19 +577,31 @@ Item {
         // to play back. A replay leaves them out of the run altogether rather
         // than starting a real daemon pass in the middle of a simulation, or
         // showing rows that nothing will ever move.
-        // AUR updates ride the shell pass on the DMS daemon. The pacman
-        // helper resolves official repositories only — libalpm has no AUR —
-        // so an AUR name handed to it fails the whole transaction with
-        // "package not found". The daemon's AUR backend (paru or yay) is the
-        // one that can build and install these, and this is the same pass
-        // and the same terminal-wrapped `paru -Syu` the shell's own updater
-        // already runs; the plugin adds no AUR building of its own.
-        const shellPkgs = (options.dnf !== false && !Backend.replaying) ? dnfAll.filter(p => p.repo === "aur" || shellPackagePattern.test(_stripArch(p.name))) : [];
+        // AUR updates never go to the pacman helper: it resolves official
+        // repositories only — libalpm has no AUR — so an AUR name handed to
+        // it fails the whole transaction with "package not found". By
+        // default they ride the shell pass on the DMS daemon, the same
+        // terminal-wrapped `paru -Syu` the shell's own updater runs. With
+        // "Update AUR packages without a terminal" on, they get a pass of
+        // their own instead (scripts/aur_helper.py), after the official
+        // packages and before the shell's.
+        const aurQuiet = Backend.aurNoTerminal && !Backend.replaying && options.dnf !== false;
+        const aurPkgs = aurQuiet ? dnfAll.filter(p => p.repo === "aur") : [];
+        const shellPkgs = (options.dnf !== false && !Backend.replaying) ? dnfAll.filter(p => (p.repo === "aur" && !aurQuiet) || (p.repo !== "aur" && shellPackagePattern.test(_stripArch(p.name)))) : [];
         const dnfPkgs = dnfAll.filter(p => p.repo !== "aur" && !shellPackagePattern.test(_stripArch(p.name)));
         const flatpakPkgs = updates.filter(p => p.repo === "flatpak");
 
-        _wantDnf = (options.dnf !== false) && dnfPkgs.length > 0;
+        // On a pacman system an AUR pass always follows the full upgrade, even
+        // with no official package in the list: that pass refreshes the
+        // databases and brings everything up to them, so paru builds against
+        // the system the databases describe rather than a partial upgrade
+        _wantDnf = (options.dnf !== false) && (dnfPkgs.length > 0 || aurPkgs.length > 0);
         _wantShell = shellPkgs.length > 0;
+        _wantAur = aurPkgs.length > 0;
+        _aurDone = !_wantAur;
+        _aurFinished = 0;
+        _aurError = "";
+        _aurOutput = "";
         _flatpakIds = options.flatpakIds || [];
         _wantFlatpak = (options.flatpak !== false) && flatpakPkgs.length > 0;
         // AppImages join full runs and explicit selections; a flatpak-only
@@ -586,7 +631,7 @@ Item {
         _brewItems = brewItems;
         _brewDone = 0;
 
-        if (!_wantDnf && !_wantFlatpak && !_wantFirmware && !_wantShell && !_wantAppimage && !_wantPlugins && !_wantBrew)
+        if (!_wantDnf && !_wantFlatpak && !_wantFirmware && !_wantShell && !_wantAur && !_wantAppimage && !_wantPlugins && !_wantBrew)
             return;
 
         _dnfDone = !_wantDnf;
@@ -749,6 +794,26 @@ Item {
             });
             plannedCount++;
         }
+        const aurMap = {};
+        for (const pkg of aurPkgs) {
+            const base = _stripArch(pkg.name);
+            if (states["system/" + base])
+                continue;
+            states["system/" + base] = {
+                status: "pending",
+                fraction: 0,
+                detail: ""
+            };
+            aurMap[base] = "system/" + base;
+            expectedEvr[base] = pkg.toVersion || "";
+            previousEvr[base] = pkg.fromVersion || "";
+            items.push({
+                pkg: pkg,
+                key: "system/" + base
+            });
+            plannedCount++;
+        }
+        _aurNameToKey = aurMap;
         _shellNameToKey = shellMap;
         _dnfNameToKey = nameMap;
         _daemonExpectedEvr = expectedEvr;
@@ -806,10 +871,8 @@ Item {
             _startBrew();
         } else if (_wantPlugins) {
             _startPlugins();
-        } else if (_wantShell && !_shellDone) {
-            _startDaemon("shell");
         } else {
-            _finish(failedCount > 0 ? "failed" : "done");
+            _afterPlugins();
         }
     }
 
@@ -834,10 +897,8 @@ Item {
         currentItem = "";
         if (_wantPlugins) {
             _startPlugins();
-        } else if (_wantShell && !_shellDone) {
-            _startDaemon("shell");
         } else {
-            _finish(failedCount > 0 ? "failed" : "done");
+            _afterPlugins();
         }
     }
 
@@ -942,11 +1003,146 @@ Item {
 
     function _afterPlugins() {
         currentItem = "";
+        if (_wantAur && !_aurDone) {
+            _startAur();
+        } else {
+            _afterAur();
+        }
+    }
+
+    function _afterAur() {
+        currentItem = "";
         if (_wantShell && !_shellDone) {
             _startDaemon("shell");
         } else {
             _finish(failedCount > 0 ? "failed" : "done");
         }
+    }
+
+    // ── AUR without a terminal ─────────────────────────────────────────────
+    // paru or yay run by scripts/aur_helper.py with their menus answered and
+    // sudo replaced by a polkit prompt. The helper says which package it is
+    // building; whether it arrived is the package database's call, as in the
+    // daemon passes — a build can exit cleanly and install nothing.
+    function _startAur() {
+        phase = "aur";
+        _aurError = "";
+        _aurOutput = "";
+        _aurFinished = 0;
+        const cmd = [Backend.python, Qt.resolvedUrl("scripts/aur_helper.py").toString().replace("file://", "")];
+        for (const base in _aurNameToKey)
+            cmd.push(base);
+        aurProcess.command = Backend.instrument("aur", cmd);
+        aurProcess.running = true;
+    }
+
+    Process {
+        id: aurProcess
+
+        property bool _ok: false
+
+        stdout: SplitParser {
+            onRead: line => {
+                let event;
+                try {
+                    event = JSON.parse(line);
+                } catch (e) {
+                    return;
+                }
+                const key = engine._aurNameToKey[event.name] || "";
+                if (event.event === "op-start" && key) {
+                    engine.currentItem = event.name;
+                    engine._setItem(key, {
+                        status: "active",
+                        fraction: 0.5,
+                        detail: Tr.t("building")
+                    });
+                } else if (event.event === "op-done" && key) {
+                    // Built; paru installs the whole batch at the end
+                    engine._aurFinished++;
+                    engine._setItem(key, {
+                        status: "active",
+                        fraction: 0.9,
+                        detail: Tr.t("built, waiting to install")
+                    });
+                } else if (event.event === "output") {
+                    engine._aurOutput = event.text || "";
+                } else if (event.event === "error") {
+                    engine._aurError = event.refused === true ? Tr.t("the authorisation was refused") : Tr.t("the AUR package was not built or installed");
+                    engine._aurOutput = engine._aurOutput || event.message || "";
+                }
+            }
+        }
+
+        onExited: (exitCode, exitStatus) => {
+            if (!engine.running)
+                return;
+            const names = Object.keys(engine._aurNameToKey);
+            if (names.length === 0) {
+                engine._aurPassDone(0, 0);
+                return;
+            }
+            aurProcess._ok = exitCode === 0;
+            aurVerifyProcess.command = Backend.instrument("verify-aur", Backend.installedVersionsCommand(names));
+            aurVerifyProcess.running = true;
+        }
+    }
+
+    Process {
+        id: aurVerifyProcess
+
+        stdout: StdioCollector {
+            onStreamFinished: engine._applyAurVerify(text)
+        }
+    }
+
+    function _applyAurVerify(text) {
+        if (!running)
+            return;
+        const installed = {};
+        for (const line of (text || "").split("\n")) {
+            const parts = line.split("\t");
+            if (parts.length === 2)
+                (installed[parts[0].trim()] = installed[parts[0].trim()] || []).push(parts[1].trim());
+        }
+        const noEpoch = v => (v || "").replace(/^\d+:/, "");
+        // pacman -Q prints a line for every installed name, so an empty
+        // answer means the query failed: fall back to paru's own verdict
+        // rather than painting every row red
+        const judge = Object.keys(installed).length > 0;
+        let ok = 0;
+        let bad = 0;
+        for (const base in _aurNameToKey) {
+            const want = noEpoch(_daemonExpectedEvr[base] || "");
+            const have = installed[base] || [];
+            let arrived;
+            if (!judge)
+                arrived = aurProcess._ok;
+            else if (want === Ui.develTarget)
+                arrived = have.some(evr => noEpoch(evr) !== noEpoch(_daemonPreviousEvr[base] || ""));
+            else
+                arrived = want === "" || have.some(evr => Ui.compareVersions(noEpoch(evr), want) >= 0);
+            if (arrived) {
+                ok++;
+                _setItem(_aurNameToKey[base], {
+                    status: "done",
+                    fraction: 1,
+                    detail: "",
+                    landed: want === Ui.develTarget ? noEpoch(have[0]) : ""
+                });
+            } else {
+                bad++;
+                _setError(_aurNameToKey[base], _aurError || Tr.t("the AUR package was not built or installed"), _aurOutput);
+            }
+        }
+        _aurPassDone(ok, bad);
+    }
+
+    function _aurPassDone(ok, bad) {
+        completedCount += ok;
+        failedCount += bad;
+        _aurDone = true;
+        _afterAur();
     }
 
     function _startAppimage() {
@@ -992,6 +1188,7 @@ Item {
     // reading; they are what tells a crash apart from a clean refusal.
     property string _helperExitNote: ""
     property bool _helperSawPlan: false
+    property string _helperNotice: ""
 
     // Raw failure text of the last run, per item key, alongside the short
     // reason in itemStates[key].detail. Survives the run so the details
@@ -1055,6 +1252,7 @@ Item {
         _helperStderr = "";
         _helperExitNote = "";
         _helperSawPlan = false;
+        _helperNotice = "";
         _helperPlanBytes = 0;
         _helperTransferred = 0;
         phase = "dnf-download";
@@ -1066,7 +1264,14 @@ Item {
             _verifyDaemonPass();
             return;
         }
-        helperProcess.command = Backend.instrument("system", Backend.helperCommand("upgrade", Object.keys(_dnfNameToKey)));
+        // On a pacman system the pass is the whole upgrade, `pacman -Su`. The
+        // run refreshes the databases first, and they can know of updates the
+        // list was checked too early to show; upgrading only the listed ones
+        // after that refresh is a partial upgrade, which Arch does not
+        // support, and it left the rest to turn up right after the run.
+        helperProcess.command = Backend.instrument("system", Backend.backendId === "pacman"
+            ? Backend.helperCommand("sysupgrade", _pacmanLeaveAlone())
+            : Backend.helperCommand("upgrade", Object.keys(_dnfNameToKey)));
         helperProcess.running = true;
     }
 
@@ -1080,9 +1285,13 @@ Item {
         const key = _dnfNameToKey[event.name] || "";
         const state = key ? (itemStates[key] || null) : null;
         switch (event.event) {
+        case "status":
+            _helperNotice = Ui.authNotice(event.message || "");
+            break;
         case "plan": {
             _helperSawPlan = true;
             _helperPlanBytes = event.totalDownloadBytes || 0;
+            _adoptPlannedUpgrades(event.ops || []);
             _dnfStage = 1;
             _dnfStageY = 100;
             _dnfStageX = 0;
@@ -1346,6 +1555,9 @@ Item {
         if (firmwareProcess.running && firmwareProcess.processId > 0) {
             Quickshell.execDetached(["kill", "-TERM", String(firmwareProcess.processId)]);
         }
+        if (aurProcess.running && aurProcess.processId > 0) {
+            Quickshell.execDetached(["kill", "-TERM", String(aurProcess.processId)]);
+        }
         if (appimageProcess.running && appimageProcess.processId > 0) {
             Quickshell.execDetached(["kill", "-TERM", String(appimageProcess.processId)]);
         }
@@ -1537,6 +1749,7 @@ Item {
     // second would make the bar wrong in both directions.
     readonly property real _brewWeightTotal: _wantBrew ? _brewItems.length * brewItemWeight : 0
     readonly property real _dnfWeightTotal: _wantDnf ? _dnfCount * dnfPkgWeight : 0
+    readonly property real _aurWeightTotal: _wantAur ? Object.keys(_aurNameToKey).length * aurItemWeight : 0
     readonly property real _shellWeightTotal: _wantShell ? _shellCount * dnfPkgWeight : 0
     readonly property real _appimageWeightTotal: {
         if (!_wantAppimage)
@@ -1599,7 +1812,7 @@ Item {
     }
 
     function _updateOverall() {
-        const total = _dnfWeightTotal + _flatpakWeightTotal + _firmwareWeightTotal + _shellWeightTotal + _appimageWeightTotal + _pluginWeightTotal + _brewWeightTotal;
+        const total = _dnfWeightTotal + _flatpakWeightTotal + _firmwareWeightTotal + _shellWeightTotal + _appimageWeightTotal + _pluginWeightTotal + _brewWeightTotal + _aurWeightTotal;
         if (total <= 0)
             return;
         const fbDone = _flatpakWeightDone();
@@ -1612,7 +1825,7 @@ Item {
         }
         opsDone = doneOps;
         opsTotal = totalOps;
-        const done = _dnfFractionNow() * _dnfWeightTotal + fbDone + _firmwareFraction * _firmwareWeightTotal + _shellFractionNow() * _shellWeightTotal + _appimageWeightDone() + _pluginsDone * pluginItemWeight + _brewDone * brewItemWeight;
+        const done = _dnfFractionNow() * _dnfWeightTotal + fbDone + _firmwareFraction * _firmwareWeightTotal + _shellFractionNow() * _shellWeightTotal + _appimageWeightDone() + _pluginsDone * pluginItemWeight + _brewDone * brewItemWeight + (_aurDone ? _aurWeightTotal : _aurFinished * aurItemWeight);
         overallFraction = Math.min(running ? 0.995 : 1, done / total);
     }
 
@@ -2162,6 +2375,51 @@ Item {
     // without a row gets one.
     // The helper's own words for a transaction-level failure
     property string _flatpakRunError: ""
+
+    // A full upgrade (pacman) brings what the list was checked too early to
+    // know about. Each such upgrade gets a row of its own, with its versions,
+    // its progress and its verification, rather than arriving unseen. New
+    // dependencies stay out of the list, as they always have.
+    function _adoptPlannedUpgrades(ops) {
+        const map = Object.assign({}, _dnfNameToKey);
+        const expected = Object.assign({}, _daemonExpectedEvr);
+        const previous = Object.assign({}, _daemonPreviousEvr);
+        const states = Object.assign({}, itemStates);
+        const items = runItems.slice();
+        let added = 0;
+        for (const op of ops) {
+            const key = "system/" + op.name;
+            if (op.action !== "Upgrade" || map[op.name] || states[key])
+                continue;
+            map[op.name] = key;
+            expected[op.name] = op.evr || "";
+            previous[op.name] = op.fromEvr || "";
+            states[key] = {
+                status: "pending",
+                fraction: 0,
+                detail: ""
+            };
+            items.push({
+                pkg: {
+                    name: op.name,
+                    repo: "system",
+                    fromVersion: op.fromEvr || "",
+                    toVersion: op.evr || ""
+                },
+                key: key
+            });
+            added++;
+        }
+        if (added === 0)
+            return;
+        _dnfNameToKey = map;
+        _daemonExpectedEvr = expected;
+        _daemonPreviousEvr = previous;
+        itemStates = states;
+        runItems = items;
+        _dnfCount += added;
+        plannedCount += added;
+    }
 
     // Same for the system helper: it can fail on a package the pending list
     // never showed — a dependency the resolver pulled in

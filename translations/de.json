@@ -596,5 +596,19 @@
     "Show again": "Wieder anzeigen",
     "fwupd is not installed, so there is no firmware to show. Install the fwupd package, then try again.": "fwupd ist nicht installiert, daher gibt es keine Firmware anzuzeigen. Installiere das Paket fwupd und versuche es dann erneut.",
     "fwupd could not read the device list.": "fwupd konnte die Geräteliste nicht lesen.",
-    "Try again": "Erneut versuchen"
+    "Try again": "Erneut versuchen",
+    "Update AUR packages without a terminal": "AUR-Pakete ohne Terminal aktualisieren",
+    "Build AUR packages in the background with paru or yay and show the progress here, instead of opening a terminal. The PKGBUILD review is skipped. Installing them asks for your password, unless pacman runs without one.": "AUR-Pakete im Hintergrund mit paru oder yay bauen und den Fortschritt hier zeigen, statt ein Terminal zu öffnen. Die PKGBUILD-Prüfung wird übersprungen. Das Installieren fragt nach deinem Passwort, außer pacman läuft ohne eines.",
+    "Building AUR packages… (this can take a while)": "AUR-Pakete werden gebaut… (das kann dauern)",
+    "building": "wird gebaut",
+    "the AUR package was not built or installed": "das AUR-Paket wurde nicht gebaut oder installiert",
+    "built, waiting to install": "gebaut, wartet auf Installation",
+    "Run pacman without a password": "pacman ohne Passwort ausführen",
+    "Adds a sudoers rule that lets you run pacman without a password, so installing, removing and updating packages, AUR included, asks for nothing. Setting it up asks once. Note that any program running under your account can then install any software into the system without a password.": "Fügt eine sudoers-Regel hinzu, mit der du pacman ohne Passwort ausführen kannst, sodass Installieren, Entfernen und Aktualisieren von Paketen, AUR eingeschlossen, nichts mehr fragt. Die Einrichtung fragt einmal. Beachte: Danach kann jedes Programm, das unter deinem Konto läuft, ohne Passwort beliebige Software ins System installieren.",
+    "Another sudoers rule still lets pacman run without a password.": "Eine andere sudoers-Regel erlaubt pacman weiterhin ohne Passwort.",
+    "Active: pacman runs without a password.": "Aktiv: pacman läuft ohne Passwort.",
+    "Not set up. It adds this rule to /etc/sudoers.d:": "Nicht eingerichtet. Folgende Regel kommt nach /etc/sudoers.d:",
+    "Set up": "Einrichten",
+    "Unlocking pacman after an interrupted update — waiting for authorisation…": "pacman wird nach einem unterbrochenen Update entsperrt – warte auf Autorisierung…",
+    "Waiting for authorisation to change system packages…": "Warte auf Autorisierung, um Systempakete zu ändern…"
 }

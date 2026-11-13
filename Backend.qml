@@ -64,6 +64,11 @@ Item {
     // one instead of inventing a second.
     property bool useSudo: PluginService.loadPluginData("dankSoftwareDepot", "useSudo", false) === true
 
+    // Arch: build AUR packages in the background (scripts/aur_helper.py)
+    // instead of the DMS daemon's pass, which opens a terminal. Off by
+    // default: it skips the PKGBUILD review the terminal pass offers.
+    property bool aurNoTerminal: PluginService.loadPluginData("dankSoftwareDepot", "aurNoTerminal", false) === true
+
     Connections {
         target: PluginService
 
@@ -71,6 +76,7 @@ Item {
             if (pluginId !== "dankSoftwareDepot")
                 return;
             backend.useSudo = PluginService.loadPluginData("dankSoftwareDepot", "useSudo", false) === true;
+            backend.aurNoTerminal = PluginService.loadPluginData("dankSoftwareDepot", "aurNoTerminal", false) === true;
             backend.simMode = PluginService.loadPluginData("dankSoftwareDepot", "simMode", "");
             backend.simRecording = PluginService.loadPluginData("dankSoftwareDepot", "simRecording", "");
             backend.simSpeed = PluginService.loadPluginData("dankSoftwareDepot", "simSpeed", 1);
@@ -86,17 +92,19 @@ Item {
     // with nothing on screen. With -n it refuses instead, and the refusal is
     // something the command can act on.
     //
-    // And the fall-back is gated on a separate `sudo -n true`, not on the
-    // exit code of the run: a transaction that failed on its own merits must
-    // never be quietly run a second time under pkexec. So the shell asks
-    // whether sudo would answer, and hands the whole thing to pkexec when it
-    // would not — a machine with narrow sudoers rules, or no sudo at all,
-    // ends up exactly where it is today. `exec` either way, so the exit code
+    // And the fall-back is gated on a separate `sudo -n -l <the command>`, not
+    // on the exit code of the run: a transaction that failed on its own merits
+    // must never be quietly run a second time under pkexec. So the shell asks
+    // whether sudo would run this very command without a password, and hands
+    // it to pkexec when it would not — a machine with no such rule, or no sudo
+    // at all, ends up exactly where it is today. It used to ask about `true`,
+    // which a rule naming only the commands this plugin runs does not cover:
+    // such a rule ended at the polkit prompt all the same. `exec` either way, so the exit code
     // the callers read is still pkexec's own 126/127 for a refused prompt.
     function privileged(words) {
         if (!useSudo)
             return ["pkexec"].concat(words);
-        return ["sh", "-c", "if sudo -n true 2>/dev/null; then exec sudo -n \"$@\"; fi; exec pkexec \"$@\"", "sh"].concat(words);
+        return ["sh", "-c", "if sudo -n -l \"$@\" >/dev/null 2>&1; then exec sudo -n \"$@\"; fi; exec pkexec \"$@\"", "sh"].concat(words);
     }
 
     // ── Recording a run, and playing it back ────────────────────────────────
@@ -303,7 +311,98 @@ Item {
 
     // Command for a privileged helper transaction
     function helperCommand(action, specs) {
+        if (backendId === "pacman")
+            return _pacmanCommand(action, specs);
         return privileged([python, packageHelper, action].concat(specs));
+    }
+
+    // On a pacman system the helper first tries without root: where sudo lets this user
+    // run pacman without a password (the rule the settings can add), it runs
+    // as the user and only pacman is privileged (pacman_helper.py --via-sudo).
+    // Where sudo would ask, or a stale pacman lock needs root to clear, it
+    // exits 3 having done nothing — only said why, for the window to show
+    // under the password prompt — and the usual path follows: the one
+    // privileged() takes, decided the same way.
+    function _pacmanCommand(action, specs) {
+        return ["sh", "-c", "py=$1; helper=$2; first=$3; shift 3; "
+            + "\"$py\" \"$helper\" --via-sudo \"$@\"; rc=$?; [ \"$rc\" -eq 3 ] || exit \"$rc\"; "
+            + "if [ \"$first\" = 1 ] && sudo -n -l \"$py\" \"$helper\" \"$@\" >/dev/null 2>&1; then exec sudo -n \"$py\" \"$helper\" \"$@\"; fi; "
+            + "exec pkexec \"$py\" \"$helper\" \"$@\"",
+            "sh", python, packageHelper, useSudo ? "1" : "0", action].concat(specs);
+    }
+
+    // ── pacman without a password (pacman systems) ────────────────────────────────────
+    // A sudoers rule for /usr/bin/pacman, written from the settings with one
+    // polkit prompt (scripts/sudoers_rule.py). "allowed" is sudo's own answer,
+    // so a rule the user wrote by hand shows the same.
+    readonly property string sudoersRuleScript: Qt.resolvedUrl("scripts/sudoers_rule.py").toString().replace("file://", "")
+    // sudoers_rule.py status: {allowed, rule}
+    property var pacmanRule: ({})
+    property bool pacmanRuleBusy: false
+    property string pacmanRuleError: ""
+    // Removed from here, yet sudo still allows it: another rule does
+    property bool pacmanRuleRemoved: false
+
+    function refreshPacmanRule() {
+        if (backendId !== "pacman" || pacmanRuleStatusProcess.running)
+            return;
+        pacmanRuleStatusProcess.command = [python, "-I", sudoersRuleScript, "status"];
+        pacmanRuleStatusProcess.running = true;
+    }
+
+    function setupPacmanRule() {
+        _runPacmanRule("install");
+    }
+
+    function removePacmanRule() {
+        _runPacmanRule("remove");
+    }
+
+    function _runPacmanRule(what) {
+        if (pacmanRuleBusy || backendId !== "pacman")
+            return;
+        pacmanRuleBusy = true;
+        pacmanRuleError = "";
+        pacmanRuleActionProcess._what = what;
+        pacmanRuleActionProcess._stderr = "";
+        pacmanRuleActionProcess.command = privileged([python, "-I", sudoersRuleScript, what]);
+        pacmanRuleActionProcess.running = true;
+    }
+
+    Process {
+        id: pacmanRuleStatusProcess
+
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    backend.pacmanRule = JSON.parse(text) || ({});
+                } catch (e) {
+                    backend.pacmanRule = ({});
+                }
+            }
+        }
+    }
+
+    Process {
+        id: pacmanRuleActionProcess
+
+        property string _what: ""
+        property string _stderr: ""
+
+        stderr: StdioCollector {
+            onStreamFinished: pacmanRuleActionProcess._stderr = (text || "").trim()
+        }
+
+        onExited: (exitCode, exitStatus) => {
+            backend.pacmanRuleBusy = false;
+            if (exitCode === 126 || exitCode === 127)
+                backend.pacmanRuleError = Tr.t("the authorisation was refused");
+            else if (exitCode !== 0)
+                backend.pacmanRuleError = pacmanRuleActionProcess._stderr || ("exit code " + exitCode);
+            else
+                backend.pacmanRuleRemoved = pacmanRuleActionProcess._what === "remove";
+            backend.refreshPacmanRule();
+        }
     }
 
     // The same install, preceded by adding the Copr the package lives in —
@@ -375,9 +474,13 @@ Item {
         selftestProcess.running = true;
     }
 
-    onBackendIdChanged: checkRequirements()
+    onBackendIdChanged: {
+        checkRequirements();
+        refreshPacmanRule();
+    }
     Component.onCompleted: {
         checkRequirements();
+        refreshPacmanRule();
         // Cheap, and it means the first thing that asks for the list — the
         // settings panel, or the IPC entry point — has an answer rather than
         // starting a process and returning before it finishes.

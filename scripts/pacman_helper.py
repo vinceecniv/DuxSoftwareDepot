@@ -3,7 +3,8 @@
 protocol documented in PROTOCOL.md — the Arch counterpart of
 rpm_helper.py.
 
-Usage: pacman_helper.py <install|remove|upgrade|plan|selftest> <name>...
+Usage: pacman_helper.py [--via-sudo] <install|remove|upgrade|plan|selftest> <name>...
+       pacman_helper.py [--via-sudo] [plan] sysupgrade [<name to leave alone>...]
 
 Transactions need root (run via pkexec); `plan` resolves against the
 existing sync databases and works unprivileged, and `selftest` reports
@@ -13,6 +14,30 @@ its import. `downgrade` is not offered:
 pacman keeps no version history in its repositories (that is the Arch
 Linux Archive's job, out of scope here). Official repositories only —
 AUR packages are never touched.
+
+`sysupgrade` is `pacman -Su`: every installed package the repositories
+have a newer version of, except the ones named. The update list a run
+starts from is as old as its check, and the refresh the run begins with can
+reveal more; upgrading only the listed packages after that refresh is a
+partial upgrade, which Arch does not support, and left the rest to appear
+in the list right after the run. So the update run uses this, naming what
+must stay: held packages, and the shell's own, which have a pass of their
+own at the end.
+
+`--via-sudo` runs the transaction without being root, for a machine where
+sudo lets this user run pacman without a password (the rule the settings
+can add). Only pacman is privileged: the databases are refreshed with
+`sudo pacman -Sy`, the request is resolved by pyalpm as the user against a
+private database directory — the same plan a run as root sends — and
+`sudo pacman -S` downloads and installs it, into the system's cache as any
+pacman run does. How far it has got is read from the file system: a
+package is downloaded once its file is in the cache (pacman moves it there
+whole), and installed once its directory is in the local database. When sudo would ask for a password,
+or a pacman lock that nothing visibly holds is in the way (only the root
+path can clear it), the helper says which in a `status` event — "sudo-asks"
+or "stale-lock", for the window to show while the password prompt is up —
+and exits 3, having done nothing; the caller takes the usual path.
+
 """
 import json
 import os
@@ -28,6 +53,27 @@ def emit(obj):
 # Missing bindings must be reported inside the protocol: an import that kills
 # the process ends the stream before its first event, and the caller can only
 # guess that every package failed. See the same guard in rpm_helper.py.
+# Run as root, nothing from the caller's environment decides which programs
+# run: sudo keeps the user's PATH unless secure_path is set, and libalpm hands
+# its environment to every scriptlet and hook of the transaction.
+if os.geteuid() == 0:
+    os.environ["PATH"] = "/usr/local/sbin:/usr/local/bin:/usr/bin"
+
+
+def _sudo_env():
+    """The environment pacman gets through sudo. sudo passes the caller's
+    PATH on unless secure_path is set, which Arch does not set by default, and
+    pacman hands it to every hook it runs as root."""
+    return dict(os.environ, PATH="/usr/local/sbin:/usr/local/bin:/usr/bin", LC_ALL="C.UTF-8")
+
+
+def _sudo():
+    """sudo -n, found on the caller's PATH. Only the environment handed to
+    it is the system's: finding sudo there too would make the tests' stand-in
+    unreachable, and a test that reaches the real sudo runs the real pacman."""
+    import shutil
+    return [shutil.which("sudo") or "sudo", "-n"]
+
 import interp
 
 interp.ensure("pyalpm")
@@ -45,6 +91,12 @@ except ImportError as exc:
 
 
 DBPATH = "/var/lib/pacman"
+PACMAN = "/usr/bin/pacman"
+# --via-sudo, when the usual path has to do it: sudo would ask for a
+# password, or a lock is in the way that only root can clear. Nothing was
+# done; the one thing said is why (a `status` event), because the password
+# prompt that follows cannot say it — its text is polkit's, not the caller's
+USUAL_PATH = 3
 
 
 def _test_hook(name):
@@ -245,7 +297,7 @@ class Callbacks:
             emit({"event": "op-done", "name": target, "phase": phase})
 
 
-def refresh_syncdbs():
+def refresh_syncdbs(via_sudo=False):
     """`pacman -Sy` — which nothing else in this path does.
 
     A transaction resolves names against the sync databases as they are on
@@ -269,12 +321,13 @@ def refresh_syncdbs():
     """
     import shutil
     import subprocess
-    pacman = shutil.which("pacman") or "/usr/bin/pacman"
+    # Through sudo, the program its rule names
+    pacman = PACMAN if via_sudo else (shutil.which("pacman") or PACMAN)
     try:
-        proc = subprocess.run([pacman, "--sync", "--refresh", "--noconfirm",
-                               "--noprogressbar"],
+        proc = subprocess.run((_sudo() if via_sudo else []) + [pacman, "--sync", "--refresh", "--noconfirm",
+                                              "--noprogressbar"],
                               stdin=subprocess.DEVNULL, capture_output=True,
-                              text=True, timeout=1800)
+                              text=True, timeout=1800, env=_sudo_env() if via_sudo else None)
     except (OSError, subprocess.SubprocessError) as exc:
         emit({"event": "error", "message": "could not refresh the databases: %s" % exc})
         return
@@ -331,14 +384,14 @@ def preresolve(action, specs):
         emit({"event": "error",
               "message": "%s — resolving it crashed pyalpm (%s), so nothing was changed"
                          % ("; ".join(said) if said else "pacman could not resolve the request", what)})
-        emit({"event": "done", "ok": False, "failed": list(specs)})
+        emit({"event": "done", "ok": False, "failed": _targets(action, specs)})
         return 1
     done = next((e for e in reversed(events) if e.get("event") == "done"), None)
     if done is not None and done.get("ok") is False:
         for event in events:
             if event.get("event") == "error":
                 emit(event)
-        emit({"event": "done", "ok": False, "failed": list(specs)})
+        emit({"event": "done", "ok": False, "failed": _targets(action, specs)})
         return 1
     return None
 
@@ -371,6 +424,29 @@ def _describe(proc_root, pid):
     except OSError:
         words = []
     return "pid %d%s" % (pid, (" (" + " ".join(words[:3]) + ")") if words else "")
+
+
+def _manager_running(proc_root, pids, own, lockfile):
+    """Another package manager, or another update run of this helper, said
+    as the reason the lock stays; None when there is none. Names and command
+    lines are readable to anyone, so this needs no root — unlike the open
+    files clear_stale_lock() also looks at."""
+    for pid in pids:
+        if pid in own:
+            continue
+        try:
+            with open(os.path.join(proc_root, str(pid), "comm")) as fh:
+                comm = fh.read().strip()
+            with open(os.path.join(proc_root, str(pid), "cmdline"), "rb") as fh:
+                argv = [w.decode(errors="replace") for w in fh.read().split(b"\0") if w]
+        except OSError:
+            continue
+        if comm in PACKAGE_MANAGERS:
+            return "%s is running (%s); %s is left alone" % (comm, _describe(proc_root, pid), lockfile)
+        helper = [i for i, w in enumerate(argv) if os.path.basename(w) == "pacman_helper.py"]
+        if helper and argv[helper[0] + 1:helper[0] + 2] != ["plan"]:
+            return "another update is running (%s); %s is left alone" % (_describe(proc_root, pid), lockfile)
+    return None
 
 
 def clear_stale_lock():
@@ -423,21 +499,9 @@ def clear_stale_lock():
     # Root reads every process; anything less cannot rule a holder out
     if unreadable:
         return "%s exists, and whether a package manager holds it cannot be told" % lockfile
-    for pid in pids:
-        if pid in own:
-            continue
-        try:
-            with open(os.path.join(proc_root, str(pid), "comm")) as fh:
-                comm = fh.read().strip()
-            with open(os.path.join(proc_root, str(pid), "cmdline"), "rb") as fh:
-                argv = [w.decode(errors="replace") for w in fh.read().split(b"\0") if w]
-        except OSError:
-            continue
-        if comm in PACKAGE_MANAGERS:
-            return "%s is running (%s); %s is left alone" % (comm, _describe(proc_root, pid), lockfile)
-        helper = [i for i, w in enumerate(argv) if os.path.basename(w) == "pacman_helper.py"]
-        if helper and argv[helper[0] + 1:helper[0] + 2] != ["plan"]:
-            return "another update is running (%s); %s is left alone" % (_describe(proc_root, pid), lockfile)
+    running = _manager_running(proc_root, pids, own, lockfile)
+    if running:
+        return running
     try:
         age = time.time() - os.stat(lockfile).st_mtime
     except OSError:
@@ -468,7 +532,7 @@ def run(action, specs, dry_run=False):
         reason = clear_stale_lock()
         if reason:
             emit({"event": "error", "message": reason})
-            emit({"event": "done", "ok": False, "failed": list(specs)})
+            emit({"event": "done", "ok": False, "failed": _targets(action, specs)})
             return 1
     # Reading the repositories is the whole point of install and upgrade, so
     # they get a fresh copy first. `plan` is deliberately left out: it runs
@@ -488,27 +552,37 @@ def run(action, specs, dry_run=False):
         shutil.rmtree(dbpath, ignore_errors=True)
 
 
-def transact(handle, action, specs, dry_run):
+def transact(handle, action, specs, dry_run, out=None):
+    """Resolve and run a request. Given `out`, it stops once the plan is
+    out and leaves the resolved operations in `out["ops"]` and each incoming
+    package's file name in `out["files"]` for the caller to carry out
+    (run_via_sudo); a request that ends early (refused, nothing to do) says
+    so itself and leaves `out` empty."""
     callbacks = Callbacks(handle)
     localdb = handle.get_localdb()
     accepted = list(getattr(handle, "arch", None) or [])
 
+    if action == "sysupgrade":
+        for name in specs:
+            handle.add_ignorepkg(name)
     transaction = handle.init_transaction()
     try:
-        for spec in specs:
+        if action == "sysupgrade":
+            transaction.sysupgrade(False)
+        for spec in (specs if action != "sysupgrade" else []):
             name = spec.partition("=")[0]
             if action == "remove":
                 pkg = localdb.get_pkg(name)
                 if pkg is None:
                     emit({"event": "error", "message": f"package not installed: {name}"})
-                    emit({"event": "done", "ok": False, "failed": list(specs)})
+                    emit({"event": "done", "ok": False, "failed": _targets(action, specs)})
                     return 1
                 transaction.remove_pkg(pkg)
             else:
                 pkg = find_sync_pkg(handle, name)
                 if pkg is None:
                     emit({"event": "error", "message": f"package not found: {name}"})
-                    emit({"event": "done", "ok": False, "failed": list(specs)})
+                    emit({"event": "done", "ok": False, "failed": _targets(action, specs)})
                     return 1
                 # The check libalpm makes in prepare(), made here, where a
                 # refusal is an event and not a segfault (see architectures())
@@ -517,7 +591,7 @@ def transact(handle, action, specs, dry_run):
                     emit({"event": "error",
                           "message": "package architecture is not valid: %s-%s-%s (this pacman accepts %s)"
                                      % (pkg.name, pkg.version, arch, ", ".join(accepted))})
-                    emit({"event": "done", "ok": False, "failed": list(specs)})
+                    emit({"event": "done", "ok": False, "failed": _targets(action, specs)})
                     return 1
                 # --needed, which is what the daemon's own `pacman -Syu` uses.
                 # After the refresh a package can already be at the version
@@ -541,6 +615,7 @@ def transact(handle, action, specs, dry_run):
             callbacks.plan_names.add(pkg.name)
             callbacks.totals[pkg.name] = down
             ops.append({"name": pkg.name, "evr": pkg.version, "action": act,
+                        "fromEvr": installed.version if installed is not None else "",
                         "downloadBytes": down, "installBytes": int(pkg.isize or 0)})
         disk_delta = sum(o["installBytes"] for o in ops)
         for pkg in transaction.to_remove:
@@ -556,16 +631,171 @@ def transact(handle, action, specs, dry_run):
         if dry_run:
             emit({"event": "done", "ok": True, "failed": []})
             return 0
+        if out is not None:
+            out["ops"] = ops
+            out["files"] = {pkg.name: pkg.filename for pkg in transaction.to_add}
+            return 0
         transaction.commit()
     except pyalpm.error as exc:
         emit({"event": "error", "message": str(exc)})
-        emit({"event": "done", "ok": False, "failed": list(specs)})
+        emit({"event": "done", "ok": False, "failed": _targets(action, specs)})
         return 1
     finally:
         try:
             transaction.release()
         except pyalpm.error:
             pass
+    emit({"event": "done", "ok": True, "failed": []})
+    return 0
+
+
+def _targets(action, specs):
+    """What `done` reports as failed: the request's own packages. For a
+    sysupgrade the names given are the ones it leaves alone, so none."""
+    return [] if action == "sysupgrade" else list(specs)
+
+
+def _sudo_allows(argv):
+    """Whether sudo would run pacman with these arguments without asking."""
+    import subprocess
+    try:
+        return subprocess.run(_sudo() + ["-l", PACMAN] + argv, stdin=subprocess.DEVNULL,
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                              timeout=30).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def _local_entries(dbpath):
+    try:
+        return set(os.listdir(os.path.join(dbpath, "local")))
+    except OSError:
+        return set()
+
+
+def run_via_sudo(action, specs):
+    """The transaction with pacman as the only thing run as root. See the
+    module docstring; the events are the ones a run as root sends."""
+    import shutil
+    import subprocess
+    import threading
+    import time
+    if action != "remove":
+        refresh_syncdbs(via_sudo=True)
+    dbpath = plan_dbpath()
+    try:
+        handle = init_handle(dbpath)
+        caches = list(getattr(handle, "cachedirs", None) or []) or ["/var/cache/pacman/pkg/"]
+        out = {}
+        code = transact(handle, action, specs, False, out=out)
+    finally:
+        shutil.rmtree(dbpath, ignore_errors=True)
+    if "ops" not in out:
+        return code
+
+    if action == "remove":
+        argv = ["--remove", "--noconfirm", "--noprogressbar", "--"] + list(specs)
+    elif action == "sysupgrade":
+        argv = ["--sync", "--sysupgrade", "--noconfirm", "--noprogressbar"] \
+            + (["--ignore", ",".join(specs)] if specs else [])
+    else:
+        argv = ["--sync", "--noconfirm", "--noprogressbar"] + (["--needed"] if action == "upgrade" else []) \
+            + ["--"] + list(specs)
+
+    ops = out["ops"]
+    files = out["files"]
+    real = configured_dbpath()
+
+    # What pacman will download: a package already in the cache has no
+    # download size in the plan. pacman fetches into a directory of its own
+    # and moves a file into the cache once it is whole, so a file appearing
+    # there is that package downloaded.
+    fetch = [i for i, op in enumerate(ops) if op["action"] != "Remove" and op["downloadBytes"] > 0]
+    fetched = set()
+    transferred = 0
+
+    def in_cache(name):
+        return any(os.path.exists(os.path.join(folder, files.get(name, ""))) for folder in caches) \
+            if files.get(name) else False
+
+    def arrived(op, entries):
+        key = "%s-%s" % (op["name"], op["evr"])
+        return key not in entries if op["action"] == "Remove" else key in entries
+
+    def phase(op):
+        return "remove" if op["action"] == "Remove" else "install"
+
+    done = set()
+
+    def start(i):
+        emit({"event": "op-start", "name": ops[i]["name"], "phase": phase(ops[i]),
+              "index": len(done) + 1, "total": len(ops)})
+
+    def next_pending():
+        return next((i for i in range(len(ops)) if i not in done), None)
+
+    try:
+        proc = subprocess.Popen(_sudo() + [PACMAN] + argv, stdin=subprocess.DEVNULL,
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                text=True, errors="replace", env=_sudo_env())
+    except OSError as exc:
+        emit({"event": "error", "message": "sudo could not start pacman: %s" % exc})
+        emit({"event": "done", "ok": False, "failed": _targets(action, specs)})
+        return 1
+    said = []
+    reader = threading.Thread(target=lambda: said.extend(proc.stdout), daemon=True)
+    reader.start()
+    for i in fetch:
+        emit({"event": "op-start", "name": ops[i]["name"], "phase": "download",
+              "bytesTotal": ops[i]["downloadBytes"]})
+    # The install is announced once every download is in, or once pacman is
+    # visibly past them — a package already in the local database
+    current = None
+    while True:
+        finished = proc.poll() is not None
+        for i in fetch:
+            if i in fetched or not in_cache(ops[i]["name"]):
+                continue
+            fetched.add(i)
+            total = ops[i]["downloadBytes"]
+            transferred += total
+            emit({"event": "progress", "name": ops[i]["name"], "phase": "download",
+                  "percent": 100, "bytesTransferred": total, "bytesTotal": total,
+                  "totalTransferred": transferred})
+            emit({"event": "op-done", "name": ops[i]["name"], "phase": "download",
+                  "totalTransferred": transferred})
+        entries = _local_entries(real)
+        installing = len(fetched) == len(fetch) or any(arrived(op, entries) for op in ops)
+        if installing and current is None and len(done) < len(ops):
+            current = next_pending()
+            start(current)
+        if installing:
+            for i, op in enumerate(ops):
+                if i in done or not arrived(op, entries):
+                    continue
+                if i != current:
+                    start(i)
+                done.add(i)
+                emit({"event": "progress", "name": op["name"], "phase": phase(op), "percent": 100})
+                emit({"event": "op-done", "name": op["name"], "phase": phase(op)})
+                if i == current:
+                    current = next_pending()
+                    if current is not None:
+                        start(current)
+        if finished:
+            break
+        time.sleep(0.25)
+    reader.join(timeout=5)
+    text = "".join(said).strip()
+    if proc.returncode != 0:
+        # pacman's own words, whole, for the details panel
+        print(text, file=sys.stderr)
+        errors = [line.strip() for line in text.splitlines() if line.strip().startswith("error:")]
+        emit({"event": "error",
+              "message": "; ".join(errors) or "pacman exited with code %d" % proc.returncode})
+        emit({"event": "done", "ok": False,
+              "failed": [op["name"] for op in ops] if action == "sysupgrade" else _targets(action, specs)})
+        return 1
     emit({"event": "done", "ok": True, "failed": []})
     return 0
 
@@ -595,17 +825,55 @@ def main():
         return 0
     # `plan <action> …` resolves without root and without changing anything
     argv = sys.argv[1:]
+    via_sudo = bool(argv) and argv[0] == "--via-sudo"
+    if via_sudo:
+        argv = argv[1:]
     dry_run = bool(argv) and argv[0] == "plan"
     if dry_run:
         argv = argv[1:]
-    if len(argv) < 2 or argv[0] not in ("install", "remove", "upgrade"):
+    if not argv or argv[0] not in ("install", "remove", "upgrade", "sysupgrade") \
+            or (len(argv) < 2 and argv[0] != "sysupgrade"):
         print(__doc__, file=sys.stderr)
         return 2
+    if via_sudo and not dry_run and os.geteuid() != 0:
+        checks = ([["--remove", "--noconfirm"]] if argv[0] == "remove" else
+                  [["--sync", "--refresh", "--noconfirm", "--noprogressbar"], ["--sync", "--noconfirm"]])
+        # Asked before anything is said: a caller that gets this code takes
+        # the usual path, and must not have seen half a run first
+        if not all(_sudo_allows(c) for c in checks):
+            emit({"event": "status", "message": "sudo-asks"})
+            return USUAL_PATH
+        # A lock left behind is cleared by the root path (clear_stale_lock),
+        # which the rule cannot reach: it allows pacman, and pacman leaves
+        # that file to whoever is sure nothing holds it. So a lock with no
+        # package manager in sight goes down the usual path, password and
+        # all; one with a package manager running is that manager's, and
+        # waiting for it needs no password
+        lockfile = os.path.join(os.path.realpath(configured_dbpath()), "db.lck")
+        if os.path.exists(lockfile):
+            proc_root = _test_hook("DSD_PROC") or "/proc"
+            try:
+                pids = [int(p) for p in os.listdir(proc_root) if p.isdigit()]
+            except OSError:
+                pids = []
+            busy = _manager_running(proc_root, pids, _ancestors(proc_root), lockfile)
+            if not busy:
+                emit({"event": "status", "message": "stale-lock"})
+                return USUAL_PATH
+            emit({"event": "error", "message": busy})
+            emit({"event": "done", "ok": False, "failed": _targets(argv[0], argv[1:])})
+            return 1
+        try:
+            return run_via_sudo(argv[0], argv[1:])
+        except Exception as exc:
+            emit({"event": "error", "message": str(exc)})
+            emit({"event": "done", "ok": False, "failed": _targets(argv[0], argv[1:])})
+            return 1
     try:
         return run(argv[0], argv[1:], dry_run)
     except Exception as exc:
         emit({"event": "error", "message": str(exc)})
-        emit({"event": "done", "ok": False, "failed": argv[1:]})
+        emit({"event": "done", "ok": False, "failed": _targets(argv[0], argv[1:])})
         return 1
 
 

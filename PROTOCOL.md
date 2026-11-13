@@ -36,6 +36,31 @@ manager-agnostic — the QML layer needs no changes per backend. See
   *before* asking for a password: the helper runs under `pkexec`, which
   prompts when the process starts, so a plan produced inside the real run
   would arrive after the authentication it is meant to inform.
+- One pacman-only action: `sysupgrade [<name>...]` is `pacman -Su`, every
+  installed package the repositories have newer, except the names given —
+  which here are the ones to leave alone, not the targets. The update run
+  uses it on Arch: it refreshes the databases first, and they can know of
+  updates its list was checked too early to show; upgrading only the listed
+  ones after that refresh would be a partial upgrade, which Arch does not
+  support. It names the held packages and the shell's own (those have a
+  final pass of their own); `IgnorePkg` is pacman's to apply. `done.failed`
+  stays empty for it, the names given not being its targets.
+- One pacman-only option: `--via-sudo` before the action runs it as the
+  user, for a machine where sudo lets the user run `/usr/bin/pacman` without
+  a password (`scripts/sudoers_rule.py` writes that rule). `sudo pacman -Sy`
+  refreshes, pyalpm resolves against a private database directory — the
+  same `plan` event — and `sudo pacman -S` (or `-R`) downloads into the
+  system cache and installs. Progress comes from the file system: a
+  package's file appearing in the cache (pacman moves it there whole) is
+  its download `op-done`, its directory appearing in the local database (or
+  going, for a removal) its install `op-done`. When sudo would ask, or a pacman lock that no
+  running package manager explains is in the way (clearing it needs root,
+  which the rule does not give), the helper does nothing, sends one `status`
+  event saying which (`sudo-asks` or `stale-lock`) and exits 3;
+  `Backend.helperCommand` then takes the usual pkexec path, and the window
+  shows that reason while the password prompt is up — the prompt's own text
+  is polkit's and cannot carry it. A lock a running
+  package manager holds is reported as such, with no prompt.
 - One rpm-only option: `install --copr <owner/project> <spec>...` enables
   that Copr before resolving, so a package found by the Copr search costs
   one authorisation instead of two (the repository and the install are one
@@ -53,8 +78,8 @@ ignored by consumers (forward compatibility).
 
 | Event | Fields | Meaning |
 |---|---|---|
-| `status` | `message` | Coarse state before the plan exists (`"repos"` = refreshing repo metadata) |
-| `plan` | `ops: [{name, evr, action, downloadBytes, installBytes}]`, `totalDownloadBytes`, `installDeltaBytes` | The resolved transaction — **the whole of it**, including packages the caller never asked for: dependencies pulled in, and anything the resolver decided to remove. `action` is a human string (`Install`, `Upgrade`, `Remove`, …); outbound-only ops have `downloadBytes: 0`. `installDeltaBytes` is the net disk change, incoming sizes minus outgoing |
+| `status` | `message` | Coarse state before the plan exists (`"repos"` = refreshing repo metadata; pacman `--via-sudo` handing over to the usual path: `"sudo-asks"`, `"stale-lock"`) |
+| `plan` | `ops: [{name, evr, action, downloadBytes, installBytes, fromEvr?}]`, `totalDownloadBytes`, `installDeltaBytes` | The resolved transaction — **the whole of it**, including packages the caller never asked for: dependencies pulled in, and anything the resolver decided to remove. `action` is a human string (`Install`, `Upgrade`, `Remove`, …); outbound-only ops have `downloadBytes: 0`. `installDeltaBytes` is the net disk change, incoming sizes minus outgoing. `fromEvr` (pacman) is the version installed now, where there is one |
 | `op-start` | `name`, `phase`, `bytesTotal`? (download), `index`/`total`? (install/remove) | Work on one package begins in the given phase |
 | `progress` | `name`, `phase`, `percent`, download also: `bytesTransferred`, `bytesTotal`, `totalTransferred` | Per-package progress. `percent` is the package's own 0–100 |
 | `op-done` | `name`, `phase`, `totalTransferred`? | The package finished this phase |
@@ -123,10 +148,16 @@ answer (pacman repos keep no history). Its changelog answer comes from
 reads its AppStream catalog from the same XML paths as Fedora, filled by
 `archlinux-appstream-data`. AUR is deliberately out of scope for the
 transaction helpers: detection comes from the DMS daemon's AUR backend
-(paru/yay `-Qua`), and upgrades ride that same daemon pass —
-`paru -Syu` in a visible terminal, the shell updater's own answer. The
-plugin builds no AUR packages itself; the interactive PKGBUILD review
-exists for safety.
+(paru/yay `-Qua`), and by default upgrades ride that same daemon pass —
+`paru -Syu` in a visible terminal, the shell updater's own answer, with
+the interactive PKGBUILD review. The opt-in *Update AUR packages without a
+terminal* runs `scripts/aur_helper.py` instead: `paru -S --skipreview
+--batchinstall` (or yay with its menus answered `None`) with no tty, sudo
+replaced by `scripts/aur_sudo.sh`: sudo where it would not ask, polkit
+otherwise. The AUR pass always follows the full official upgrade, which
+refreshes the sync databases and brings the system up to them. It speaks a subset of
+the protocol — `op-start`/`op-done` per build, `output`, `error`, `done` —
+and the package database decides what arrived, as after a daemon pass.
 
 ### An atomic Fedora is a fourth backend, not a broken third
 

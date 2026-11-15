@@ -610,5 +610,10 @@
     "Not set up. It adds this rule to /etc/sudoers.d:": "Niet ingesteld. Deze regel komt in /etc/sudoers.d:",
     "Set up": "Instellen",
     "Unlocking pacman after an interrupted update — waiting for authorisation…": "pacman ontgrendelen na een onderbroken update — wachten op autorisatie…",
-    "Waiting for authorisation to change system packages…": "Wachten op autorisatie om systeempakketten te wijzigen…"
+    "Waiting for authorisation to change system packages…": "Wachten op autorisatie om systeempakketten te wijzigen…",
+    "not built: the system update before it did not finish": "niet gebouwd: de systeemupdate ervoor is niet voltooid",
+    "Waiting for another package manager to finish: %1": "Wachten tot een andere pakketbeheerder klaar is: %1",
+    "Waiting for another package manager to finish…": "Wachten tot een andere pakketbeheerder klaar is…",
+    "pacman is in use by another program: %1": "pacman wordt gebruikt door een ander programma: %1",
+    "pacman is locked by an interrupted update; updating again clears it": "pacman is vergrendeld door een onderbroken update; opnieuw bijwerken heft dat op"
 }

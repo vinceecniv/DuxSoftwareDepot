@@ -610,5 +610,10 @@
     "Not set up. It adds this rule to /etc/sudoers.d:": "Nincs beállítva. Ezt a szabályt adja hozzá az /etc/sudoers.d mappához:",
     "Set up": "Beállítás",
     "Unlocking pacman after an interrupted update — waiting for authorisation…": "A pacman feloldása egy megszakadt frissítés után — várakozás a hitelesítésre…",
-    "Waiting for authorisation to change system packages…": "Várakozás a hitelesítésre a rendszercsomagok módosításához…"
+    "Waiting for authorisation to change system packages…": "Várakozás a hitelesítésre a rendszercsomagok módosításához…",
+    "not built: the system update before it did not finish": "nem épült meg: az előtte futó rendszerfrissítés nem fejeződött be",
+    "Waiting for another package manager to finish: %1": "Várakozás egy másik csomagkezelő befejezésére: %1",
+    "Waiting for another package manager to finish…": "Várakozás egy másik csomagkezelő befejezésére…",
+    "pacman is in use by another program: %1": "a pacmant egy másik program használja: %1",
+    "pacman is locked by an interrupted update; updating again clears it": "a pacmant egy megszakadt frissítés zárolta; egy újabb frissítés feloldja"
 }

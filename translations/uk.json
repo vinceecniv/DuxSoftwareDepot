@@ -610,5 +610,10 @@
     "Not set up. It adds this rule to /etc/sudoers.d:": "Не налаштовано. До /etc/sudoers.d буде додано правило:",
     "Set up": "Налаштувати",
     "Unlocking pacman after an interrupted update — waiting for authorisation…": "Розблокування pacman після перерваного оновлення — очікування авторизації…",
-    "Waiting for authorisation to change system packages…": "Очікування авторизації для зміни системних пакунків…"
+    "Waiting for authorisation to change system packages…": "Очікування авторизації для зміни системних пакунків…",
+    "not built: the system update before it did not finish": "не зібрано: оновлення системи перед ним не завершилося",
+    "Waiting for another package manager to finish: %1": "Очікування завершення іншого менеджера пакунків: %1",
+    "Waiting for another package manager to finish…": "Очікування завершення іншого менеджера пакунків…",
+    "pacman is in use by another program: %1": "pacman зайнятий іншою програмою: %1",
+    "pacman is locked by an interrupted update; updating again clears it": "pacman заблоковано перерваним оновленням; повторне оновлення зніме блокування"
 }

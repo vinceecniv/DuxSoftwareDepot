@@ -610,5 +610,10 @@
     "Not set up. It adds this rule to /etc/sudoers.d:": "尚未设置。将向 /etc/sudoers.d 添加以下规则：",
     "Set up": "设置",
     "Unlocking pacman after an interrupted update — waiting for authorisation…": "正在解锁中断更新后的 pacman — 等待授权…",
-    "Waiting for authorisation to change system packages…": "正在等待授权以更改系统软件包…"
+    "Waiting for authorisation to change system packages…": "正在等待授权以更改系统软件包…",
+    "not built: the system update before it did not finish": "未构建：在它之前的系统更新没有完成",
+    "Waiting for another package manager to finish: %1": "正在等待另一个软件包管理器完成：%1",
+    "Waiting for another package manager to finish…": "正在等待另一个软件包管理器完成…",
+    "pacman is in use by another program: %1": "pacman 正被另一个程序使用：%1",
+    "pacman is locked by an interrupted update; updating again clears it": "pacman 被中断的更新锁定；再次更新即可解除锁定"
 }

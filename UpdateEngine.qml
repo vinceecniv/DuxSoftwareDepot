@@ -51,6 +51,8 @@ Item {
             if (_helperNotice !== "" && !_helperSawPlan)
                 return _helperNotice;
             return _dnfStageY > 0 && _daemonKind === "shell" ? Tr.t("package %1 of %2").arg(Math.min(_dnfStageX + 1, _dnfStageY)).arg(_dnfStageY) : Tr.t("Loading repositories…");
+        case "aur":
+            return _aurNotice;
         case "dnf-install":
         case "dms":
             return _dnfStageY > 0 ? Tr.t("step %1 of %2").arg(Math.min(_dnfStageX + 1, _dnfStageY)).arg(_dnfStageY) : "";
@@ -253,6 +255,12 @@ Item {
     property int _aurFinished: 0
     property string _aurError: ""
     property string _aurOutput: ""
+    // What paru is waiting for, while another package manager holds the lock
+    property string _aurNotice: ""
+    // Whether the system pass that ran before the AUR pass finished. On a
+    // pacman system the AUR pass builds on the full upgrade, and one that
+    // did not happen leaves paru building against a partial one
+    property bool _systemPassOk: false
     readonly property real aurItemWeight: 20 * 1024 * 1024
     property bool _shellDone: true
     property int _shellCount: 0
@@ -1003,11 +1011,29 @@ Item {
 
     function _afterPlugins() {
         currentItem = "";
-        if (_wantAur && !_aurDone) {
+        if (_wantAur && !_aurDone && _wantDnf && !_systemPassOk) {
+            _skipAur();
+        } else if (_wantAur && !_aurDone) {
             _startAur();
         } else {
             _afterAur();
         }
+    }
+
+    // The full upgrade comes first so that paru builds on a system that is
+    // current with its databases. When it did not finish — another package
+    // manager had the lock, the authorisation was refused, the transaction
+    // failed — building anyway would be the partial upgrade the order is
+    // there to prevent. The rows say why, with what the system pass said.
+    function _skipAur() {
+        let skipped = 0;
+        for (const base in _aurNameToKey) {
+            _setError(_aurNameToKey[base], Tr.t("not built: the system update before it did not finish"), _helperError || _helperStderr);
+            skipped++;
+        }
+        failedCount += skipped;
+        _aurDone = true;
+        _afterAur();
     }
 
     function _afterAur() {
@@ -1028,6 +1054,7 @@ Item {
         phase = "aur";
         _aurError = "";
         _aurOutput = "";
+        _aurNotice = "";
         _aurFinished = 0;
         const cmd = [Backend.python, Qt.resolvedUrl("scripts/aur_helper.py").toString().replace("file://", "")];
         for (const base in _aurNameToKey)
@@ -1050,7 +1077,10 @@ Item {
                     return;
                 }
                 const key = engine._aurNameToKey[event.name] || "";
-                if (event.event === "op-start" && key) {
+                if (event.event === "status" && event.message === "waiting-lock") {
+                    engine._aurNotice = event.holder ? Tr.t("Waiting for another package manager to finish: %1").arg(event.holder) : Tr.t("Waiting for another package manager to finish…");
+                } else if (event.event === "op-start" && key) {
+                    engine._aurNotice = "";
                     engine.currentItem = event.name;
                     engine._setItem(key, {
                         status: "active",
@@ -1068,7 +1098,13 @@ Item {
                 } else if (event.event === "output") {
                     engine._aurOutput = event.text || "";
                 } else if (event.event === "error") {
-                    engine._aurError = event.refused === true ? Tr.t("the authorisation was refused") : Tr.t("the AUR package was not built or installed");
+                    engine._aurNotice = "";
+                    if (event.busy)
+                        engine._aurError = Tr.t("pacman is in use by another program: %1").arg(event.busy);
+                    else if (event.stale === true)
+                        engine._aurError = Tr.t("pacman is locked by an interrupted update; updating again clears it");
+                    else
+                        engine._aurError = event.refused === true ? Tr.t("the authorisation was refused") : Tr.t("the AUR package was not built or installed");
                     engine._aurOutput = engine._aurOutput || event.message || "";
                 }
             }
@@ -1221,6 +1257,7 @@ Item {
         onExited: (exitCode, exitStatus) => {
             if (!engine.running || engine._dnfDone)
                 return;
+            engine._systemPassOk = exitCode === 0 && exitStatus === 0;
             // A helper that never got as far as a plan did not run a
             // transaction at all — a missing dependency, a refused polkit
             // prompt, a crash. Carry that reason to the rows instead of
@@ -1253,6 +1290,7 @@ Item {
         _helperExitNote = "";
         _helperSawPlan = false;
         _helperNotice = "";
+        _systemPassOk = false;
         _helperPlanBytes = 0;
         _helperTransferred = 0;
         phase = "dnf-download";

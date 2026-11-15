@@ -610,5 +610,10 @@
     "Not set up. It adds this rule to /etc/sudoers.d:": "Sin configurar. Añade esta regla en /etc/sudoers.d:",
     "Set up": "Configurar",
     "Unlocking pacman after an interrupted update — waiting for authorisation…": "Desbloqueando pacman tras una actualización interrumpida — esperando autorización…",
-    "Waiting for authorisation to change system packages…": "Esperando autorización para cambiar paquetes del sistema…"
+    "Waiting for authorisation to change system packages…": "Esperando autorización para cambiar paquetes del sistema…",
+    "not built: the system update before it did not finish": "no compilado: la actualización del sistema anterior no terminó",
+    "Waiting for another package manager to finish: %1": "Esperando a que termine otro gestor de paquetes: %1",
+    "Waiting for another package manager to finish…": "Esperando a que termine otro gestor de paquetes…",
+    "pacman is in use by another program: %1": "pacman está en uso por otro programa: %1",
+    "pacman is locked by an interrupted update; updating again clears it": "pacman está bloqueado por una actualización interrumpida; actualizar de nuevo lo desbloquea"
 }

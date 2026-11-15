@@ -155,7 +155,14 @@ terminal* runs `scripts/aur_helper.py` instead: `paru -S --skipreview
 --batchinstall` (or yay with its menus answered `None`) with no tty, sudo
 replaced by `scripts/aur_sudo.sh`: sudo where it would not ask, polkit
 otherwise. The AUR pass always follows the full official upgrade, which
-refreshes the sync databases and brings the system up to them. It speaks a subset of
+refreshes the sync databases and brings the system up to them; when that
+upgrade did not finish, the AUR pass is skipped, its rows saying so, rather
+than building on a partial one. paru never gives up on a held pacman lock —
+it waits, with nobody to see why — so the helper checks the lock first: one
+another package manager holds fails the pass at once, naming it (`error`
+with `busy`), one nothing holds is reported as stale (`stale: true`; the
+next update's root path clears it). A lock taken while paru runs is a
+`status` event (`waiting-lock`, with the holder), shown under the phase. It speaks a subset of
 the protocol — `op-start`/`op-done` per build, `output`, `error`, `done` —
 and the package database decides what arrived, as after a daemon pass.
 

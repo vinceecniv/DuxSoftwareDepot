@@ -610,5 +610,10 @@
     "Not set up. It adds this rule to /etc/sudoers.d:": "Chưa thiết lập. Quy tắc này sẽ được thêm vào /etc/sudoers.d:",
     "Set up": "Thiết lập",
     "Unlocking pacman after an interrupted update — waiting for authorisation…": "Đang mở khóa pacman sau một lần cập nhật bị gián đoạn — đang chờ xác thực…",
-    "Waiting for authorisation to change system packages…": "Đang chờ xác thực để thay đổi các gói hệ thống…"
+    "Waiting for authorisation to change system packages…": "Đang chờ xác thực để thay đổi các gói hệ thống…",
+    "not built: the system update before it did not finish": "chưa dựng: bản cập nhật hệ thống trước đó chưa hoàn tất",
+    "Waiting for another package manager to finish: %1": "Đang chờ trình quản lý gói khác hoàn tất: %1",
+    "Waiting for another package manager to finish…": "Đang chờ trình quản lý gói khác hoàn tất…",
+    "pacman is in use by another program: %1": "pacman đang được chương trình khác sử dụng: %1",
+    "pacman is locked by an interrupted update; updating again clears it": "pacman bị khóa bởi một lần cập nhật bị gián đoạn; cập nhật lại sẽ mở khóa"
 }

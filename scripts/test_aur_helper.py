@@ -22,6 +22,7 @@ STUB = """#!/bin/sh
 # builtins only: PATH holds nothing but the stubs
 printf '%s\\n' "$0 $*" > "$ARGV_LOG"
 echo ':: Resolving dependencies...'
+[ "$MODE" = wait ] && echo ':: Pacman is currently in use, please wait...'
 echo '==> Making package: foo-git r1.abc-1 (Tue Nov 10 15:12:04 2026)'
 echo '==> Making package: foo-git r1.abc-1 (Tue Nov 10 15:12:04 2026)'
 echo '==> Making package: bar 2-1 (Tue Nov 10 15:12:06 2026)'
@@ -40,7 +41,24 @@ def check(cond, what):
         failures.append(what)
 
 
-def run(tools, names, mode="", extra=()):
+def fake_proc(root, shape):
+    """A /proc with a bystander, and, for "busy", paru removing a package
+    from another terminal — the case that held a run for two hours."""
+    def proc(pid, comm, argv):
+        os.makedirs(os.path.join(root, str(pid)))
+        with open(os.path.join(root, str(pid), "comm"), "w") as fh:
+            fh.write(comm + "\n")
+        with open(os.path.join(root, str(pid), "cmdline"), "wb") as fh:
+            fh.write(b"\0".join(w.encode() for w in argv) + b"\0")
+        with open(os.path.join(root, str(pid), "status"), "w") as fh:
+            fh.write("Name:\t%s\nPPid:\t1\n" % comm)
+    proc(4242, "sleep", ["sleep", "60"])
+    if shape == "busy":
+        proc(4343, "paru", ["paru", "-Rns", "thunderbird"])
+    return root
+
+
+def run(tools, names, mode="", extra=(), lock=None):
     with tempfile.TemporaryDirectory() as tmp:
         bindir = os.path.join(tmp, "bin")
         os.mkdir(bindir)
@@ -53,6 +71,15 @@ def run(tools, names, mode="", extra=()):
         # The stubs' directory only: with /usr/bin on PATH a machine that has
         # the real paru would run it, and really build and install the target
         env = {"PATH": bindir, "ARGV_LOG": log, "MODE": mode}
+        # Never the real database directory or /proc: a real pacman running
+        # on the machine would change what the helper sees
+        dbpath = os.path.join(tmp, "db")
+        os.mkdir(dbpath)
+        env["DSD_PACMAN_DBPATH"] = dbpath
+        # "wait": paru reports the lock; the holder is a paru in another terminal
+        env["DSD_PROC"] = fake_proc(os.path.join(tmp, "proc"), "busy" if mode == "wait" else lock)
+        if lock:
+            open(os.path.join(dbpath, "db.lck"), "w").close()
         proc = subprocess.run([sys.executable, "-I", HELPER] + list(extra) + names,
                               capture_output=True, text=True, env=env, cwd=tmp, timeout=30)
         events = [json.loads(l) for l in proc.stdout.splitlines() if l.strip()]
@@ -98,6 +125,24 @@ _, events, _ = run(["paru"], ["bar"], mode="refused")
 err = [e for e in events if e["event"] == "error"]
 check(len(err) == 1 and err[0]["refused"] is True, "a dismissed prompt is reported as refused")
 
+
+# pacman's lock: paru waits on it forever, so the helper does not start it
+code, events, argv = run(["paru"], ["bar"], lock="busy")
+check(code == 1 and argv == [], "a lock another package manager holds: paru is not started")
+err = [e for e in events if e["event"] == "error"]
+check(len(err) == 1 and err[0].get("busy") == "pid 4343 (paru -Rns thunderbird)"
+      and events[-1] == {"event": "done", "ok": False, "failed": ["bar"]},
+      "and the error names it: %r" % events)
+code, events, argv = run(["paru"], ["bar"], lock="stale")
+err = [e for e in events if e["event"] == "error"]
+check(code == 1 and argv == [] and len(err) == 1 and err[0].get("stale") is True,
+      "a lock nothing holds: paru is not started, and the lock is said to be stale: %r" % events)
+# A lock taken while paru runs: what it waits for is said, before the build
+code, events, argv = run(["paru"], ["foo-git"], mode="wait")
+kinds = [e["event"] for e in events]
+check(code == 0 and kinds[0] == "status" and events[0] == {"event": "status", "message": "waiting-lock",
+                                                           "holder": "pid 4343 (paru -Rns thunderbird)"}
+      and kinds[1] == "op-start", "paru waiting for the lock is a status naming the holder: %r" % events)
 
 # Neither helper installed: said inside the protocol
 code, events, _ = run([], ["bar"])

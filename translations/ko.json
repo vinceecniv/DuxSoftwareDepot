@@ -610,5 +610,10 @@
     "Not set up. It adds this rule to /etc/sudoers.d:": "설정되지 않았습니다. 다음 규칙을 /etc/sudoers.d에 추가합니다:",
     "Set up": "설정",
     "Unlocking pacman after an interrupted update — waiting for authorisation…": "중단된 업데이트 후 pacman 잠금 해제 중 — 인증을 기다리는 중…",
-    "Waiting for authorisation to change system packages…": "시스템 패키지를 변경하기 위한 인증을 기다리는 중…"
+    "Waiting for authorisation to change system packages…": "시스템 패키지를 변경하기 위한 인증을 기다리는 중…",
+    "not built: the system update before it did not finish": "빌드되지 않음: 그 전의 시스템 업데이트가 끝나지 않았습니다",
+    "Waiting for another package manager to finish: %1": "다른 패키지 관리자가 끝나기를 기다리는 중: %1",
+    "Waiting for another package manager to finish…": "다른 패키지 관리자가 끝나기를 기다리는 중…",
+    "pacman is in use by another program: %1": "다른 프로그램이 pacman을 사용 중입니다: %1",
+    "pacman is locked by an interrupted update; updating again clears it": "중단된 업데이트로 pacman이 잠겼습니다. 다시 업데이트하면 잠금이 풀립니다"
 }

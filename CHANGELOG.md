@@ -3,6 +3,25 @@
 Release notes per version. The section for the latest version is shown
 in-app when the plugin offers its own update.
 
+## 2.0.1 — 2026-11-21
+
+- **Arch: updates run pacman's hooks in `/etc/pacman.d/hooks` again.**
+  Updates and installs through the depot only ran the hooks in
+  `/usr/share/libalpm/hooks`, and skipped the ones a system keeps in
+  `/etc/pacman.d/hooks`, including those that replace a stock hook of the
+  same name. On CachyOS with limine, that is the hook that puts a new
+  kernel where the bootloader looks: after a kernel update the machine
+  started the old kernel, whose modules were gone, and came up in
+  emergency mode. The depot now hands those directories to libalpm as
+  pacman does, and checks that they arrived. If that cannot be done on
+  some system, an update that would skip a hook is refused with a message
+  that names the hooks, and nothing is changed
+  ([#52](https://github.com/vinceecniv/DuxSoftwareDepot/issues/52)).
+
+  If you updated a kernel through the depot on such a system, run
+  `sudo pacman -S linux-cachyos` (or your kernel's package) in a
+  terminal before the next reboot, so its hooks run.
+
 ## 2.0.0 — 2026-11-21
 
 - **Requires Dux Shell 2.0 or newer.** The plugin now uses the shell's

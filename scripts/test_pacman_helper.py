@@ -232,6 +232,13 @@ def run(scenario, *args):
         dbpath = Path(tmp) / "db"
         dbpath.mkdir()
         env["DSD_PACMAN_DBPATH"] = str(dbpath)
+        # Stands in for /etc/pacman.d/hooks: empty unless the scenario puts
+        # hooks there (#52)
+        hookdir = Path(tmp) / "hooks"
+        hookdir.mkdir()
+        for name in scenario.get("hooks", []):
+            (hookdir / name).write_text("[Trigger]\n")
+        env["DSD_PACMAN_HOOKDIRS"] = str(hookdir)
         if scenario.get("architectures") is not None:
             env["PACMAN_ARCHS"] = " ".join(scenario["architectures"])
         lock = dbpath / "db.lck"
@@ -468,6 +475,29 @@ def main():
     events, trace, proc, raw = run({"lock": "held", "packages": behind["packages"]}, "plan", "upgrade", "dolphin")
     ok &= check("a plan neither needs nor touches the real lock",
                 LAST["lockRemains"] and (event(events, "done") or {}).get("ok") is True, json.dumps(events))
+
+    # Hooks in /etc/pacman.d/hooks that cannot be handed to libalpm — here
+    # because the stand-in's Handle is not pyalpm's C type — would be
+    # skipped by the transaction; on CachyOS with limine that left a kernel
+    # upgrade unbootable (#52). The real libalpm path is checked by hand in
+    # an Arch container; what is checked here is that nothing runs without.
+    hooked = dict(behind)
+    hooked["hooks"] = ["90-mkinitcpio-install.hook", "README"]
+    events, trace, proc, raw = run(hooked, "upgrade", "dolphin")
+    err = event(events, "error") or {}
+    ok &= check("hooks libalpm would not run stop the transaction before it starts",
+                proc.returncode == 1 and "commit" not in trace
+                and "90-mkinitcpio-install.hook" in err.get("message", "")
+                and "README" not in err.get("message", "")
+                and "sudo pacman -Syu" in err.get("message", "")
+                and (event(events, "done") or {}).get("ok") is False, json.dumps(events))
+    events, trace, proc, raw = run(hooked, "plan", "upgrade", "dolphin")
+    ok &= check("but the plan still resolves, for the preview",
+                proc.returncode == 0 and (event(events, "done") or {}).get("ok") is True
+                and event(events, "error") is None, json.dumps(events))
+    events, trace, proc, raw = run(dict(behind), "upgrade", "dolphin")
+    ok &= check("an empty hook directory leaves the transaction alone",
+                proc.returncode == 0 and "commit" in trace, json.dumps(events))
 
     print("\n" + ("all checks passed" if ok else "FAILURES"))
     return 0 if ok else 1

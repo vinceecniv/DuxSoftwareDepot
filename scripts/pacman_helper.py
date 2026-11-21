@@ -91,6 +91,129 @@ def architectures():
     return [line.strip() for line in proc.stdout.splitlines() if line.strip()] or None
 
 
+HOOKDIR = "/etc/pacman.d/hooks/"
+
+
+def hook_dirs():
+    """The hook directories pacman reads besides libalpm's own, as
+    `pacman-conf HookDir` lists them; pacman's default when it cannot be
+    asked. In the order pacman adds them: a hook in a later directory
+    replaces one of the same name before it."""
+    import shutil
+    import subprocess
+    test = _test_hook("DSD_PACMAN_HOOKDIRS")
+    if test is not None:
+        return [d for d in test.split(":") if d]
+    pacman_conf = shutil.which("pacman-conf")
+    if pacman_conf:
+        try:
+            proc = subprocess.run([pacman_conf, "HookDir"], stdin=subprocess.DEVNULL,
+                                  capture_output=True, text=True, timeout=30)
+            if proc.returncode == 0:
+                dirs = [line.strip() for line in proc.stdout.splitlines() if line.strip()]
+                if dirs:
+                    return dirs
+        except (OSError, subprocess.SubprocessError):
+            pass
+    return [HOOKDIR]
+
+
+def _hook_files(dirs):
+    found = []
+    for d in dirs:
+        try:
+            found += sorted(os.path.join(d, n) for n in os.listdir(d) if n.endswith(".hook"))
+        except OSError:
+            pass
+    return found
+
+
+def _loaded_libalpm():
+    """The libalpm this process already runs, the one pyalpm is linked
+    against: opening the same file again hands back the same library."""
+    with open("/proc/self/maps") as fh:
+        for line in fh:
+            path = line.split(None, 5)[-1].strip()
+            if os.path.basename(path).startswith("libalpm.so"):
+                return path
+    return None
+
+
+def add_hook_dirs(handle, dirs):
+    """Give libalpm the hook directories pacman would (#52).
+
+    libalpm on its own reads only its system directory,
+    /usr/share/libalpm/hooks; /etc/pacman.d/hooks is added by pacman's
+    configuration code, through alpm_option_add_hookdir. pycman parses
+    HookDir and never applies it, and pyalpm (0.12, and master as of
+    2026-11) has no option for it at all. So every transaction here ran
+    without the hooks a system keeps in /etc/pacman.d/hooks, including the
+    ones that replace a stock hook of the same name. On CachyOS with limine,
+    that is the hook that puts a new kernel where the bootloader looks: a
+    kernel upgrade ran mkinitcpio's stock hook instead, the bootloader kept
+    starting the old kernel whose modules were gone, and the machine came up
+    in emergency mode.
+
+    The option is set here on libalpm directly, through ctypes, on the
+    handle pyalpm holds. pyalpm's Handle is a Python object header followed
+    by the alpm_handle_t pointer (src/handle.h); that layout is checked
+    against the type's size, and the pointer against the database path
+    libalpm reports for it, before anything is set — and what libalpm then
+    lists is read back. None when the directories are in place, otherwise
+    why not. Runs in the plan that resolves a request ahead (preresolve)
+    too, so a crash here would end that child, not the transaction."""
+    import ctypes
+    ptr_size = ctypes.sizeof(ctypes.c_void_p)
+    if type(handle).__basicsize__ != object.__basicsize__ + ptr_size:
+        return "pyalpm's Handle does not have the layout this was written for"
+    path = _loaded_libalpm()
+    if not path:
+        return "libalpm is not loaded in this process"
+    try:
+        # PyDLL, not CDLL: libalpm logs while it adds a directory, and its log
+        # callback is pyalpm's, which calls into Python. CDLL lets go of the
+        # GIL for the call, and that callback then crashes the process.
+        lib = ctypes.PyDLL(path)
+        lib.alpm_option_get_dbpath.restype = ctypes.c_char_p
+        lib.alpm_option_get_dbpath.argtypes = [ctypes.c_void_p]
+        lib.alpm_option_add_hookdir.restype = ctypes.c_int
+        lib.alpm_option_add_hookdir.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+        lib.alpm_option_get_hookdirs.restype = ctypes.c_void_p
+        lib.alpm_option_get_hookdirs.argtypes = [ctypes.c_void_p]
+    except (OSError, AttributeError) as exc:
+        return "libalpm could not be called: %s" % exc
+    ptr = ctypes.c_void_p.from_address(id(handle) + object.__basicsize__).value
+    if not ptr:
+        return "pyalpm's Handle holds no libalpm handle"
+    reported = lib.alpm_option_get_dbpath(ptr)
+    if not reported or os.path.realpath(reported.decode()) != os.path.realpath(handle.dbpath):
+        return "pyalpm's Handle does not point at the libalpm handle it was opened with"
+    for d in dirs:
+        if lib.alpm_option_add_hookdir(ptr, d.encode()) != 0:
+            return "libalpm refused the hook directory %s" % d
+
+    # alpm_list_t: data, prev, next
+    class Node(ctypes.Structure):
+        pass
+    Node._fields_ = [("data", ctypes.c_char_p), ("prev", ctypes.c_void_p),
+                     ("next", ctypes.c_void_p)]
+    listed = []
+    node = lib.alpm_option_get_hookdirs(ptr)
+    while node and len(listed) < 64:
+        item = Node.from_address(node)
+        listed.append((item.data or b"").decode().rstrip("/"))
+        node = item.next
+    missing = [d for d in dirs if d.rstrip("/") not in listed]
+    if missing:
+        return "libalpm does not list the hook directory %s" % ", ".join(missing)
+    return None
+
+
+# Why the configured hook directories could not be given to libalpm, when
+# that matters: hooks sit in them that a transaction would skip
+HOOKS_SKIPPED = []
+
+
 def init_handle(dbpath=None):
     """Configured handle: pycman parses pacman.conf when available (it
     ships with pyalpm); otherwise register the sync dbs that exist on
@@ -118,6 +241,12 @@ def init_handle(dbpath=None):
         handle.arch = architectures() or []
     except (AttributeError, TypeError):
         pass
+    dirs = hook_dirs()
+    skipped = _hook_files(dirs)
+    if skipped:
+        reason = add_hook_dirs(handle, dirs)
+        if reason:
+            HOOKS_SKIPPED[:] = [reason, skipped]
     return handle
 
 
@@ -479,7 +608,21 @@ def run(action, specs, dry_run=False):
         refused = preresolve(action, specs)
         if refused is not None:
             return refused
-        return transact(init_handle(), action, specs, dry_run)
+        handle = init_handle()
+        if HOOKS_SKIPPED:
+            # A transaction without them is what left a machine unbootable
+            # (#52): better none at all, with a way that does run them
+            reason, skipped = HOOKS_SKIPPED
+            names = [os.path.basename(p) for p in skipped]
+            emit({"event": "error",
+                  "message": "this would skip pacman's hooks in %s (%s): %s. Nothing was changed; "
+                             "update with `sudo pacman -Syu` in a terminal instead"
+                             % (", ".join(sorted({os.path.dirname(p) for p in skipped})),
+                                ", ".join(names[:5]) + (", …" if len(names) > 5 else ""),
+                                reason)})
+            emit({"event": "done", "ok": False, "failed": list(specs)})
+            return 1
+        return transact(handle, action, specs, dry_run)
     import shutil
     dbpath = plan_dbpath()
     try:

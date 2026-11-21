@@ -3,20 +3,13 @@
 Release notes per version. The section for the latest version is shown
 in-app when the plugin offers its own update.
 
-## Unreleased
-
-- **Large updates no longer bring the shell down.** With the window open
-  during a run of about 150 packages or more, the shell's memory ran away
-  — past 11 GB within minutes — until the system crawled and the kernel
-  stopped the shell. Every package that started or finished rebuilt every
-  row of the groups it moved between; now only the row that moves is
-  touched, and a replayed run of 161 packages stays under 900 MB.
+## 2.0.0 — 2026-11-21
 
 - **Requires Dux Shell 2.0 or newer.** The plugin now uses the shell's
   current widget names, so it no longer fills the log with deprecation
   errors on 2.x and keeps loading once the old names are removed
   ([#43](https://github.com/vinceecniv/DuxSoftwareDepot/issues/43)). On
-  DMS 1.x, stay on 1.8.4 or upgrade the shell first.
+  DMS 1.x, stay on 1.8.5 or upgrade the shell first.
 
 - **An app installed under another package name shows as installed.**
   When a package's own app data names a package that does not exist —
@@ -66,6 +59,15 @@ in-app when the plugin offers its own update.
   dependency, so without it notifications were silently lost
   ([#34](https://github.com/vinceecniv/DuxSoftwareDepot/pull/34), thanks
   to @hthienloc).
+
+## 1.8.5 — 2026-11-10
+
+- **Large updates no longer bring the shell down.** With the window open
+  during a run of about 150 packages or more, the shell's memory ran away
+  — past 11 GB within minutes — until the system crawled and the kernel
+  stopped the shell. Every package that started or finished rebuilt every
+  row of the groups it moved between; now only the row that moves is
+  touched, and a replayed run of 161 packages stays under 900 MB.
 
 ## 1.8.4 — 2026-11-06
 

@@ -6,3 +6,8 @@ __pycache__/
 # progress events — a local fixture, not something every checkout wants.
 # Commit one deliberately with `git add -f` if it is worth sharing.
 recordings/
+
+# Local Claude Code settings: holds the "don't ask again" approvals, including
+# any passwords or keys that appeared in those commands. Never commit it.
+/.claude/settings.local.json
+.claude/worktrees/

@@ -596,5 +596,17 @@
     "Show again": "Hiện lại",
     "fwupd is not installed, so there is no firmware to show. Install the fwupd package, then try again.": "fwupd chưa được cài đặt nên không có firmware nào để hiển thị. Hãy cài gói fwupd rồi thử lại.",
     "fwupd could not read the device list.": "fwupd không đọc được danh sách thiết bị.",
-    "Try again": "Thử lại"
+    "Try again": "Thử lại",
+    "Snaps": "Snap",
+    "Updating snaps…": "Đang cập nhật snap…",
+    "snapd could not update this": "snapd không thể cập nhật mục này",
+    "classic": "classic",
+    "Classic confinement: this snap is not sandboxed and can access your whole system, like a package from the distribution.": "Giới hạn classic: snap này không chạy trong sandbox và có thể truy cập toàn bộ hệ thống, giống gói của bản phân phối.",
+    "Install anyway": "Vẫn cài đặt",
+    "Searching the Snap Store…": "Đang tìm trong Snap Store…",
+    "The Snap Store could not be asked.": "Không thể truy vấn Snap Store.",
+    "%1 found in the Snap Store, listed below": "Tìm thấy %1 trong Snap Store, liệt kê bên dưới",
+    "Nothing in the Snap Store for \"%1\"": "Không có gì trong Snap Store cho \"%1\"",
+    "The Snap Store has applications packaged by their publishers.": "Snap Store có các ứng dụng do chính nhà phát hành đóng gói.",
+    "Search the Snap Store": "Tìm trong Snap Store"
 }

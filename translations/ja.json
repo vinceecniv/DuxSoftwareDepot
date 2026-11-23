@@ -596,5 +596,17 @@
     "Show again": "再表示",
     "fwupd is not installed, so there is no firmware to show. Install the fwupd package, then try again.": "fwupd がインストールされていないため、表示するファームウェアがありません。fwupd パッケージをインストールしてから、もう一度お試しください。",
     "fwupd could not read the device list.": "fwupd はデバイス一覧を読み取れませんでした。",
-    "Try again": "再試行"
+    "Try again": "再試行",
+    "Snaps": "Snap",
+    "Updating snaps…": "Snap を更新しています…",
+    "snapd could not update this": "snapd はこれを更新できませんでした",
+    "classic": "classic",
+    "Classic confinement: this snap is not sandboxed and can access your whole system, like a package from the distribution.": "classic 制約: この Snap はサンドボックス化されておらず、ディストリビューションのパッケージと同様にシステム全体にアクセスできます。",
+    "Install anyway": "それでもインストール",
+    "Searching the Snap Store…": "Snap Store を検索しています…",
+    "The Snap Store could not be asked.": "Snap Store に問い合わせできませんでした。",
+    "%1 found in the Snap Store, listed below": "Snap Store で %1 件見つかりました（下に表示）",
+    "Nothing in the Snap Store for \"%1\"": "Snap Store に「%1」は見つかりません",
+    "The Snap Store has applications packaged by their publishers.": "Snap Store には、公開者自身がパッケージしたアプリがあります。",
+    "Search the Snap Store": "Snap Store を検索"
 }

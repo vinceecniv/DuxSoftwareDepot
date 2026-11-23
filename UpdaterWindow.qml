@@ -37,6 +37,12 @@ FloatingWindow {
     // Bumped whenever installed software changed (install, update run);
     // the Installed tab reloads its list when this moves.
     property int softwareSerial: 0
+    // Snaps are listed by the widget, not by a tab, so a change made from a
+    // tab — installed, removed, updated — is asked about again here
+    onSoftwareSerialChanged: {
+        if (win.widgetRoot && win.widgetRoot.refreshSnaps)
+            win.widgetRoot.refreshSnaps();
+    }
 
     Connections {
         target: win.engine
@@ -71,10 +77,14 @@ FloatingWindow {
         // and useless — the same answer plugins used to get.
         const isBrew = pkg.repo === "brew";
         const isAppImage = pkg.repo === "appimage";
+        // A snap lives in snapd's store and its own squashfs; what is known
+        // about it is what snapd said when it listed the installed ones
+        const isSnap = pkg.repo === "snap";
+        const snapInfo = isSnap && win.widgetRoot ? ((win.widgetRoot.snapInstalled || []).find(s => s.name === pkg.name) || {}) : {};
         const manifest = isPlugin ? ((PluginService.availablePlugins || {})[pkg.name] || {}) : {};
         const base = win.store.stripArch(pkg.name || "");
         const newer = (info && info.releases) ? info.releases.filter(r => r.newer && (r.notesHtml || r.version)).slice(0, 5) : [];
-        if (!isFlatpak && !isFirmware && !isPlugin && !isBrew && !isAppImage && newer.length === 0) {
+        if (!isFlatpak && !isFirmware && !isPlugin && !isBrew && !isAppImage && !isSnap && newer.length === 0) {
             win.store.fetchChangelog(base);
             // Nothing in AppStream and, for a git build, nothing in the
             // changelog either — the notes exist, just not in the distro
@@ -82,7 +92,7 @@ FloatingWindow {
         }
         // What uninstalling it would take along, as the Installed tab's
         // popup shows; that tab's resolver answers, so it is loaded for it
-        if (!isFlatpak && !isFirmware && !isPlugin && !isBrew && !isAppImage && !_isShellPkg(pkg)) {
+        if (!isFlatpak && !isFirmware && !isPlugin && !isBrew && !isAppImage && !isSnap && !_isShellPkg(pkg)) {
             installedLoader.active = true;
             Qt.callLater(() => {
                 if (installedLoader.item)
@@ -121,15 +131,15 @@ FloatingWindow {
         updatesDialog.open({
             id: isFlatpak ? pkg.name : base,
             name: win.store.displayName(pkg),
-            summary: isPlugin ? (manifest.description || "") : ((info && info.summary) || ""),
-            iconPath: (info && info.icon) || (win._isShellPkg(pkg) && win.widgetRoot ? win.widgetRoot.dankLogoPath : ""),
-            homepage: (info && info.homepage) || "",
+            summary: isPlugin ? (manifest.description || "") : (isSnap ? (snapInfo.summary || "") : ((info && info.summary) || "")),
+            iconPath: isSnap ? (snapInfo.icon || "") : ((info && info.icon) || (win._isShellPkg(pkg) && win.widgetRoot ? win.widgetRoot.dankLogoPath : "")),
+            homepage: isSnap ? (snapInfo.website || "") : ((info && info.homepage) || ""),
             held: rowData.ignored === true || win.store.isHeld(pkg),
             holdReason: rowData.ignored === true ? Tr.t("held by you") : win.store.holdReason(pkg),
             versionLabel: versionLabel,
             origin: Ui.sourceLabel(pkg.repo),
             isFlatpak: isFlatpak,
-            sources: (isFirmware || isPlugin || isBrew || isAppImage) ? [] : (isFlatpak ? [{
+            sources: (isFirmware || isPlugin || isBrew || isAppImage || isSnap) ? [] : (isFlatpak ? [{
                 source: "flathub",
                 kind: "flatpak",
                 ref: pkg.name
@@ -224,7 +234,7 @@ FloatingWindow {
         // builds, the git-notes lookup. A plugin is not one of these, and
         // asking anyway left "Loading changelog…" on screen for good, because
         // nothing was ever going to arrive and clear it.
-        readonly property bool rowIsRpm: rowPkg !== null && rowPkg.repo !== "flatpak" && rowPkg.repo !== "firmware" && rowPkg.repo !== "dmsplugin" && rowPkg.repo !== "brew" && rowPkg.repo !== "appimage"
+        readonly property bool rowIsRpm: rowPkg !== null && rowPkg.repo !== "flatpak" && rowPkg.repo !== "firmware" && rowPkg.repo !== "dmsplugin" && rowPkg.repo !== "brew" && rowPkg.repo !== "snap" && rowPkg.repo !== "appimage"
         readonly property string rowBase: rowPkg ? win.store.stripArch(rowPkg.name || "") : ""
 
         // "" for anything not built from git, which is what keeps the
@@ -560,7 +570,7 @@ FloatingWindow {
         upgrade: win.widgetRoot ? win.widgetRoot.fedoraUpgrade : null
         // Only the system's own packages: Fedora's advice is about them, and
         // a waiting Flatpak or firmware update has nothing to do with it
-        pendingSystem: win.pendingUpdates.filter(p => ["flatpak", "firmware", "appimage", "dmsplugin", "brew"].indexOf(p.repo) === -1).length
+        pendingSystem: win.pendingUpdates.filter(p => ["flatpak", "firmware", "appimage", "dmsplugin", "brew", "snap"].indexOf(p.repo) === -1).length
     }
 
     CommandPalette {
@@ -2996,6 +3006,18 @@ FloatingWindow {
                 ignored: false
             });
         }
+        // Snaps: snapd refreshes them on its own schedule, so what is listed
+        // here is what it has not got to yet. Version-less snaps from the
+        // window's point of view are still rows — the store always says the
+        // version it is offering.
+        for (const snap of (widgetRoot ? widgetRoot.snapUpdates : []) || []) {
+            rows.push({
+                pkg: snap,
+                key: "snap/" + snap.name,
+                category: "5 · Snaps",
+                ignored: false
+            });
+        }
         for (const plugin of (widgetRoot ? widgetRoot.pluginUpdates : []) || []) {
             rows.push({
                 pkg: plugin,
@@ -3072,7 +3094,7 @@ FloatingWindow {
     // and AppImages together, Held holds anything at all, and during a run the
     // groups are In progress and Waiting, where what a row *is* is the one
     // thing the heading no longer says.
-    readonly property var sourceNamedCategories: ["2 · System packages", "4 · Firmware", "5 · Homebrew", "5 · DMS plugins"]
+    readonly property var sourceNamedCategories: ["2 · System packages", "4 · Firmware", "5 · Homebrew", "5 · Snaps", "5 · DMS plugins"]
 
     // What the list shows. categorySections is recomputed on every progress
     // event of a run, because the run's rows are grouped by their state. It
@@ -3497,6 +3519,8 @@ FloatingWindow {
             return "extension";
         case "5 · Homebrew":
             return "local_drink";
+        case "5 · Snaps":
+            return Ui.sourceIcon("snap");
         case "6 · Held packages":
             return "lock";
         default:
@@ -3522,7 +3546,7 @@ FloatingWindow {
     function sectionUpdatable(category) {
         if (category === "4 · Firmware")
             return ((firmware ? firmware.installable : []) || []).length > 0;
-        return ["1 · Applications", "2 · System packages", "3 · Runtimes & extensions"].includes(category);
+        return ["1 · Applications", "2 · System packages", "3 · Runtimes & extensions", "5 · Snaps"].includes(category);
     }
 
     function sectionUpdate(category) {
@@ -3537,7 +3561,8 @@ FloatingWindow {
                 firmware: false,
                 appimage: false,
                 plugins: false,
-                brew: false
+                brew: false,
+                snap: false
             });
             return;
         }
@@ -3545,6 +3570,18 @@ FloatingWindow {
             engine.start({
                 dnf: false,
                 flatpak: false,
+                appimage: false,
+                plugins: false,
+                brew: false,
+                snap: false
+            });
+            return;
+        }
+        if (category === "5 · Snaps") {
+            engine.start({
+                dnf: false,
+                flatpak: false,
+                firmware: false,
                 appimage: false,
                 plugins: false,
                 brew: false
@@ -3559,7 +3596,8 @@ FloatingWindow {
                 firmware: false,
                 flatpak: ids.length > 0,
                 appimageIds: aiIds,
-                flatpakIds: ids
+                flatpakIds: ids,
+                snap: false
             });
     }
 
@@ -5067,6 +5105,7 @@ FloatingWindow {
                 engine: win.engine
                 logger: win.widgetRoot ? win.widgetRoot.actionLogger : null
                 brewFormulae: win.widgetRoot ? win.widgetRoot.brewInstalled : []
+                snaps: win.widgetRoot ? (win.widgetRoot.snapInstalled || []) : []
                 refreshSerial: win.softwareSerial
                 overlayParent: windowOverlayLayer
                 onSoftwareMutated: win.softwareSerial++
@@ -5107,6 +5146,7 @@ FloatingWindow {
                 overlayParent: windowOverlayLayer
                 onSoftwareMutated: win.softwareSerial++
                 hasBrew: win.widgetRoot ? win.widgetRoot.brewSupported === true : false
+                hasSnap: win.widgetRoot ? win.widgetRoot.snapSupported === true : false
                 onSourcesRequested: sourcesDialog.open()
                 onStagedChange: {
                     if (win.widgetRoot)
@@ -6038,9 +6078,12 @@ FloatingWindow {
                                             // Only on a machine that has brew: a row
                                             // reading "Homebrew 0" on the other ones is
                                             // an answer to a question nobody asked
-                                            { label: "Homebrew", icon: "local_drink", count: (win.widgetRoot ? (win.widgetRoot.brewInstalled || []).length : 0) }
+                                            { label: "Homebrew", icon: "local_drink", count: (win.widgetRoot ? (win.widgetRoot.brewInstalled || []).length : 0) },
+                                            // The same for snaps, counting applications only,
+                                            // as the Flatpak row does
+                                            { label: "Snap", icon: Ui.sourceIcon("snap"), count: (win.widgetRoot ? (win.widgetRoot.snapInstalled || []).filter(s => s.type === "app").length : 0) }
                                         ].filter(row => row.label !== "COPR" && row.label !== "AUR" || row.count > 0 || Backend.backendId === "dnf")
-                                         .filter(row => row.label !== "Homebrew" || row.count > 0);
+                                         .filter(row => (row.label !== "Homebrew" && row.label !== "Snap") || row.count > 0);
                                     }
 
                                     delegate: RowLayout {
@@ -6079,7 +6122,7 @@ FloatingWindow {
 
                                 StyledText {
                                     Layout.fillWidth: true
-                                    text: Tr.t("Total: %1").arg((win.dashboard ? (win.dashboard.rpmTotal || 0) + (win.dashboard.flatpakCount || 0) + (win.dashboard.appimageCount || 0) : 0) + Object.keys(PluginService.availablePlugins || {}).length + (win.widgetRoot ? (win.widgetRoot.brewInstalled || []).length : 0))
+                                    text: Tr.t("Total: %1").arg((win.dashboard ? (win.dashboard.rpmTotal || 0) + (win.dashboard.flatpakCount || 0) + (win.dashboard.appimageCount || 0) : 0) + Object.keys(PluginService.availablePlugins || {}).length + (win.widgetRoot ? (win.widgetRoot.brewInstalled || []).length + (win.widgetRoot.snapInstalled || []).filter(s => s.type === "app").length : 0))
                                     font.pixelSize: Theme.fontSizeSmall
                                     color: Theme.surfaceVariantText
                                     horizontalAlignment: Text.AlignRight

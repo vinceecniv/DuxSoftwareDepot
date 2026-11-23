@@ -13,6 +13,7 @@
 ![Firmware](https://img.shields.io/badge/firmware-fwupd%20%C2%B7%20LVFS-4A4458)
 ![DMS plugins](https://img.shields.io/badge/DMS%20plugins-4A4458)
 ![Homebrew](https://img.shields.io/badge/Homebrew-4A4458)
+![Snap](https://img.shields.io/badge/Snap-4A4458)
 
 A full software & updates center plugin for
 [Dux Shell](https://github.com/duxlabs-dev/dux-shell) (DMS, formerly
@@ -64,8 +65,8 @@ and polkit prompts appear through the DMS agent.
 
 - **Rich update cards** — logo, name, summary, `old → new`, homepage, release
   notes, and an update button per app
-- **Sections** — Applications, System, Runtimes, Firmware, Homebrew, DMS
-  plugins, Held — each with its own *Update these* button, headings staying put
+- **Sections** — Applications, System, Runtimes, Firmware, Homebrew, Snaps,
+  DMS plugins, Held — each with its own *Update these* button, headings staying put
   as you scroll
 - **Held packages** — dnf versionlock and excludepkgs found automatically, plus
   your own holds; never counted, never updated. A hold on top of a security fix
@@ -80,8 +81,10 @@ and polkit prompts appear through the DMS agent.
   package has no distro release to describe
 - **Arch Linux news** where it is published — announced only when something is
   unread, kept in an archive afterwards
-- **Homebrew and DMS plugins** update in their own phases; DMS's own packages
-  run last, because they reload the shell
+- **Snaps, Homebrew and DMS plugins** update in their own phases; DMS's own
+  packages run last, because they reload the shell. Snaps go through snapd
+  itself, with one polkit prompt for all of them and download progress per
+  snap
 - **Reboot notice** and end-of-life Flatpaks
 - **Upgrading to the next Fedora release** — what it involves (size,
   packages, removals, repositories not ready yet) before anything is
@@ -96,8 +99,8 @@ and polkit prompts appear through the DMS agent.
 
 ### 2 · Installed
 
-- **Everything in one list** — Flatpaks, system packages, AppImages, Homebrew
-  formulae and DMS plugins, with live search, source filters and sorting by
+- **Everything in one list** — Flatpaks, system packages, AppImages, snaps,
+  Homebrew formulae and DMS plugins, with live search, source filters and sorting by
   name, size or date
 - **Applications first**, supporting packages after
 - **A details popup** with description, screenshots, ODRS ratings and reviews,
@@ -129,6 +132,9 @@ and polkit prompts appear through the DMS agent.
   part of the same transaction
 - **Search Homebrew** where brew is installed — macOS-only formulae are greyed
   with the reason rather than dropped
+- **Search the Snap Store** where snapd is installed — publisher and
+  verification on every row, and a snap with classic confinement says that it
+  runs without a sandbox before a second press installs it
 - **Software sources** — repositories and Flatpak remotes with switches,
   one-click RPM Fusion and Flathub, Copr add and remove (dnf family; apt and
   pacman read-only)
@@ -234,7 +240,9 @@ English. Add a language by dropping a file next to the others.
 - A Fedora-based distribution — or an atomic Fedora, Debian/Ubuntu or Arch
   (all three experimental)
 - DMS ≥ 2.0 with the `sysupdate` daemon capability
-- `python3` and `flatpak`, optionally `fwupd`, optionally Homebrew
+- `python3` and `flatpak`, optionally `fwupd`, optionally Homebrew, optionally
+  `snapd` (with its socket enabled; on Fedora and Arch, snaps with classic
+  confinement also need `sudo ln -s /var/lib/snapd/snap /snap`)
 - Package-manager bindings for your distro:
   - Fedora: `python3-libdnf5` (**not** part of a default install)
   - RHEL, CentOS Stream, AlmaLinux, Rocky: `python3-dnf` (always installed)
@@ -345,6 +353,7 @@ Everything else below happens because you opened, checked or pressed something.
 | `api.github.com` | for a package built from git, the notes of the release being installed or the commits between two snapshots | opening the details of such an update; cached a day, and a package not built from git never asks |
 | `bodhi.fedoraproject.org` | which Fedora releases are current, for the release-upgrade notice | the upgrade check |
 | `formulae.brew.sh`, `github.com`, `ghcr.io` | Homebrew's own traffic, run by brew rather than by this plugin | only where brew is installed — the index at most every six hours, bottles only during an update you started |
+| `api.snapcraft.io` and the Snap Store's CDN | snapd's own traffic, asked for by this plugin through snapd | only where snapd is installed — which snaps have a newer revision at every check, searches when you press Search the Snap Store, downloads only during an update or install you started |
 | `archlinux.org` | the Arch news feed | on Arch only, at most every six hours while the window is open |
 | `copr.fedorainfracloud.org` | which Coprs build a package matching your search, and for which Fedora | only when you press Search Copr; cached six hours |
 | `mirrors.rpmfusion.org`, `dl.flathub.org`, `nightly.gnome.org`, `cdn.kde.org`, `registry.fedoraproject.org` | fetching a source you asked to add | only when you press Add in Software sources |

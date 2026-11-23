@@ -596,5 +596,17 @@
     "Show again": "다시 표시",
     "fwupd is not installed, so there is no firmware to show. Install the fwupd package, then try again.": "fwupd가 설치되어 있지 않아 표시할 펌웨어가 없습니다. fwupd 패키지를 설치한 후 다시 시도하세요.",
     "fwupd could not read the device list.": "fwupd가 장치 목록을 읽지 못했습니다.",
-    "Try again": "다시 시도"
+    "Try again": "다시 시도",
+    "Snaps": "Snap",
+    "Updating snaps…": "Snap 업데이트 중…",
+    "snapd could not update this": "snapd가 업데이트하지 못했습니다",
+    "classic": "classic",
+    "Classic confinement: this snap is not sandboxed and can access your whole system, like a package from the distribution.": "classic 제한: 이 Snap은 샌드박스 없이 실행되며 배포판 패키지처럼 시스템 전체에 접근할 수 있습니다.",
+    "Install anyway": "그래도 설치",
+    "Searching the Snap Store…": "Snap Store 검색 중…",
+    "The Snap Store could not be asked.": "Snap Store에 연결할 수 없습니다.",
+    "%1 found in the Snap Store, listed below": "Snap Store에서 %1개 찾음, 아래에 표시",
+    "Nothing in the Snap Store for \"%1\"": "Snap Store에 \"%1\" 결과 없음",
+    "The Snap Store has applications packaged by their publishers.": "Snap Store에는 배포자가 직접 패키징한 앱이 있습니다.",
+    "Search the Snap Store": "Snap Store 검색"
 }

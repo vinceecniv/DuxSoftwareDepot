@@ -78,7 +78,8 @@ Rectangle {
     // icon of their own, and the generic chip glyph told you nothing about
     // what they are. The host hands over DMS's own logo for those.
     property string shellIconPath: ""
-    readonly property string iconPath: (info && info.icon) ? info.icon : shellIconPath
+    // A snap brings its own: snapd's listing names the icon in its mount
+    readonly property string iconPath: (info && info.icon) ? info.icon : ((pkg.repo === "snap" && (pkg.icon || "").startsWith("/")) ? pkg.icon : shellIconPath)
     readonly property var newReleases: {
         if (!info || !info.releases)
             return [];

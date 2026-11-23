@@ -29,7 +29,7 @@ selectable would stop being a card you can click.
 |---|---|
 | `UpdaterWidget.qml` | Bar pill, popout, IPC, reboot logic, settings |
 | `UpdaterWindow.qml` | Tabbed window (Updates / Installed / Install / Firmware / Log) |
-| `UpdateEngine.qml` | Run orchestration (system packages → Flatpak → fwupd → AppImages → plugins → Homebrew → DMS packages) and per-package progress |
+| `UpdateEngine.qml` | Run orchestration (system packages → Flatpak → AppImages → fwupd → snaps → Homebrew → plugins → DMS packages) and per-package progress |
 | `Backend.qml` | The package-backend seam: every entry point specific to the system package manager, plus how a privileged command is authorised |
 | `UpdateCard.qml` | Rich per-update card |
 | `InstalledView.qml` | Installed software browser + actions |
@@ -69,6 +69,7 @@ selectable would stop being a card you can click.
 | `scripts/appimage_squashfs.py` | Reads the desktop entry and icon out of an AppImage's squashfs without running the image |
 | `scripts/repo_backend.py` | Software sources: repositories and Flatpak remotes, Copr, RPM Fusion, Flathub (dnf family only) |
 | `scripts/brew_helper.py` | Homebrew: installed, outdated, upgrade — per-formula events read out of brew's own prose |
+| `scripts/snap_helper.py` | Snaps through snapd's REST API on `/run/snapd.socket`: installed, pending refreshes, refresh, remove, search and install. snapd authorises changes itself against polkit (`X-Allow-Interaction`), and the helper follows each change's tasks for per-snap progress |
 | `scripts/plugin_notes.py` | What a DMS plugin update changes: its GitHub release, else its CHANGELOG.md section, else the commits in its own directory — read from the compare link the daemon reports |
 | `scripts/arch_news.py` | The Arch news feed: fetch, reduce, archive, track what has been read |
 | `scripts/action_log.py` · `scripts/reconcile.py` | Log append/prune; comparing install times against the log to find what changed outside this app |
@@ -81,7 +82,8 @@ selectable would stop being a card you can click.
 Everything in CI runs on any distribution, with the network and the package
 managers stubbed: `check_translations.py` (the 15 catalogs against the QML),
 `test_dep11.py`, `test_gitnotes.py`, `test_plugin_notes.py`, `test_reconcile.py`, `test_ostree_helper.py`,
-`test_arch_news.py`, `test_brew_helper.py`, `test_pacman_helper.py`,
+`test_arch_news.py`, `test_brew_helper.py`, `test_snap_helper.py` (against a
+stand-in snapd on a unix socket), `test_pacman_helper.py`,
 `test_flatpak_helper.py`, `test_fedora_upgrade.py`, `test_simulate.py`,
 `test_appimage_squashfs.py`, `test_shell_portability.py` —
 which reads every `sh -c` snippet in the QML for bash-only syntax, because

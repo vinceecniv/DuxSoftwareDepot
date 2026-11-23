@@ -596,5 +596,17 @@
     "Show again": "Показати знову",
     "fwupd is not installed, so there is no firmware to show. Install the fwupd package, then try again.": "fwupd не встановлено, тому немає мікропрограм для показу. Встановіть пакет fwupd і спробуйте ще раз.",
     "fwupd could not read the device list.": "fwupd не вдалося прочитати список пристроїв.",
-    "Try again": "Спробувати ще раз"
+    "Try again": "Спробувати ще раз",
+    "Snaps": "Snap-пакунки",
+    "Updating snaps…": "Оновлення snap-пакунків…",
+    "snapd could not update this": "snapd не зміг це оновити",
+    "classic": "classic",
+    "Classic confinement: this snap is not sandboxed and can access your whole system, like a package from the distribution.": "Режим classic: цей snap працює без пісочниці й має доступ до всієї системи, як пакунок дистрибутива.",
+    "Install anyway": "Усе одно встановити",
+    "Searching the Snap Store…": "Пошук у Snap Store…",
+    "The Snap Store could not be asked.": "Не вдалося звернутися до Snap Store.",
+    "%1 found in the Snap Store, listed below": "Знайдено в Snap Store: %1, список нижче",
+    "Nothing in the Snap Store for \"%1\"": "У Snap Store немає нічого за запитом «%1»",
+    "The Snap Store has applications packaged by their publishers.": "У Snap Store — застосунки, запаковані їхніми видавцями.",
+    "Search the Snap Store": "Шукати в Snap Store"
 }

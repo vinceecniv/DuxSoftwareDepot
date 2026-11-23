@@ -212,6 +212,7 @@ PluginComponent {
         count += (appimageUpdates || []).length;
         count += (pluginUpdates || []).length;
         count += (brewUpdates || []).length;
+        count += (snapUpdates || []).length;
         return count;
     }
 
@@ -364,6 +365,59 @@ PluginComponent {
                     root.brewSupported = false;
                     root._brewFound = [];
                     root.brewInstalled = [];
+                }
+            }
+        }
+    }
+
+    // ── Snaps ───────────────────────────────────────────────────────────────
+    // Another kind of software beside the distribution's own, read from
+    // snapd's REST API by scripts/snap_helper.py. Asking the store what is
+    // newer is snapd's work and its network round trip, so it runs with the
+    // other checks rather than on a timer of its own; snapd refreshes snaps
+    // by itself as well, so what is pending here is what it has not got to.
+    //
+    // Absent on most machines: one process that finds no socket and says so.
+    property bool snapSupported: false
+    property var _snapFound: []
+    readonly property var snapUpdates: _snapFound.filter(s => !heldNames.has(s.name) && !_justUpdated("snap/" + s.name, s.toVersion))
+    // Every installed snap, bases and snapd itself included; the Installed
+    // tab shows only the applications
+    property var snapInstalled: []
+
+    readonly property string snapScript: Qt.resolvedUrl("scripts/snap_helper.py").toString().replace("file://", "")
+
+    function refreshSnaps() {
+        if (snapProcess.running)
+            return;
+        snapProcess.command = [Backend.python, snapScript, "--state"];
+        snapProcess.running = true;
+    }
+
+    Process {
+        id: snapProcess
+
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    const data = JSON.parse(text);
+                    root.snapSupported = data.supported === true;
+                    root.snapInstalled = data.installed || [];
+                    // A snap held in snapd (`snap refresh --hold`) is held
+                    // here too: snapd would refuse to refresh it anyway
+                    root._snapFound = (data.outdated || []).filter(row => row.held !== true).map(row => ({
+                        name: row.name,
+                        displayName: row.displayName || row.name,
+                        repo: "snap",
+                        fromVersion: row.fromVersion || "",
+                        toVersion: row.toVersion || "",
+                        size: row.downloadSize || 0,
+                        icon: row.icon || ""
+                    }));
+                } catch (e) {
+                    root.snapSupported = false;
+                    root._snapFound = [];
+                    root.snapInstalled = [];
                 }
             }
         }
@@ -931,6 +985,7 @@ PluginComponent {
                 // helper decides, because `brew update` is a git fetch and a
                 // check is not the place to spend one
                 root.refreshBrew(true);
+                root.refreshSnaps();
                 Qt.callLater(() => root._afterCheck());
             }
         }
@@ -1563,6 +1618,7 @@ PluginComponent {
                     flatpak: "flatpak/",
                     appimage: "appimage/",
                     brew: "brew/",
+                    snap: "snap/",
                     dmsplugin: "plugin/"
                 };
                 root._addSucceeded(items.filter(it => it.status === "done" && it.repo !== "firmware").map(it => ({
@@ -1658,6 +1714,13 @@ PluginComponent {
         PluginService.savePluginData("dankSoftwareDepot", "pendingShellRunLog", {});
     }
 
+    Binding {
+        target: engine
+        property: "snapUpdates"
+        value: root.snapUpdates
+        when: engine.snapUpdates !== undefined
+    }
+
     UpdateEngine {
         id: engine
         heldKeys: root.heldSystemKeys
@@ -1667,6 +1730,10 @@ PluginComponent {
         appimageUpdates: root.appimageUpdates
         pluginUpdates: root.pluginUpdates
         brewUpdates: root.brewUpdates
+        // snapUpdates is handed over by the Binding below rather than here:
+        // after an update in place this file runs on the engine the session
+        // started with, and assigning a property that engine does not have
+        // yet would stop the whole widget from loading
 
         // The dms pass is about to reload the shell — stash the log entry
         // and the failure reasons it would otherwise swallow
@@ -2057,6 +2124,7 @@ PluginComponent {
             // first check. On a machine without brew it is one process that
             // says no and never runs again until the next check.
             root.refreshBrew(false);
+            root.refreshSnaps();
         }
     }
 
@@ -2209,6 +2277,8 @@ PluginComponent {
             rows.push(plugin);
         for (const formula of brewUpdates || [])
             rows.push(formula);
+        for (const snap of snapUpdates || [])
+            rows.push(snap);
         return rows;
     }
     readonly property int heldCount: heldSystemKeys.length

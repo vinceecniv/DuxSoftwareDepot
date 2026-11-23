@@ -596,5 +596,17 @@
     "Show again": "Показать снова",
     "fwupd is not installed, so there is no firmware to show. Install the fwupd package, then try again.": "fwupd не установлен, поэтому показать прошивки нечего. Установите пакет fwupd и попробуйте снова.",
     "fwupd could not read the device list.": "fwupd не удалось прочитать список устройств.",
-    "Try again": "Повторить"
+    "Try again": "Повторить",
+    "Snaps": "Snap-пакеты",
+    "Updating snaps…": "Обновление snap-пакетов…",
+    "snapd could not update this": "snapd не смог это обновить",
+    "classic": "classic",
+    "Classic confinement: this snap is not sandboxed and can access your whole system, like a package from the distribution.": "Режим classic: этот snap работает без песочницы и имеет доступ ко всей системе, как пакет дистрибутива.",
+    "Install anyway": "Всё равно установить",
+    "Searching the Snap Store…": "Поиск в Snap Store…",
+    "The Snap Store could not be asked.": "Не удалось обратиться к Snap Store.",
+    "%1 found in the Snap Store, listed below": "Найдено в Snap Store: %1, список ниже",
+    "Nothing in the Snap Store for \"%1\"": "В Snap Store нет ничего по запросу «%1»",
+    "The Snap Store has applications packaged by their publishers.": "В Snap Store — приложения, упакованные их издателями.",
+    "Search the Snap Store": "Искать в Snap Store"
 }

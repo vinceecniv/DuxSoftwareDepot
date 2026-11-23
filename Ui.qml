@@ -248,6 +248,8 @@ Item {
             return "DMS";
         case "brew":
             return "Homebrew";
+        case "snap":
+            return "Snap";
         default:
             return "System";
         }
@@ -274,6 +276,8 @@ Item {
             return "extension";
         case "brew":
             return "local_drink";
+        case "snap":
+            return "widgets";
         default:
             return "memory";
         }

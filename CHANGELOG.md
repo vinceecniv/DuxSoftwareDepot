@@ -5,6 +5,33 @@ in-app when the plugin offers its own update.
 
 ## Unreleased
 
+Thanks to @Areg472 for asking for snaps.
+
+- **Snap support.** On a machine with snapd, snaps are a kind of software
+  this window manages, as Flatpaks and Homebrew formulae are: their own
+  section in Updates with its own *Update these* button, a place in the bar
+  pill's count and in Update All, their own filter in Installed — where a
+  snap can be removed — and a line on the dashboard's installed-software
+  card. Everything goes through snapd's own API rather than the `snap`
+  command, so a run asks for authorisation once, through the shell's polkit
+  prompt, for every snap in it, and each snap shows its download in bytes. A
+  snap that fails does not take the others with it. A snap held with
+  `snap refresh --hold` is held here too. Only applications are listed in
+  Installed; bases and snapd itself are updated like the rest, the way
+  Flatpak runtimes are
+  ([#45](https://github.com/vinceecniv/DuxSoftwareDepot/issues/45)).
+- **Install from the Snap Store.** Snaps join the Install tab the way
+  Homebrew did: a *Search the Snap Store* button under the results, and a
+  Snap chip in the filter, only where snapd is installed. Each result names
+  its publisher, with a tick for a verified one. A snap with classic
+  confinement runs without a sandbox, so its row says so and asks for a
+  second press before it installs.
+
+  **Tested against a real snapd** (2.77, in a Fedora 45 virtual machine):
+  listing, a refresh of two snaps as an ordinary user through polkit,
+  a held snap left alone, removal, search, and both kinds of install. snapd
+  refreshes snaps on its own as well, so what the Updates tab lists is what
+  it has not got to yet.
 - **The extension settings no longer grey out two switches.** *Show in app
   launcher* and *Open .appimage files with this app* only became usable once
   the depot's window had been opened since the shell started, because only

@@ -500,6 +500,163 @@ Item {
         }
     }
 
+    // ── Snap Store ──────────────────────────────────────────────────────────
+    // The same offer as Homebrew: a catalogue this window does not index,
+    // searched when asked, and only where snapd is. snapd does the asking —
+    // the store's search API is its business — and installing goes through
+    // it too, with snapd's own polkit check.
+    property var snapResults: []
+    property string snapQuery: ""
+    property string snapError: ""
+    property bool snapSearching: false
+    // Bound by the window from the widget, which is the one that asks snapd
+    property bool hasSnap: false
+    // A classic snap runs without the sandbox, with the same access to the
+    // system as a package from the distribution. Installing one takes a
+    // second press, after the row has said so.
+    property string snapClassicArmed: ""
+
+    function snapHelper() {
+        return scriptPath.replace("enrich.py", "snap_helper.py");
+    }
+
+    function openSnapDetails(snap) {
+        detailsDialog.entry = null;
+        detailsDialog.brewFacts = null;
+        detailsDialog.open({
+            id: snap.name,
+            name: snap.title || snap.name,
+            summary: snap.summary || "",
+            iconPath: snap.iconUrl || "",
+            homepage: snap.website || snap.storeUrl || "",
+            versionLabel: snap.version || "",
+            origin: "Snap Store" + (snap.publisher ? " · " + snap.publisher : ""),
+            isFlatpak: false,
+            sources: []
+        });
+    }
+
+    function installSnap(snap) {
+        if (busyAction !== "" || snapInstallProcess.running)
+            return;
+        const classic = snap.confinement === "classic";
+        if (classic && snapClassicArmed !== snap.name) {
+            snapClassicArmed = snap.name;
+            return;
+        }
+        snapClassicArmed = "";
+        const label = snap.title || snap.name;
+        busyAction = "snap:" + snap.name;
+        installProgress = Tr.t("Waiting for authorization…");
+        installIcon = (snap.iconUrl || "");
+        installFraction = 0.02;
+        snapInstallProcess._label = label;
+        snapInstallProcess._name = snap.name;
+        snapInstallProcess._failed = "";
+        const cmd = [Backend.python, snapHelper(), "--install", snap.name];
+        if (classic)
+            cmd.push("--classic");
+        snapInstallProcess.command = cmd;
+        snapInstallProcess.running = true;
+    }
+
+    Process {
+        id: snapInstallProcess
+
+        property string _label: ""
+        property string _name: ""
+        property string _failed: ""
+
+        stdout: SplitParser {
+            onRead: line => {
+                let event;
+                try {
+                    event = JSON.parse(line);
+                } catch (e) {
+                    return;
+                }
+                switch (event.event) {
+                case "op-start":
+                    view.installProgress = Tr.t("Installing %1…").arg(snapInstallProcess._label);
+                    view.installFraction = Math.max(view.installFraction, 0.05);
+                    break;
+                case "op-progress":
+                    view.installFraction = Math.max(view.installFraction, Math.min(0.99, event.fraction || 0));
+                    view.installProgress = Tr.t("Installing %1…").arg(snapInstallProcess._label) + " · " + Math.round(view.installFraction * 100) + "%";
+                    break;
+                case "op-error":
+                    snapInstallProcess._failed = event.message || "";
+                    break;
+                }
+            }
+        }
+
+        onExited: (exitCode, exitStatus) => {
+            view.busyAction = "";
+            view.installProgress = "";
+            view.installFraction = 0;
+            const label = snapInstallProcess._label;
+            const ok = exitCode === 0 && snapInstallProcess._failed === "";
+            view.lastInstallResult = ok ? Tr.t("%1 installed ✓").arg(label)
+                                        : Tr.t("%1 failed (exit %2)").arg(label).arg(exitCode);
+            if (view.logger) {
+                const label2 = {
+                    key: ok ? "Installed %1" : "Could not install %1",
+                    args: [label]
+                };
+                view.logger.record(ok ? "install" : "install-failed", Tr.t(label2.key).arg(label), [
+                    {
+                        name: label,
+                        id: snapInstallProcess._name,
+                        repo: "snap",
+                        from: "",
+                        to: "",
+                        source: "Snap",
+                        status: ok ? "done" : "error",
+                        reason: ok ? "" : snapInstallProcess._failed,
+                        error: ok ? "" : snapInstallProcess._failed
+                    }
+                ], 0, label2);
+            }
+            // The row said "Install" a moment ago; ask snapd what is true now
+            view.searchSnap();
+            view.softwareMutated();
+            resultClearTimer.restart();
+        }
+    }
+
+    function searchSnap() {
+        const query = searchText.trim();
+        if (query.length < 2 || snapSearchProcess.running)
+            return;
+        snapError = "";
+        snapSearching = true;
+        snapSearchProcess._query = query;
+        snapSearchProcess.command = [Backend.python, snapHelper(), "--search", query];
+        snapSearchProcess.running = true;
+    }
+
+    Process {
+        id: snapSearchProcess
+
+        property string _query: ""
+
+        stdout: StdioCollector {
+            onStreamFinished: {
+                view.snapSearching = false;
+                view.snapQuery = snapSearchProcess._query;
+                try {
+                    const answer = JSON.parse(text);
+                    view.snapResults = answer.results || [];
+                    view.snapError = answer.error ? Tr.t("The Snap Store could not be asked.") : "";
+                } catch (e) {
+                    view.snapResults = [];
+                    view.snapError = Tr.t("The Snap Store could not be asked.");
+                }
+            }
+        }
+    }
+
     function searchCopr() {
         const query = searchText.trim();
         if (query.length < 2 || coprProcess.running)
@@ -521,6 +678,11 @@ Item {
         if (searchText.trim() !== brewQuery) {
             brewResults = [];
             brewError = "";
+        }
+        if (searchText.trim() !== snapQuery) {
+            snapResults = [];
+            snapError = "";
+            snapClassicArmed = "";
         }
     }
 
@@ -643,6 +805,10 @@ Item {
             labels.push("Homebrew");
             kinds.push("brew");
         }
+        if (view.hasSnap) {
+            labels.push("Snap");
+            kinds.push("snap");
+        }
         return {
             labels: labels,
             kinds: kinds
@@ -650,6 +816,7 @@ Item {
     }
     readonly property var filterKinds: filterChips.kinds
     readonly property bool brewFilterWanted: sourceFilter === 0 || filterKinds[sourceFilter] === "brew"
+    readonly property bool snapFilterWanted: sourceFilter === 0 || filterKinds[sourceFilter] === "snap"
     // Offering to search Copr while the Homebrew chip is selected is offering
     // an answer the filter would then hide
     readonly property bool coprFilterWanted: sourceFilter === 0 || filterKinds[sourceFilter] === "copr"
@@ -827,6 +994,8 @@ Item {
             return "deployed_code";
         if (cat.indexOf("brew") !== -1 || cat.indexOf("homebrew") !== -1)
             return "local_drink";
+        if (cat.indexOf("snap") !== -1)
+            return Ui.sourceIcon("snap");
         return "category";
     }
     // What the list has to show, which decides whether the list is shown at
@@ -841,7 +1010,7 @@ Item {
             for (const row of listModel) {
                 if (row.type === "category_card")
                     count += (row.items || []).length;
-                else if (row.type === "app" || row.type === "brew")
+                else if (row.type === "app" || row.type === "brew" || row.type === "snap")
                     count++;
             }
             return count;
@@ -958,6 +1127,28 @@ Item {
                     items: brewResults,
                     isBrew: true
                 });
+            }
+            if (view.hasSnap && view.snapFilterWanted)
+                rows.push({
+                    type: "snapPrompt"
+                });
+            if (snapQuery === query && snapResults.length > 0 && view.snapFilterWanted) {
+                // A heading, then the snaps as rows of their own: a snap
+                // installs through snapd, not through the catalogue's
+                // install path, so it cannot be an ordinary app row
+                rows.push({
+                    type: "category_card",
+                    category: "",
+                    label: "Snap Store",
+                    total: snapResults.length,
+                    items: [],
+                    headingOnly: true
+                });
+                for (const snap of snapResults)
+                    rows.push({
+                        type: "snap",
+                        data: snap
+                    });
             }
             if (coprQuery === query && coprResults.length > 0) {
                 const coprRows = coprResults.filter(item => matchesSourceFilter(item));
@@ -1964,6 +2155,10 @@ Item {
                         return brewPromptComponent;
                     if (modelData.type === "brew")
                         return brewRowComponent;
+                    if (modelData.type === "snapPrompt")
+                        return snapPromptComponent;
+                    if (modelData.type === "snap")
+                        return snapRowComponent;
                     return appRowComponent;
                 }
 
@@ -2526,6 +2721,304 @@ Item {
             }
         }
 
+        // ── A snap in a result list ──────────────────────────────────────────
+        // What it is, who publishes it, and how much of the system it gets. A
+        // classic snap runs outside the sandbox; the row says so in place of
+        // its summary once Install is pressed, and only a second press
+        // installs it.
+        Component {
+            id: snapRowComponent
+
+            Rectangle {
+                id: snapRowRoot
+
+                property var rowData: ({})
+
+                readonly property var snap: rowData.data || ({})
+                readonly property bool classic: snap.confinement === "classic"
+                readonly property bool armed: view.snapClassicArmed !== "" && view.snapClassicArmed === snap.name
+
+                implicitHeight: snapInfoColumn.implicitHeight + Theme.spacingS * 2
+                radius: Theme.cornerRadius
+                color: Theme.withAlpha(Ui.chipSurface, 0.45)
+
+                RowLayout {
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.leftMargin: Theme.spacingM
+                    anchors.rightMargin: Theme.spacingS
+                    spacing: Theme.spacingS
+
+                    Item {
+                        Layout.preferredWidth: 24
+                        Layout.preferredHeight: 24
+
+                        Image {
+                            id: snapIcon
+                            anchors.fill: parent
+                            source: snapRowRoot.snap.iconUrl || ""
+                            sourceSize.width: 48
+                            sourceSize.height: 48
+                            fillMode: Image.PreserveAspectFit
+                            asynchronous: true
+                            visible: status === Image.Ready
+                        }
+
+                        DIcon {
+                            anchors.centerIn: parent
+                            visible: snapIcon.status !== Image.Ready
+                            name: Ui.sourceIcon("snap")
+                            size: 18
+                            color: Theme.surfaceVariantText
+                        }
+                    }
+
+                    ColumnLayout {
+                        id: snapInfoColumn
+
+                        Layout.fillWidth: true
+                        spacing: 1
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: Theme.spacingS
+
+                            StyledText {
+                                text: snapRowRoot.snap.title || snapRowRoot.snap.name || ""
+                                font.pixelSize: Theme.fontSizeSmall
+                                font.weight: Font.Medium
+                                color: Theme.surfaceText
+                            }
+
+                            StyledText {
+                                visible: (snapRowRoot.snap.version || "") !== ""
+                                text: snapRowRoot.snap.version || ""
+                                font.pixelSize: Theme.fontSizeSmall - 1
+                                color: Theme.surfaceVariantText
+                            }
+
+                            StyledText {
+                                visible: (snapRowRoot.snap.publisher || "") !== ""
+                                text: "· " + (snapRowRoot.snap.publisher || "") + (snapRowRoot.snap.verified ? " ✓" : "")
+                                font.pixelSize: Theme.fontSizeSmall - 1
+                                color: Theme.surfaceVariantText
+                            }
+
+                            Rectangle {
+                                visible: snapRowRoot.classic
+                                implicitWidth: classicChipText.implicitWidth + 12
+                                implicitHeight: 16
+                                radius: 8
+                                color: Theme.withAlpha(Theme.warning, 0.15)
+
+                                StyledText {
+                                    id: classicChipText
+                                    anchors.centerIn: parent
+                                    text: Tr.t("classic")
+                                    font.pixelSize: Theme.fontSizeSmall - 3
+                                    font.weight: Font.Medium
+                                    color: Theme.warning
+                                }
+                            }
+
+                            Item {
+                                Layout.fillWidth: true
+                            }
+                        }
+
+                        StyledText {
+                            Layout.fillWidth: true
+                            visible: text !== ""
+                            text: snapRowRoot.armed ? Tr.t("Classic confinement: this snap is not sandboxed and can access your whole system, like a package from the distribution.")
+                                                    : (snapRowRoot.snap.summary || "")
+                            font.pixelSize: Theme.fontSizeSmall - 1
+                            color: snapRowRoot.armed ? Theme.warning : Theme.surfaceVariantText
+                            wrapMode: snapRowRoot.armed ? Text.WordWrap : Text.NoWrap
+                            elide: snapRowRoot.armed ? Text.ElideNone : Text.ElideRight
+                        }
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        acceptedButtons: Qt.LeftButton
+                        cursorShape: Qt.PointingHandCursor
+                        z: -1
+                        onClicked: view.openSnapDetails(snapRowRoot.snap)
+                    }
+
+                    DSpinner {
+                        visible: view.busyAction === "snap:" + (snapRowRoot.snap.name || "")
+                        size: 16
+                    }
+
+                    Rectangle {
+                        id: snapInstallButton
+                        visible: snapRowRoot.snap.installed !== true && view.busyAction !== "snap:" + (snapRowRoot.snap.name || "")
+                        width: snapInstRow.implicitWidth + 20
+                        height: 26
+                        enabled: view.busyAction === ""
+                        opacity: enabled ? 1 : 0.5
+                        property bool isHovered: snapInstMa.containsMouse
+                        radius: snapInstMa.pressed ? (height / 2) : 8
+                        Behavior on radius { NumberAnimation { duration: Theme.longDuration; easing.type: Easing.OutExpo } }
+                        color: snapRowRoot.armed ? Theme.withAlpha(Theme.warning, isHovered ? 0.35 : 0.25) : Ui.buttonFill("accent", isHovered)
+                        Behavior on color { ColorAnimation { duration: Theme.mediumDuration } }
+                        scale: snapInstMa.pressed ? 0.94 : 1.0
+                        Behavior on scale { NumberAnimation { duration: Theme.mediumDuration; easing.type: Easing.OutBack } }
+
+                        DRipple {
+                            id: snapInstRip
+                            anchors.fill: parent
+                            cornerRadius: parent.radius
+                            rippleColor: snapRowRoot.armed ? Theme.warning : Ui.buttonInk("accent")
+                        }
+
+                        RowLayout {
+                            id: snapInstRow
+                            anchors.centerIn: parent
+                            spacing: 4
+
+                            DIcon {
+                                name: snapRowRoot.armed ? "warning" : "download"
+                                size: 13
+                                color: snapRowRoot.armed ? Theme.warning : Ui.buttonInk("accent")
+                            }
+
+                            StyledText {
+                                text: snapRowRoot.armed ? Tr.t("Install anyway") : Tr.t("Install")
+                                font.pixelSize: Theme.fontSizeSmall - 1
+                                font.weight: Font.Medium
+                                color: snapRowRoot.armed ? Theme.warning : Ui.buttonInk("accent")
+                            }
+                        }
+
+                        MouseArea {
+                            id: snapInstMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onPressed: (m) => snapInstRip.trigger(m.x, m.y)
+                            onClicked: view.installSnap(snapRowRoot.snap)
+                        }
+                    }
+
+                    StyledText {
+                        visible: snapRowRoot.snap.installed === true
+                        text: Tr.t("Installed")
+                        font.pixelSize: Theme.fontSizeSmall - 1
+                        color: Theme.success
+                    }
+                }
+            }
+        }
+
+        // ── Snap Store, on request ───────────────────────────────────────────
+        // The same offer as Copr and Homebrew above it
+        Component {
+            id: snapPromptComponent
+
+            Rectangle {
+                property var rowData: ({})
+
+                implicitHeight: snapPromptRow.implicitHeight + Theme.spacingS * 2
+                radius: Theme.cornerRadius
+                color: Theme.withAlpha(Ui.chipSurface, 0.45)
+
+                RowLayout {
+                    id: snapPromptRow
+
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.leftMargin: Theme.spacingM
+                    anchors.rightMargin: Theme.spacingS
+                    spacing: Theme.spacingS
+
+                    DIcon {
+                        name: Ui.sourceIcon("snap")
+                        size: 16
+                        color: Theme.surfaceVariantText
+                    }
+
+                    StyledText {
+                        Layout.fillWidth: true
+                        text: {
+                            if (view.snapSearching)
+                                return Tr.t("Searching the Snap Store…");
+                            if (view.snapError !== "")
+                                return view.snapError;
+                            if (view.snapQuery === view.searchText.trim())
+                                return view.snapResults.length > 0 ? Tr.t("%1 found in the Snap Store, listed below").arg(view.snapResults.length) : Tr.t("Nothing in the Snap Store for \"%1\"").arg(view.snapQuery);
+                            return Tr.t("The Snap Store has applications packaged by their publishers.");
+                        }
+                        font.pixelSize: Theme.fontSizeSmall
+                        color: view.snapError !== "" ? Theme.error : Theme.surfaceVariantText
+                        wrapMode: Text.WordWrap
+                    }
+
+                    DSpinner {
+                        visible: view.snapSearching
+                        size: 16
+                    }
+
+                    Item {
+                        Layout.preferredWidth: snapSearchButton.width
+                        Layout.preferredHeight: snapSearchButton.height
+                        visible: !view.snapSearching && view.snapQuery !== view.searchText.trim()
+
+                        Rectangle {
+                            id: snapSearchButton
+                            width: snapSearchRow.implicitWidth + 24
+                            height: 28
+                            property bool isHovered: snapSearchMa.containsMouse
+                            radius: snapSearchMa.pressed ? (height / 2) : 8
+                            Behavior on radius { NumberAnimation { duration: Theme.longDuration; easing.type: Easing.OutExpo } }
+                            color: Ui.buttonFill("tonal", isHovered)
+                            Behavior on color { ColorAnimation { duration: Theme.mediumDuration } }
+                            scale: snapSearchMa.pressed ? 0.94 : 1.0
+                            Behavior on scale { NumberAnimation { duration: Theme.mediumDuration; easing.type: Easing.OutBack } }
+
+                            DRipple {
+                                id: snapSearchRip
+                                anchors.fill: parent
+                                cornerRadius: parent.radius
+                                rippleColor: Ui.buttonInk("tonal")
+                            }
+
+                            RowLayout {
+                                id: snapSearchRow
+                                anchors.centerIn: parent
+                                spacing: 4
+
+                                DIcon {
+                                    name: "search"
+                                    size: 14
+                                    color: Ui.buttonInk("tonal")
+                                }
+
+                                StyledText {
+                                    text: Tr.t("Search the Snap Store")
+                                    font.pixelSize: Theme.fontSizeSmall - 1
+                                    font.weight: Font.Medium
+                                    color: Ui.buttonInk("tonal")
+                                }
+                            }
+
+                            MouseArea {
+                                id: snapSearchMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onPressed: (m) => snapSearchRip.trigger(m.x, m.y)
+                                onClicked: view.searchSnap()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         Component {
             id: categoryHeaderComponent
 
@@ -2954,6 +3447,14 @@ Item {
                     active: view.searchMode && !view.awaitingResults && view.hasBrew && view.brewFilterWanted
                     visible: active
                     sourceComponent: brewPromptComponent
+                }
+
+                Loader {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: Math.min(520, view.width - Theme.spacingXL * 2)
+                    active: view.searchMode && !view.awaitingResults && view.hasSnap && view.snapFilterWanted
+                    visible: active
+                    sourceComponent: snapPromptComponent
                 }
             }
         }

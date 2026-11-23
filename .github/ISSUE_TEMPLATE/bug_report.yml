@@ -64,6 +64,7 @@ body:
         - label: AppImage
         - label: Firmware (fwupd)
         - label: Homebrew
+        - label: Snap
         - label: DMS plugins
         - label: None in particular — the window, the bar pill or a translation
 

@@ -596,5 +596,17 @@
     "Show again": "Megjelenítés újra",
     "fwupd is not installed, so there is no firmware to show. Install the fwupd package, then try again.": "Az fwupd nincs telepítve, így nincs megjeleníthető firmware. Telepítsd az fwupd csomagot, majd próbáld újra.",
     "fwupd could not read the device list.": "Az fwupd nem tudta beolvasni az eszközlistát.",
-    "Try again": "Újra"
+    "Try again": "Újra",
+    "Snaps": "Snapek",
+    "Updating snaps…": "Snapek frissítése…",
+    "snapd could not update this": "A snapd nem tudta frissíteni",
+    "classic": "classic",
+    "Classic confinement: this snap is not sandboxed and can access your whole system, like a package from the distribution.": "Classic korlátozás: ez a snap nem homokozóban fut, és a teljes rendszerhez hozzáfér, mint a disztribúció csomagjai.",
+    "Install anyway": "Telepítés mégis",
+    "Searching the Snap Store…": "Keresés a Snap Store-ban…",
+    "The Snap Store could not be asked.": "A Snap Store nem válaszolt.",
+    "%1 found in the Snap Store, listed below": "%1 találat a Snap Store-ban, lent látható",
+    "Nothing in the Snap Store for \"%1\"": "Nincs találat a Snap Store-ban erre: „%1”",
+    "The Snap Store has applications packaged by their publishers.": "A Snap Store-ban a kiadóik által csomagolt alkalmazások vannak.",
+    "Search the Snap Store": "Keresés a Snap Store-ban"
 }

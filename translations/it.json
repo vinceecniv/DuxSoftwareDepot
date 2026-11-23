@@ -596,5 +596,17 @@
     "Show again": "Mostra di nuovo",
     "fwupd is not installed, so there is no firmware to show. Install the fwupd package, then try again.": "fwupd non è installato, quindi non c'è firmware da mostrare. Installa il pacchetto fwupd, poi riprova.",
     "fwupd could not read the device list.": "fwupd non è riuscito a leggere l'elenco dei dispositivi.",
-    "Try again": "Riprova"
+    "Try again": "Riprova",
+    "Snaps": "Snap",
+    "Updating snaps…": "Aggiornamento degli snap…",
+    "snapd could not update this": "snapd non è riuscito ad aggiornarlo",
+    "classic": "classic",
+    "Classic confinement: this snap is not sandboxed and can access your whole system, like a package from the distribution.": "Confinamento classic: questo snap non è isolato e può accedere a tutto il sistema, come un pacchetto della distribuzione.",
+    "Install anyway": "Installa comunque",
+    "Searching the Snap Store…": "Ricerca nello Snap Store…",
+    "The Snap Store could not be asked.": "Non è stato possibile interrogare lo Snap Store.",
+    "%1 found in the Snap Store, listed below": "%1 trovati nello Snap Store, elencati sotto",
+    "Nothing in the Snap Store for \"%1\"": "Niente nello Snap Store per \"%1\"",
+    "The Snap Store has applications packaged by their publishers.": "Lo Snap Store contiene applicazioni impacchettate dai loro editori.",
+    "Search the Snap Store": "Cerca nello Snap Store"
 }

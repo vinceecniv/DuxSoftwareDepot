@@ -20,6 +20,58 @@ Item {
     // software beside the distribution's own rather than another flavour of
     // it, so it is a group of its own here.
     property var brewFormulae: []
+    // Installed snaps, read by the widget from snapd. Only the applications
+    // are listed: bases and snapd itself are to a snap what a runtime is to a
+    // Flatpak, and the Flatpak list leaves those out too.
+    property var snaps: []
+    readonly property var snapApps: (snaps || []).filter(s => s.type === "app")
+
+    // Which kind of software each filter chip stands for. Homebrew and Snap
+    // only get a chip on a machine that has them, so a chip's position says
+    // nothing by itself — the list is asked by kind, never by number.
+    readonly property var filterKinds: {
+        const kinds = ["all", "flatpak", "system", "appimage", "plugins"];
+        if ((brewFormulae || []).length > 0)
+            kinds.push("brew");
+        if (snapApps.length > 0)
+            kinds.push("snap");
+        return kinds;
+    }
+
+    function wants(kind) {
+        return sourceFilter === 0 || filterKinds[sourceFilter] === kind;
+    }
+
+    onFilterKindsChanged: {
+        if (sourceFilter >= filterKinds.length)
+            sourceFilter = 0;
+    }
+
+    function _snapRow(snap) {
+        const ts = Date.parse(snap.installDate || "");
+        const icon = (snap.icon || "").startsWith("/") ? snap.icon : "";
+        return {
+            kind: "snap",
+            id: snap.name,
+            name: snap.title || snap.name,
+            summary: snap.summary || "",
+            version: snap.version || "",
+            origin: "snap",
+            channel: snap.channel || "",
+            confinement: snap.confinement || "",
+            publisher: snap.publisher || "",
+            sizeBytes: snap.installedSize || 0,
+            updatedTs: isNaN(ts) ? 0 : Math.round(ts / 1000),
+            section: "Snap",
+            info: {
+                name: snap.title || snap.name,
+                summary: snap.summary || "",
+                homepage: snap.website || "",
+                icon: icon,
+                releases: []
+            }
+        };
+    }
 
     // Bumped by the window when software was installed/updated elsewhere
     // (Install tab, update run) so this list stays current.
@@ -52,7 +104,7 @@ Item {
         detailsDialog.pluginFacts = rowData.kind === "plugin" ? (rowData.pluginFacts || {}) : null;
         if (rowData.kind === "flatpak") {
             loadDowngradeLog(rowData.id, rowData.origin);
-        } else if (rowData.kind === "appimage" || rowData.kind === "plugin" || rowData.kind === "brew") {
+        } else if (rowData.kind === "appimage" || rowData.kind === "plugin" || rowData.kind === "brew" || rowData.kind === "snap") {
             // Neither is a package: no changelog to read, no older builds in a
             // repository to offer, nothing that would be removed along with it
         } else {
@@ -69,13 +121,13 @@ Item {
             homepage: (rowData.info && rowData.info.homepage) || "",
             held: isHeldName(rowData.id),
             versionLabel: rowData.version || "",
-            origin: rowData.kind === "plugin" ? "DMS" : (rowData.origin || ""),
+            origin: rowData.kind === "plugin" ? "DMS" : (rowData.kind === "snap" ? ("Snap" + (rowData.channel ? " · " + rowData.channel : "")) : (rowData.origin || "")),
             isFlatpak: rowData.kind === "flatpak",
             sources: rowData.kind === "flatpak" ? [{
                 source: rowData.origin || "flathub",
                 kind: "flatpak",
                 ref: rowData.id
-            }] : ((rowData.kind === "appimage" || rowData.kind === "plugin" || rowData.kind === "brew") ? [] : [{
+            }] : ((rowData.kind === "appimage" || rowData.kind === "plugin" || rowData.kind === "brew" || rowData.kind === "snap") ? [] : [{
                 source: "fedora",
                 kind: "dnf",
                 ref: rowData.id
@@ -97,11 +149,12 @@ Item {
         readonly property bool entryIsAppimage: entry ? entry.kind === "appimage" : false
         readonly property bool entryIsPlugin: entry ? entry.kind === "plugin" : false
         readonly property bool entryIsBrew: entry ? entry.kind === "brew" : false
+        readonly property bool entryIsSnap: entry ? entry.kind === "snap" : false
 
         // Holding and uninstalling are package verbs. A plugin is removed from
         // DMS's own screen — the button in the popup goes there — and there is
         // no version of "hold this plugin" that means anything.
-        showHoldToggle: !entryIsAppimage && !entryIsPlugin && !entryIsBrew
+        showHoldToggle: !entryIsAppimage && !entryIsPlugin && !entryIsBrew && !entryIsSnap
         showUninstall: !entryIsPlugin && !entryIsBrew
         // Everything reached from this tab is on the machine, and the one
         // source it was passed is the one it came from
@@ -116,15 +169,15 @@ Item {
         releases: (entryIsFlatpak && entry.info && entry.info.releases) ? entry.info.releases.slice(0, 3) : []
         // A changelog is never fetched for these, so "loading" would be
         // forever: nothing is on its way
-        changelogLoading: entry !== null && !entryIsFlatpak && !entryIsAppimage && !entryIsPlugin && !entryIsBrew && view.store.changelogs[entryId] === undefined
-        changelog: (entry !== null && !entryIsFlatpak && !entryIsAppimage && !entryIsPlugin && !entryIsBrew) ? (view.store.changelogs[entryId] || "") : ""
+        changelogLoading: entry !== null && !entryIsFlatpak && !entryIsAppimage && !entryIsPlugin && !entryIsBrew && !entryIsSnap && view.store.changelogs[entryId] === undefined
+        changelog: (entry !== null && !entryIsFlatpak && !entryIsAppimage && !entryIsPlugin && !entryIsBrew && !entryIsSnap) ? (view.store.changelogs[entryId] || "") : ""
         versionsLoading: {
-            if (!entry || entryIsAppimage || entryIsPlugin || entryIsBrew)
+            if (!entry || entryIsAppimage || entryIsPlugin || entryIsBrew || entryIsSnap)
                 return false;
             return entryIsFlatpak ? view.downgradeLogs[entryId] === "loading" : view.rpmVersions[entryId] === "loading";
         }
         previousVersions: {
-            if (!entry || entryIsAppimage || entryIsPlugin || entryIsBrew)
+            if (!entry || entryIsAppimage || entryIsPlugin || entryIsBrew || entryIsSnap)
                 return [];
             if (entryIsFlatpak) {
                 const log = view.downgradeLogs[entryId];
@@ -139,9 +192,9 @@ Item {
                 payload: v
             })) : [];
         }
-        noOlderVersions: entry !== null && !entryIsFlatpak && !entryIsAppimage && Array.isArray(view.rpmVersions[entryId]) && view.rpmVersions[entryId].length === 0
-        alsoRemoves: (entry !== null && !entryIsFlatpak && !entryIsAppimage) ? (view.removalImpact[entryId] || []) : []
-        provenance: (entry !== null && !entryIsFlatpak && !entryIsAppimage) ? (view.provenance[entryId] || null) : null
+        noOlderVersions: entry !== null && !entryIsFlatpak && !entryIsAppimage && !entryIsSnap && Array.isArray(view.rpmVersions[entryId]) && view.rpmVersions[entryId].length === 0
+        alsoRemoves: (entry !== null && !entryIsFlatpak && !entryIsAppimage && !entryIsSnap) ? (view.removalImpact[entryId] || []) : []
+        provenance: (entry !== null && !entryIsFlatpak && !entryIsAppimage && !entryIsSnap) ? (view.provenance[entryId] || null) : null
 
         onHoldToggleRequested: {
             view.toggleHold(entryId, entry ? entry.name : "");
@@ -186,6 +239,8 @@ Item {
                 view.uninstallAppimage(target.id, target.name);
             else if (target.kind === "flatpak")
                 view.uninstallFlatpak(target.id);
+            else if (target.kind === "snap")
+                view.uninstallSnap(target.id, target.name, target.version);
             else
                 view.uninstallRpm(target.id, target.name);
         }
@@ -205,7 +260,7 @@ Item {
     property var meta: ({})          // "flatpak/<id>" -> enrichment info
     property bool loading: true
     property string searchText: ""
-    property int sourceFilter: 0     // 0 all, 1 flatpak, 2 system, 3 appimage, 4 plugins, 5 brew
+    property int sourceFilter: 0     // an index into filterKinds
     property string busyAction: ""   // "<action>:<id>" while a mutation runs
     property string mutationProgress: ""  // live phase/percent line while mutationProcess runs
     property real mutationFraction: 0     // 0..1 overall progress estimate
@@ -425,7 +480,7 @@ Item {
     readonly property var filteredItems: {
         const needle = searchText.toLowerCase();
         const rows = [];
-        if (sourceFilter === 0 || sourceFilter === 1) {
+        if (wants("flatpak")) {
             for (const app of flatpakApps) {
                 const info = meta["flatpak/" + app.id] || null;
                 const name = (info && info.name) ? info.name : app.id;
@@ -445,7 +500,7 @@ Item {
                 });
             }
         }
-        if (sourceFilter === 0 || sourceFilter === 3) {
+        if (wants("appimage")) {
             for (const rec of appimageApps) {
                 if (needle && !Ui.matchesWords((rec.name + " " + rec.id).toLowerCase(), needle))
                     continue;
@@ -470,7 +525,7 @@ Item {
                 });
             }
         }
-        if (sourceFilter === 0 || sourceFilter === 4) {
+        if (wants("plugins")) {
             // The plugins running inside the shell this window is part of.
             // PluginService has already read every manifest on disk, so this
             // is what is installed rather than what a registry offers.
@@ -508,7 +563,7 @@ Item {
                 });
             }
         }
-        if (sourceFilter === 0 || sourceFilter === 5) {
+        if (wants("brew")) {
             for (const formula of view.brewFormulae || []) {
                 const name = formula.name || "";
                 if (needle && !Ui.matchesWords(name.toLowerCase(), needle))
@@ -532,7 +587,15 @@ Item {
                 });
             }
         }
-        if (sourceFilter === 0 || sourceFilter === 2) {
+        if (wants("snap")) {
+            for (const snap of view.snapApps) {
+                const row = view._snapRow(snap);
+                if (needle && !Ui.matchesWords((row.name + " " + row.id + " " + row.summary).toLowerCase(), needle))
+                    continue;
+                rows.push(row);
+            }
+        }
+        if (wants("system")) {
             for (const pkg of rpmPackages) {
                 let info = meta["system/" + pkg.name] || null;
                 // Packages outside AppStream (COPR builds, third-party
@@ -651,10 +714,10 @@ Item {
         const groups = [];
 
         // 1. Applications (Flatpak & AppImage)
-        if (sourceFilter === 0 || sourceFilter === 1 || sourceFilter === 3) {
+        if (wants("flatpak") || wants("appimage") || wants("snap")) {
             const appRows = [];
             const sectionBuckets = {};
-            if (sourceFilter === 0 || sourceFilter === 1) {
+            if (wants("flatpak")) {
                 for (const app of flatpakApps) {
                     const info = meta["flatpak/" + app.id] || null;
                     const name = (info && info.name) ? info.name : app.id;
@@ -679,7 +742,7 @@ Item {
                     sectionBuckets[sec].push(item);
                 }
             }
-            if (sourceFilter === 0 || sourceFilter === 3) {
+            if (wants("appimage")) {
                 for (const rec of appimageApps) {
                     if (needle && !Ui.matchesWords((rec.name + " " + rec.id).toLowerCase(), needle))
                         continue;
@@ -708,6 +771,16 @@ Item {
                     sectionBuckets[sec].push(item);
                 }
             }
+            if (wants("snap")) {
+                for (const snap of view.snapApps) {
+                    const item = view._snapRow(snap);
+                    if (needle && !Ui.matchesWords((item.name + " " + item.id + " " + item.summary).toLowerCase(), needle))
+                        continue;
+                    appRows.push(item);
+                    if (!sectionBuckets[item.section]) sectionBuckets[item.section] = [];
+                    sectionBuckets[item.section].push(item);
+                }
+            }
             if (needle && Object.keys(sectionBuckets).length > 1) {
                 for (const sec in sectionBuckets) {
                     groups.push({
@@ -728,7 +801,7 @@ Item {
         }
 
         // 2. DMS Plugins
-        if (sourceFilter === 0 || sourceFilter === 4) {
+        if (wants("plugins")) {
             const pluginRows = [];
             const plugins = PluginService.availablePlugins || {};
             for (const id in plugins) {
@@ -765,7 +838,7 @@ Item {
         }
 
         // 3. Homebrew Formulae
-        if (sourceFilter === 0 || sourceFilter === 5) {
+        if (wants("brew")) {
             const brewRows = [];
             for (const formula of (brewFormulae || [])) {
                 const name = formula.name || "";
@@ -800,7 +873,7 @@ Item {
         }
 
         // 4. System Packages (RPM)
-        if (sourceFilter === 0 || sourceFilter === 2) {
+        if (wants("system")) {
             const rpmRows = [];
             for (const pkg of rpmPackages) {
                 const info = meta["system/" + pkg.name] || null;
@@ -847,6 +920,8 @@ Item {
             return "apps";
         if (sec.indexOf("homebrew") !== -1 || sec.indexOf("brew") !== -1)
             return "local_drink";
+        if (sec === "snap")
+            return Ui.sourceIcon("snap");
         if (sec.indexOf("system") !== -1 || sec.indexOf("package") !== -1 || sec.indexOf("rpm") !== -1)
             return "inventory_2";
         if (sec.indexOf("plugin") !== -1)
@@ -889,6 +964,29 @@ Item {
                 return app.version || "";
         }
         return "";
+    }
+
+    // Through snapd's API: one polkit prompt, then the helper follows the
+    // change and reports in the same events the rpm helper uses, so the
+    // dialog's progress line needs nothing new
+    function uninstallSnap(name, displayName, version) {
+        busyAction = "uninstall:" + name;
+        mutationProgress = Tr.t("Waiting for authorization…");
+        mutationFraction = 0.02;
+        _staged = false;
+        mutationProcess._logType = "uninstall";
+        mutationProcess._logTitle = Tr.t("Uninstalled %1").arg(displayName || name);
+        mutationProcess._logLabel = { key: "Uninstalled %1", args: [displayName || name] };
+        mutationProcess._logItem = {
+            name: displayName || name,
+            id: name,
+            repo: "snap",
+            from: version || "",
+            to: "",
+            source: "Snap"
+        };
+        mutationProcess.command = [Backend.python, Qt.resolvedUrl("scripts/snap_helper.py").toString().replace("file://", ""), "--remove", name];
+        mutationProcess.running = true;
     }
 
     function uninstallFlatpak(id) {
@@ -1389,12 +1487,15 @@ Item {
 
             DButtonGroup {
                 id: filterGroup
-                model: {
-                    const labels = [Tr.t("All"), "Flatpak", Tr.t("System"), "AppImage", Tr.t("Plugins")];
-                    if ((view.brewFormulae || []).length > 0)
-                        labels.push("Homebrew");
-                    return labels;
-                }
+                model: view.filterKinds.map(kind => ({
+                    all: Tr.t("All"),
+                    flatpak: "Flatpak",
+                    system: Tr.t("System"),
+                    appimage: "AppImage",
+                    plugins: Tr.t("Plugins"),
+                    brew: "Homebrew",
+                    snap: "Snap"
+                })[kind])
                 currentIndex: view.sourceFilter
                 onSelectionChanged: (index, selected) => {
                     if (selected)

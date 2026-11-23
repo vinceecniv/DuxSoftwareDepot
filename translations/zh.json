@@ -596,5 +596,17 @@
     "Show again": "重新显示",
     "fwupd is not installed, so there is no firmware to show. Install the fwupd package, then try again.": "未安装 fwupd，因此没有可显示的固件。请安装 fwupd 软件包，然后重试。",
     "fwupd could not read the device list.": "fwupd 无法读取设备列表。",
-    "Try again": "重试"
+    "Try again": "重试",
+    "Snaps": "Snap",
+    "Updating snaps…": "正在更新 Snap…",
+    "snapd could not update this": "snapd 无法更新此项",
+    "classic": "classic",
+    "Classic confinement: this snap is not sandboxed and can access your whole system, like a package from the distribution.": "classic 限制：此 Snap 不在沙盒中运行，可以访问整个系统，与发行版的软件包相同。",
+    "Install anyway": "仍然安装",
+    "Searching the Snap Store…": "正在搜索 Snap Store…",
+    "The Snap Store could not be asked.": "无法查询 Snap Store。",
+    "%1 found in the Snap Store, listed below": "在 Snap Store 中找到 %1 个，列在下方",
+    "Nothing in the Snap Store for \"%1\"": "Snap Store 中没有“%1”",
+    "The Snap Store has applications packaged by their publishers.": "Snap Store 提供由发布者自行打包的应用。",
+    "Search the Snap Store": "搜索 Snap Store"
 }

@@ -596,5 +596,17 @@
     "Show again": "Weer tonen",
     "fwupd is not installed, so there is no firmware to show. Install the fwupd package, then try again.": "fwupd is niet geïnstalleerd, dus er is geen firmware om te tonen. Installeer het pakket fwupd en probeer het opnieuw.",
     "fwupd could not read the device list.": "fwupd kon de apparatenlijst niet lezen.",
-    "Try again": "Opnieuw proberen"
+    "Try again": "Opnieuw proberen",
+    "Snaps": "Snaps",
+    "Updating snaps…": "Snaps bijwerken…",
+    "snapd could not update this": "snapd kon dit niet bijwerken",
+    "classic": "classic",
+    "Classic confinement: this snap is not sandboxed and can access your whole system, like a package from the distribution.": "Classic-confinement: deze snap draait niet in een sandbox en kan bij je hele systeem, net als een pakket van de distributie.",
+    "Install anyway": "Toch installeren",
+    "Searching the Snap Store…": "Snap Store doorzoeken…",
+    "The Snap Store could not be asked.": "De Snap Store kon niet worden bevraagd.",
+    "%1 found in the Snap Store, listed below": "%1 gevonden in de Snap Store, hieronder",
+    "Nothing in the Snap Store for \"%1\"": "Niets in de Snap Store voor \"%1\"",
+    "The Snap Store has applications packaged by their publishers.": "De Snap Store heeft applicaties die door hun uitgevers zijn verpakt.",
+    "Search the Snap Store": "Snap Store doorzoeken"
 }

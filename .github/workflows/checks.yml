@@ -72,6 +72,9 @@ jobs:
       - name: The .appimage association survives the rename
         run: python3 scripts/test_handler_migrate.py
 
+      - name: Snaps through snapd's REST API, against a stand-in snapd
+        run: python3 scripts/test_snap_helper.py
+
       - name: dnf5's upgrade output and state file are read right
         run: python3 scripts/test_fedora_upgrade.py
 

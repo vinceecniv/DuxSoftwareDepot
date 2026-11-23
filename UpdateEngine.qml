@@ -18,7 +18,7 @@ Item {
 
     // ── Public state ─────────────────────────────────────────────────────────
     property bool running: false
-    // idle | starting | dnf-download | dnf-install | flatpak | brew | plugins | verifying | done | failed | cancelled
+    // idle | starting | dnf-download | dnf-install | flatpak | snap | brew | plugins | verifying | done | failed | cancelled
     property string phase: "idle"
     property real overallFraction: 0
     property int etaSeconds: -1
@@ -102,6 +102,8 @@ Item {
     property var pluginUpdates: []
     // [{name (formula), displayName, repo: "brew", fromVersion, toVersion}]
     property var brewUpdates: []
+    // [{name (snap), displayName, repo: "snap", fromVersion, toVersion, size}]
+    property var snapUpdates: []
     // rpm base name -> exact download size in bytes (from dnf repoquery),
     // used for per-package byte detail during the download stage
     property var packageSizes: ({})
@@ -167,6 +169,10 @@ Item {
         // desktop entry, moving the file into place — is the install.
         case "appimage":
             return _appimageDownloading ? 1 : 2;
+        // snapd reports the download per snap; a snap past its download is
+        // being mounted and linked, which is the install
+        case "snap":
+            return _snapDownloading ? 1 : 2;
         case "firmware":
         case "brew":
         case "plugins":
@@ -200,6 +206,8 @@ Item {
             return Tr.t("Updating Dux Shell… (shell may reload)");
         case "brew":
             return Tr.t("Upgrading Homebrew formulae… (building from source can take a while)");
+        case "snap":
+            return Tr.t("Updating snaps…");
         case "plugins":
             return Tr.t("Updating DMS plugins…");
         case "verifying":
@@ -239,6 +247,10 @@ Item {
     property bool _wantBrew: false
     property var _brewItems: []
     property int _brewDone: 0
+    property bool _wantSnap: false
+    property var _snapItems: []
+    property var _snapOps: ({})          // name -> {weight, fraction, done}
+    property bool _snapDownloading: false
     property var _appimageItems: []
     property var _aiOps: ({})            // id -> {weight, fraction, done}
     property string _aiCurrentId: ""
@@ -448,6 +460,8 @@ Item {
             key = "appimage/" + pkg.name;
         else if (pkg.repo === "brew")
             key = "brew/" + pkg.name;
+        else if (pkg.repo === "snap")
+            key = "snap/" + pkg.name;
         else
             key = "system/" + _stripArch(pkg.name);
         return key;
@@ -585,8 +599,12 @@ Item {
         _wantBrew = brewItems.length > 0;
         _brewItems = brewItems;
         _brewDone = 0;
+        const snapItems = (options.snap !== false && !explicitFlatpak) ? (snapUpdates || []).slice() : [];
+        _wantSnap = snapItems.length > 0;
+        _snapItems = snapItems;
+        _snapDownloading = false;
 
-        if (!_wantDnf && !_wantFlatpak && !_wantFirmware && !_wantShell && !_wantAppimage && !_wantPlugins && !_wantBrew)
+        if (!_wantDnf && !_wantFlatpak && !_wantFirmware && !_wantShell && !_wantAppimage && !_wantPlugins && !_wantBrew && !_wantSnap)
             return;
 
         _dnfDone = !_wantDnf;
@@ -704,6 +722,25 @@ Item {
             });
             plannedCount++;
         }
+        const snapOps = {};
+        for (const snap of snapItems) {
+            states["snap/" + snap.name] = {
+                status: "pending",
+                fraction: 0,
+                detail: ""
+            };
+            snapOps[snap.name] = {
+                weight: Math.max(snap.size || 0, 5 * 1024 * 1024),
+                fraction: 0,
+                done: false
+            };
+            items.push({
+                pkg: snap,
+                key: "snap/" + snap.name
+            });
+            plannedCount++;
+        }
+        _snapOps = snapOps;
         for (const formula of brewItems) {
             states["brew/" + formula.name] = {
                 status: "pending",
@@ -802,6 +839,39 @@ Item {
     property int _pluginIndex: 0
 
     function _afterFirmware() {
+        if (_wantSnap) {
+            _startSnap();
+        } else if (_wantBrew) {
+            _startBrew();
+        } else if (_wantPlugins) {
+            _startPlugins();
+        } else if (_wantShell && !_shellDone) {
+            _startDaemon("shell");
+        } else {
+            _finish(failedCount > 0 ? "failed" : "done");
+        }
+    }
+
+    // ── Snaps ───────────────────────────────────────────────────────────────
+    // One request to snapd for every snap, so one polkit prompt; snapd then
+    // works through them in lanes of their own, and the helper follows the
+    // change and reports each snap's download in bytes. A snap that fails
+    // does not take the others with it — snapd keeps the lanes apart — so a
+    // row fails on its own.
+    function _startSnap() {
+        phase = "snap";
+        _snapDownloading = true;
+        const cmd = [Backend.python, Qt.resolvedUrl("scripts/snap_helper.py").toString().replace("file://", ""), "--refresh"];
+        for (const snap of _snapItems)
+            cmd.push(snap.name);
+        snapProcess.command = Backend.instrument("snap", cmd);
+        snapProcess.running = true;
+    }
+
+    function _afterSnap() {
+        currentItem = "";
+        currentDetail = "";
+        _snapDownloading = false;
         if (_wantBrew) {
             _startBrew();
         } else if (_wantPlugins) {
@@ -810,6 +880,97 @@ Item {
             _startDaemon("shell");
         } else {
             _finish(failedCount > 0 ? "failed" : "done");
+        }
+    }
+
+    function _snapOp(name, patch) {
+        if (!_snapOps[name])
+            return;
+        const ops = Object.assign({}, _snapOps);
+        ops[name] = Object.assign({}, ops[name], patch);
+        _snapOps = ops;
+        let downloading = false;
+        for (const n in ops) {
+            if (!ops[n].done && (ops[n].fraction || 0) < 0.7)
+                downloading = true;
+        }
+        _snapDownloading = downloading;
+        _updateOverall();
+    }
+
+    Process {
+        id: snapProcess
+
+        stdout: SplitParser {
+            onRead: line => {
+                let event;
+                try {
+                    event = JSON.parse(line);
+                } catch (e) {
+                    return;
+                }
+                const key = event.name ? "snap/" + event.name : "";
+                switch (event.event) {
+                case "op-start":
+                    engine.currentItem = event.name;
+                    engine._setItem(key, {
+                        status: "active",
+                        fraction: 0,
+                        detail: ""
+                    });
+                    break;
+                case "op-progress": {
+                    const fraction = Math.max(0, Math.min(1, event.fraction || 0));
+                    const downloading = (event.bytesTotal || 0) > 0 && (event.bytesDone || 0) < event.bytesTotal;
+                    const detail = downloading ? Tr.t("%1 of %2").arg(engine.formatBytes(event.bytesDone || 0)).arg(engine.formatBytes(event.bytesTotal)) : "";
+                    engine.currentItem = event.name;
+                    engine.currentDetail = detail;
+                    engine._setItem(key, {
+                        status: "active",
+                        fraction: fraction,
+                        detail: detail
+                    });
+                    engine._snapOp(event.name, {
+                        fraction: fraction
+                    });
+                    break;
+                }
+                case "op-done":
+                    engine._setItem(key, {
+                        status: "done",
+                        fraction: 1,
+                        detail: ""
+                    });
+                    engine._snapOp(event.name, {
+                        fraction: 1,
+                        done: true
+                    });
+                    engine.completedCount++;
+                    break;
+                case "op-error":
+                    engine._setError(key, Tr.t("snapd could not update this"), event.message || "");
+                    engine._snapOp(event.name, {
+                        done: true
+                    });
+                    engine.failedCount++;
+                    break;
+                }
+            }
+        }
+
+        onExited: (exitCode, exitStatus) => {
+            if (!engine.running)
+                return;
+            // Anything without an outcome of its own: the helper died, or
+            // never reached snapd
+            for (const item of engine._snapItems) {
+                const state = engine.itemStates["snap/" + item.name] || {};
+                if (state.status === "done" || state.status === "error")
+                    continue;
+                engine._setError("snap/" + item.name, Tr.t("snapd could not update this"), "");
+                engine.failedCount++;
+            }
+            engine._afterSnap();
         }
     }
 
@@ -1304,6 +1465,10 @@ Item {
                     engine._startAppimage();
                 else if (engine._wantFirmware)
                     engine._startFirmware();
+                else if (engine._wantSnap)
+                    engine._startSnap();
+                else if (engine._wantBrew)
+                    engine._startBrew();
                 else if (engine._wantPlugins)
                     engine._startPlugins();
                 else
@@ -1536,6 +1701,23 @@ Item {
     // length. The nominal weight is the first of those, because guessing the
     // second would make the bar wrong in both directions.
     readonly property real _brewWeightTotal: _wantBrew ? _brewItems.length * brewItemWeight : 0
+    readonly property real _snapWeightTotal: {
+        if (!_wantSnap)
+            return 0;
+        let total = 0;
+        for (const name in _snapOps)
+            total += _snapOps[name].weight;
+        return total;
+    }
+
+    function _snapWeightDone() {
+        let done = 0;
+        for (const name in _snapOps) {
+            const op = _snapOps[name];
+            done += op.weight * (op.done ? 1 : op.fraction);
+        }
+        return done;
+    }
     readonly property real _dnfWeightTotal: _wantDnf ? _dnfCount * dnfPkgWeight : 0
     readonly property real _shellWeightTotal: _wantShell ? _shellCount * dnfPkgWeight : 0
     readonly property real _appimageWeightTotal: {
@@ -1599,7 +1781,7 @@ Item {
     }
 
     function _updateOverall() {
-        const total = _dnfWeightTotal + _flatpakWeightTotal + _firmwareWeightTotal + _shellWeightTotal + _appimageWeightTotal + _pluginWeightTotal + _brewWeightTotal;
+        const total = _dnfWeightTotal + _flatpakWeightTotal + _firmwareWeightTotal + _shellWeightTotal + _appimageWeightTotal + _pluginWeightTotal + _brewWeightTotal + _snapWeightTotal;
         if (total <= 0)
             return;
         const fbDone = _flatpakWeightDone();
@@ -1612,7 +1794,7 @@ Item {
         }
         opsDone = doneOps;
         opsTotal = totalOps;
-        const done = _dnfFractionNow() * _dnfWeightTotal + fbDone + _firmwareFraction * _firmwareWeightTotal + _shellFractionNow() * _shellWeightTotal + _appimageWeightDone() + _pluginsDone * pluginItemWeight + _brewDone * brewItemWeight;
+        const done = _dnfFractionNow() * _dnfWeightTotal + fbDone + _firmwareFraction * _firmwareWeightTotal + _shellFractionNow() * _shellWeightTotal + _appimageWeightDone() + _pluginsDone * pluginItemWeight + _brewDone * brewItemWeight + _snapWeightDone();
         overallFraction = Math.min(running ? 0.995 : 1, done / total);
     }
 

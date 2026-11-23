@@ -596,5 +596,17 @@
     "Show again": "Visa igen",
     "fwupd is not installed, so there is no firmware to show. Install the fwupd package, then try again.": "fwupd är inte installerat, så det finns ingen firmware att visa. Installera paketet fwupd och försök sedan igen.",
     "fwupd could not read the device list.": "fwupd kunde inte läsa enhetslistan.",
-    "Try again": "Försök igen"
+    "Try again": "Försök igen",
+    "Snaps": "Snaps",
+    "Updating snaps…": "Uppdaterar snaps…",
+    "snapd could not update this": "snapd kunde inte uppdatera den",
+    "classic": "classic",
+    "Classic confinement: this snap is not sandboxed and can access your whole system, like a package from the distribution.": "Classic-inneslutning: den här snapen körs utan sandlåda och kommer åt hela systemet, som ett paket från distributionen.",
+    "Install anyway": "Installera ändå",
+    "Searching the Snap Store…": "Söker i Snap Store…",
+    "The Snap Store could not be asked.": "Snap Store kunde inte tillfrågas.",
+    "%1 found in the Snap Store, listed below": "%1 hittades i Snap Store, listade nedan",
+    "Nothing in the Snap Store for \"%1\"": "Inget i Snap Store för ”%1”",
+    "The Snap Store has applications packaged by their publishers.": "Snap Store har program som paketeras av sina utgivare.",
+    "Search the Snap Store": "Sök i Snap Store"
 }

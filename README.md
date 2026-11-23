@@ -13,7 +13,7 @@
 ![Firmware](https://img.shields.io/badge/firmware-fwupd%20%C2%B7%20LVFS-4A4458)
 ![DMS plugins](https://img.shields.io/badge/DMS%20plugins-4A4458)
 ![Homebrew](https://img.shields.io/badge/Homebrew-4A4458)
-![Snap](https://img.shields.io/badge/Snap-4A4458)
+![Snap](https://img.shields.io/badge/Snap-new%20%C2%B7%20beta-orange)
 
 A full software & updates center plugin for
 [Dux Shell](https://github.com/duxlabs-dev/dux-shell) (DMS, formerly
@@ -56,6 +56,10 @@ and polkit prompts appear through the DMS agent.
   `-git` packages join that pass once devel is on in your helper:
   `yay -Y --devel --save`, or `Devel` in `paru.conf`
 - **Flatpak, AppImage and firmware** work the same everywhere
+- **Snap** — new in 2.1.0, and in beta within the beta: tested against a
+  real snapd (2.77, Fedora 45) for listing, updating, holds, removal, search
+  and installing, but not yet in daily use. If something about your snaps
+  reads wrong, an issue is the fastest way to have it fixed
 
 [PROTOCOL.md](PROTOCOL.md) has the table of differences per backend.
 
@@ -82,9 +86,9 @@ and polkit prompts appear through the DMS agent.
 - **Arch Linux news** where it is published — announced only when something is
   unread, kept in an archive afterwards
 - **Snaps, Homebrew and DMS plugins** update in their own phases; DMS's own
-  packages run last, because they reload the shell. Snaps go through snapd
-  itself, with one polkit prompt for all of them and download progress per
-  snap
+  packages run last, because they reload the shell. Snaps (new, beta) go
+  through snapd itself, with one polkit prompt for all of them and download
+  progress per snap
 - **Reboot notice** and end-of-life Flatpaks
 - **Upgrading to the next Fedora release** — what it involves (size,
   packages, removals, repositories not ready yet) before anything is
@@ -132,7 +136,7 @@ and polkit prompts appear through the DMS agent.
   part of the same transaction
 - **Search Homebrew** where brew is installed — macOS-only formulae are greyed
   with the reason rather than dropped
-- **Search the Snap Store** where snapd is installed — publisher and
+- **Search the Snap Store** (new, beta) where snapd is installed — publisher and
   verification on every row, and a snap with classic confinement says that it
   runs without a sandbox before a second press installs it
 - **Software sources** — repositories and Flatpak remotes with switches,

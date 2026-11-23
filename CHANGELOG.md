@@ -3,6 +3,15 @@
 Release notes per version. The section for the latest version is shown
 in-app when the plugin offers its own update.
 
+## Unreleased
+
+- **The extension settings no longer grey out two switches.** *Show in app
+  launcher* and *Open .appimage files with this app* only became usable once
+  the depot's window had been opened since the shell started, because only
+  the window asked whether the launcher entry and the file association were
+  there. The settings page now asks for itself
+  ([#53](https://github.com/vinceecniv/DuxSoftwareDepot/issues/53)).
+
 ## 2.0.1 — 2026-11-21
 
 - **Arch: updates run pacman's hooks in `/etc/pacman.d/hooks` again.**

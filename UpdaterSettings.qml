@@ -11,6 +11,15 @@ PluginSettings {
 
     pluginId: "dankSoftwareDepot"
 
+    // The launcher-entry and .appimage-handler switches stay disabled until
+    // their first check answers, and the window only runs those checks when
+    // it opens. Opened from DMS's settings before the window ever was, both
+    // switches would sit greyed out — so this page asks for itself.
+    Component.onCompleted: {
+        Backend.checkLauncherEntry();
+        Backend.checkAppimageHandler();
+    }
+
     ToggleSetting { id: s_hide; settingKey: "hideWhenUpToDate"; label: Tr.t("Hide when up to date"); defaultValue: false; visible: false; height: 0 }
     ToggleSetting { id: s_runtimes; settingKey: "showRuntimes"; label: Tr.t("Show runtimes and extensions"); defaultValue: true; visible: false; height: 0 }
     ToggleSetting { id: s_firmware; settingKey: "includeFirmware"; label: Tr.t("Include firmware updates"); defaultValue: true; visible: false; height: 0 }

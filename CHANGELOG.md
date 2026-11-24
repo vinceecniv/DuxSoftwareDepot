@@ -3,7 +3,7 @@
 Release notes per version. The section for the latest version is shown
 in-app when the plugin offers its own update.
 
-## Unreleased
+## 2.2.0 — 2026-11-24
 
 Thanks to @Dimariqe, who wrote and tested most of this on Arch
 ([#51](https://github.com/vinceecniv/DuxSoftwareDepot/pull/51)).

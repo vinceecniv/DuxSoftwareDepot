@@ -54,6 +54,12 @@ jobs:
       - name: The pacman path
         run: python3 scripts/test_pacman_helper.py
 
+      - name: The pacman command with Authorise with sudo on
+        run: python3 scripts/test_pacman_command.py
+
+      - name: AUR packages without a terminal
+        run: python3 scripts/test_aur_helper.py
+
       - name: An app installed under another package than its catalog names
         run: python3 scripts/test_installed_owner.py
 

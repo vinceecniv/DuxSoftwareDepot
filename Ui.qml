@@ -160,6 +160,17 @@ Item {
     // this in the version's place (#26). The daemon passes it through as is.
     readonly property string develTarget: "latest-commit"
 
+    // Why a pacman run is about to ask for a password, from the `status` a
+    // --via-sudo helper sends before handing over to the usual path. The
+    // prompt itself cannot say: its text is polkit's. "" for anything else.
+    function authNotice(message) {
+        if (message === "stale-lock")
+            return Tr.t("Unlocking pacman after an interrupted update — waiting for authorisation…");
+        if (message === "sudo-asks")
+            return Tr.t("Waiting for authorisation to change system packages…");
+        return "";
+    }
+
     // A spinner or a pulse says "busy", and busy has a cadence of its own:
     // it is not a transition, so it does not follow DMS's animation speed.
     // Tied to it (from 1.2.0 on), a short setting spun the refresh icon five

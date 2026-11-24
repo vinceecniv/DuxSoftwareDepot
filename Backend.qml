@@ -1,5 +1,6 @@
 pragma Singleton
 import QtQuick
+import Quickshell
 import Quickshell.Io
 import qs.Services
 
@@ -64,6 +65,11 @@ Item {
     // one instead of inventing a second.
     property bool useSudo: PluginService.loadPluginData("dankSoftwareDepot", "useSudo", false) === true
 
+    // Arch: build AUR packages in the background (scripts/aur_helper.py)
+    // instead of the DMS daemon's pass, which opens a terminal. Off by
+    // default: it skips the PKGBUILD review the terminal pass offers.
+    property bool aurNoTerminal: PluginService.loadPluginData("dankSoftwareDepot", "aurNoTerminal", false) === true
+
     Connections {
         target: PluginService
 
@@ -71,6 +77,7 @@ Item {
             if (pluginId !== "dankSoftwareDepot")
                 return;
             backend.useSudo = PluginService.loadPluginData("dankSoftwareDepot", "useSudo", false) === true;
+            backend.aurNoTerminal = PluginService.loadPluginData("dankSoftwareDepot", "aurNoTerminal", false) === true;
             backend.simMode = PluginService.loadPluginData("dankSoftwareDepot", "simMode", "");
             backend.simRecording = PluginService.loadPluginData("dankSoftwareDepot", "simRecording", "");
             backend.simSpeed = PluginService.loadPluginData("dankSoftwareDepot", "simSpeed", 1);
@@ -86,17 +93,20 @@ Item {
     // with nothing on screen. With -n it refuses instead, and the refusal is
     // something the command can act on.
     //
-    // And the fall-back is gated on a separate `sudo -n true`, not on the
-    // exit code of the run: a transaction that failed on its own merits must
-    // never be quietly run a second time under pkexec. So the shell asks
-    // whether sudo would answer, and hands the whole thing to pkexec when it
-    // would not — a machine with narrow sudoers rules, or no sudo at all,
-    // ends up exactly where it is today. `exec` either way, so the exit code
-    // the callers read is still pkexec's own 126/127 for a refused prompt.
+    // And the fall-back is gated on a separate `sudo -n -l <the command>`, not
+    // on the exit code of the run: a transaction that failed on its own merits
+    // must never be quietly run a second time under pkexec. So the shell asks
+    // whether sudo would run this very command without a password, and hands
+    // it to pkexec when it would not — a machine with no such rule, or no sudo
+    // at all, ends up exactly where it is today. It used to ask about `true`,
+    // which a rule naming only the commands this plugin runs does not cover:
+    // such a rule ended at the polkit prompt all the same. `exec` either way,
+    // so the exit code the callers read is still pkexec's own 126/127 for a
+    // refused prompt.
     function privileged(words) {
         if (!useSudo)
             return ["pkexec"].concat(words);
-        return ["sh", "-c", "if sudo -n true 2>/dev/null; then exec sudo -n \"$@\"; fi; exec pkexec \"$@\"", "sh"].concat(words);
+        return ["sh", "-c", "if sudo -n -l \"$@\" >/dev/null 2>&1; then exec sudo -n \"$@\"; fi; exec pkexec \"$@\"", "sh"].concat(words);
     }
 
     // ── Recording a run, and playing it back ────────────────────────────────
@@ -303,7 +313,71 @@ Item {
 
     // Command for a privileged helper transaction
     function helperCommand(action, specs) {
+        if (backendId === "pacman")
+            return _pacmanCommand(action, specs);
         return privileged([python, packageHelper, action].concat(specs));
+    }
+
+    // With "Authorise with sudo" on, a pacman system first tries a narrower
+    // route: the helper runs as the user and only pacman itself goes through
+    // sudo (pacman_helper.py --via-sudo). Where sudo would ask for pacman, or
+    // a stale pacman lock needs root to clear, the helper exits 3 having done
+    // nothing — only said why, for the window to show under the password
+    // prompt — and the usual path follows, the one privileged() takes.
+    // With the setting off this is privileged() as on every other system:
+    // a sudoers rule is a choice the user makes for this plugin through that
+    // setting, not one it acts on uninvited — and a user who is not in
+    // sudoers at all would otherwise get a `sudo -l` on every transaction.
+    function _pacmanCommand(action, specs) {
+        if (!useSudo)
+            return privileged([python, packageHelper, action].concat(specs));
+        return ["sh", "-c", "py=$1; helper=$2; shift 2; "
+            + "\"$py\" \"$helper\" --via-sudo \"$@\"; rc=$?; [ \"$rc\" -eq 3 ] || exit \"$rc\"; "
+            + "if sudo -n -l \"$py\" \"$helper\" \"$@\" >/dev/null 2>&1; then exec sudo -n \"$py\" \"$helper\" \"$@\"; fi; "
+            + "exec pkexec \"$py\" \"$helper\" \"$@\"",
+            "sh", python, packageHelper, action].concat(specs);
+    }
+
+    // ── pacman through sudo (pacman systems) ─────────────────────────────────
+    // The plugin never writes a sudoers rule itself: that would make it the
+    // one lowering the barrier to root, with a single click (see useSudo
+    // above). The settings show whether sudo already lets this user run
+    // pacman without a password — sudo's own answer, so a rule in any file
+    // counts, NOPASSWD: ALL included — and, for anyone who wants it, the line
+    // to add and the command to add it with.
+    readonly property string pacmanRuleFile: "/etc/sudoers.d/dux-software-depot"
+    // {checked, allowed, user}
+    property var pacmanRule: ({})
+    readonly property string pacmanRuleLine: (pacmanRule.user || "user") + " ALL=(root) NOPASSWD: /usr/bin/pacman"
+    readonly property string pacmanRuleCommand: "sudo visudo -f " + pacmanRuleFile
+
+    // Asked only from the settings, with "Authorise with sudo" on: a user who
+    // is not in sudoers at all gets a `sudo -l` logged against them otherwise
+    function refreshPacmanRule() {
+        if (backendId !== "pacman" || !useSudo || pacmanRuleStatusProcess.running)
+            return;
+        pacmanRuleStatusProcess.running = true;
+    }
+
+    function copyPacmanRule() {
+        Quickshell.execDetached(["dms", "cl", "copy", pacmanRuleLine]);
+    }
+
+    Process {
+        id: pacmanRuleStatusProcess
+
+        command: ["sh", "-c", "id -un; if command -v sudo >/dev/null 2>&1 && sudo -n -l /usr/bin/pacman --sync --noconfirm >/dev/null 2>&1; then echo yes; else echo no; fi"]
+
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const lines = (text || "").trim().split("\n");
+                backend.pacmanRule = {
+                    checked: true,
+                    user: (lines[0] || "").trim(),
+                    allowed: (lines[1] || "").trim() === "yes"
+                };
+            }
+        }
     }
 
     // The same install, preceded by adding the Copr the package lives in —

@@ -3,6 +3,40 @@
 Release notes per version. The section for the latest version is shown
 in-app when the plugin offers its own update.
 
+## Unreleased
+
+Thanks to @Dimariqe, who wrote and tested most of this on Arch
+([#51](https://github.com/vinceecniv/DuxSoftwareDepot/pull/51)).
+
+- **Updating on Arch updates everything, not only the list.** The update
+  list is as old as its last check, and the run starts by refreshing the
+  package databases, which can know of updates the list does not: a new
+  kernel pushed an hour ago, say. The run used to install only what the
+  list showed, which left the system partly upgraded — something Arch does
+  not support — and those updates turning up right after it. It now runs
+  the full upgrade, and each update the refresh revealed gets its own row.
+  Held packages are left alone as before, and the shell's own packages
+  still go last.
+- **AUR updates can run without a terminal.** On Arch, *Update AUR packages
+  without a terminal* builds them in the background with paru or yay and
+  shows each package being built in the update list, instead of the DMS
+  daemon's `paru -Syu` in a terminal window. It skips the PKGBUILD review,
+  and the setting says so; the terminal stays the default. The AUR pass
+  waits for the official upgrade, and is skipped, with a reason on its rows,
+  when that did not finish. A pacman lock another program holds is named
+  rather than waited on forever.
+- **The window says why a password is asked.** While the prompt for an Arch
+  update is up, the window says it waits for authorisation, or that it
+  needs it to clear a lock an interrupted update left behind.
+- **With *Authorise with sudo* on, Arch runs only pacman through sudo.**
+  Where sudo lets you run pacman without a password, the update and install
+  helpers run as you and only pacman itself runs as root, instead of the
+  whole helper. The plugin does not add that rule: the settings show
+  whether sudo allows it, and for anyone who wants it, the line and the
+  `visudo` command to add it with, and what it means. *Authorise with sudo*
+  now also asks sudo about the command it is about to run, not about
+  `true`, so a rule that names only those commands is used too.
+
 ## 2.1.0 — 2026-11-23
 
 Thanks to @Areg472 for asking for snaps.

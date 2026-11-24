@@ -562,6 +562,180 @@ PluginSettings {
                                     }
                                 }
     
+                                // 5a. pacman through sudo (Middle)
+                                Rectangle {
+                                    id: pacmanRuleRow
+                                    visible: Backend.backendId === "pacman" && Backend.useSudo === true && typeof Backend.copyPacmanRule === "function"
+                                    width: parent.width
+                                    height: row5c.implicitHeight + Theme.spacingM * 2
+                                    readonly property bool isFirst: false
+                                    readonly property bool isLast: false
+                                    readonly property real outerR: Theme.cornerRadius
+                                    readonly property real innerR: 4
+                                    readonly property var ruleState: Backend.pacmanRule || ({})
+                                    readonly property bool active: ruleState.allowed === true
+                                    property bool copied: false
+
+                                    topLeftRadius: isFirst ? outerR : innerR
+                                    topRightRadius: isFirst ? outerR : innerR
+                                    bottomLeftRadius: isLast ? outerR : innerR
+                                    bottomRightRadius: isLast ? outerR : innerR
+
+                                    color: Theme.withAlpha(Ui.chipSurface, 0.45)
+                                    border.width: 0
+
+                                    // sudoers can change behind the plugin's back: ask again whenever the
+                                    // row appears
+                                    onVisibleChanged: {
+                                        if (visible)
+                                            Backend.refreshPacmanRule();
+                                    }
+                                    Component.onCompleted: {
+                                        if (visible)
+                                            Backend.refreshPacmanRule();
+                                    }
+
+                                    Timer {
+                                        id: copiedReset
+                                        interval: 2000
+                                        onTriggered: pacmanRuleRow.copied = false
+                                    }
+
+                                    RowLayout {
+                                        id: row5c
+                                        anchors.left: parent.left
+                                        anchors.right: parent.right
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        anchors.leftMargin: Theme.spacingM
+                                        anchors.rightMargin: Theme.spacingM
+                                        spacing: Theme.spacingM
+
+                                        DIcon {
+                                            Layout.alignment: Qt.AlignTop
+                                            name: "key"
+                                            size: 20
+                                            color: Theme.primary
+                                        }
+
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            spacing: 2
+
+                                            StyledText {
+                                                text: Tr.t("pacman through sudo")
+                                                font.pixelSize: Theme.fontSizeMedium
+                                                font.weight: Font.Medium
+                                                color: Theme.surfaceText
+                                            }
+
+                                            StyledText {
+                                                Layout.fillWidth: true
+                                                text: Tr.t("Where sudo lets you run pacman without a password, updates and installs run as you and only pacman itself runs as root, with no prompt. The plugin does not add that rule for you: with it, any program running under your account can install any software as root.")
+                                                font.pixelSize: Theme.fontSizeSmall
+                                                color: Theme.surfaceVariantText
+                                                wrapMode: Text.WordWrap
+                                            }
+
+                                            StyledText {
+                                                Layout.fillWidth: true
+                                                Layout.topMargin: Theme.spacingXS
+                                                visible: pacmanRuleRow.ruleState.checked === true
+                                                text: pacmanRuleRow.active ? Tr.t("sudo lets you run pacman without a password.") : Tr.t("Not set up. To allow it, run this in a terminal and add the line below:")
+                                                font.pixelSize: Theme.fontSizeSmall
+                                                color: pacmanRuleRow.active ? Theme.primary : Theme.surfaceVariantText
+                                                wrapMode: Text.WordWrap
+                                            }
+
+                                            StyledText {
+                                                Layout.fillWidth: true
+                                                visible: pacmanRuleRow.ruleState.checked === true && !pacmanRuleRow.active
+                                                text: Backend.pacmanRuleCommand + "\n" + Backend.pacmanRuleLine
+                                                font.family: Theme.monoFontFamily || "monospace"
+                                                font.pixelSize: Theme.fontSizeSmall
+                                                color: Theme.surfaceText
+                                                wrapMode: Text.WrapAnywhere
+                                            }
+                                        }
+
+                                        DButton {
+                                            Layout.alignment: Qt.AlignTop
+                                            visible: pacmanRuleRow.ruleState.checked === true && !pacmanRuleRow.active
+                                            buttonHeight: 28
+                                            horizontalPadding: Theme.spacingM
+                                            text: pacmanRuleRow.copied ? Tr.t("Copied") : Tr.t("Copy line")
+                                            backgroundColor: Ui.buttonFill("tonal", false)
+                                            textColor: Ui.buttonInk("tonal")
+                                            onClicked: {
+                                                Backend.copyPacmanRule();
+                                                pacmanRuleRow.copied = true;
+                                                copiedReset.restart();
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // 5b. AUR without a terminal (Middle)
+                                Rectangle {
+                                    visible: Backend.backendId === "pacman"
+                                    width: parent.width
+                                    height: row5b.implicitHeight + Theme.spacingM * 2
+                                    readonly property bool isFirst: false
+                                    readonly property bool isLast: false
+                                    readonly property real outerR: Theme.cornerRadius
+                                    readonly property real innerR: 4
+    
+                                    topLeftRadius: isFirst ? outerR : innerR
+                                    topRightRadius: isFirst ? outerR : innerR
+                                    bottomLeftRadius: isLast ? outerR : innerR
+                                    bottomRightRadius: isLast ? outerR : innerR
+    
+                                    color: Theme.withAlpha(Ui.chipSurface, 0.45)
+                                    border.width: 0
+    
+                                    RowLayout {
+                                        id: row5b
+                                        anchors.left: parent.left
+                                        anchors.right: parent.right
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        anchors.leftMargin: Theme.spacingM
+                                        anchors.rightMargin: Theme.spacingM
+                                        spacing: Theme.spacingM
+    
+                                        DIcon {
+                                            name: "terminal"
+                                            size: 20
+                                            color: Theme.primary
+                                        }
+    
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            spacing: 2
+    
+                                            StyledText {
+                                                text: Tr.t("Update AUR packages without a terminal")
+                                                font.pixelSize: Theme.fontSizeMedium
+                                                font.weight: Font.Medium
+                                                color: Theme.surfaceText
+                                            }
+    
+                                            StyledText {
+                                                Layout.fillWidth: true
+                                                text: Tr.t("Build AUR packages in the background with paru or yay and show the progress here, instead of in a terminal. This skips the PKGBUILD review: what the AUR serves is built without you reading it first. Installing them asks for your password, often more than once per run, unless sudo lets pacman run without one and Authorise with sudo is on.")
+                                                font.pixelSize: Theme.fontSizeSmall
+                                                color: Theme.surfaceVariantText
+                                                wrapMode: Text.WordWrap
+                                            }
+                                        }
+    
+                                        DToggle {
+                                            id: t5b
+                                            hideText: true
+                                            checked: Backend.aurNoTerminal === true
+                                            onToggled: checked => PluginService.savePluginData("dankSoftwareDepot", "aurNoTerminal", checked)
+                                        }
+                                    }
+                                }
+    
                                 // 6. Tint app icons with the theme colour (Middle)
                                 Rectangle {
                                     width: parent.width

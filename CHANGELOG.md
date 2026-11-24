@@ -37,6 +37,19 @@ Thanks to @Dimariqe, who wrote and tested most of this on Arch
   now also asks sudo about the command it is about to run, not about
   `true`, so a rule that names only those commands is used too.
 
+**Tested in Arch containers, not on a real Arch system** (the maintainer
+does not use Arch). Against a real pacman 7.1 and paru 2.2.1:
+- a full upgrade of 27 packages, both as root and as a normal user with
+  only pacman going through sudo, leaving alone the package it was told to;
+- the handover to the password prompt when sudo would ask, or when a lock
+  is left behind;
+- naming a lock another program holds;
+- installing and removing through sudo;
+- building and installing an AUR package without a terminal.
+
+The settings and the update window were not seen on an Arch desktop with
+the shell running. Feedback from Arch users is welcome.
+
 ## 2.1.0 — 2026-11-23
 
 Thanks to @Areg472 for asking for snaps.

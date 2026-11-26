@@ -3,6 +3,97 @@
 Release notes per version. The section for the latest version is shown
 in-app when the plugin offers its own update.
 
+## Unreleased
+
+- **The run dashboard.** An update run is shown as an instrument panel,
+  live while it runs and kept afterwards:
+  - the throughput in real bytes, and a timeline of when each package
+    downloaded and installed;
+  - the security advisories, closing as their packages land;
+  - what is new, ordered by what matters on this machine: a security fix, a
+    service that runs here, the desktop itself, an app you open often from
+    the launcher, a bigger version — and a git build that came along twice
+    before is routine, not news;
+  - what is left to do afterwards: whether a restart is needed, which
+    services already run the new version, which apps still run the one
+    they were started with, and which updated apps you never open.
+
+  The notes are the ones their authors wrote, shown as written. Where the
+  distribution says little ("Rebasing OpenSSH to 10.6p1"), the release notes
+  the project published on GitHub, or the commits between two git builds,
+  are fetched after the run; *Release notes from the projects* in the
+  settings switches that off. Each run is kept as an edition, and the log
+  tab shows them all as a chart to search through, runs from before
+  included.
+
+  The dashboard is what the Updates tab opens on, in three states on one
+  layout: at rest, the last run with what the overview showed (the
+  system, installed software, held packages, automatic updates, space to
+  reclaim); with updates found, what is ready to install, what it fixes
+  and what it weighs; and the run as it goes. *In short* tells each in
+  words: one sentence for the whole, then the stories that matter, each
+  with what it means on this machine and what its authors wrote. The
+  circle starts a check at rest and the run when updates are ready, and
+  shows a check's progress; it breathes while updates wait, and the
+  figures beside it fill while a run goes. Before a run they carry what
+  the package manager will really download, the room on disk and how long
+  runs here usually take, and *To download* gives each project's share of
+  that download; the strip beside Update All, which stays at the bottom,
+  is not needed there. "What is new", there when there are more updates than
+  *In short* lifts out, lists every project, folding the ones it already
+  tells, and sorts by relevance, security, size, newest
+  or name; a line of notes that points somewhere (a pull request, a CVE,
+  a commit) opens it.
+  The cards come in one after another, top to bottom, when the dashboard
+  opens, changes state or gets other updates; notes that arrive later say
+  they are loading and grow their card smoothly instead of making it jump.
+  The dashboard shows now; the log keeps every run. A run picked there
+  opens in the dashboard as it was, with *Back to now* to return. What
+  the last run left to do and still waits (a restart of the computer, an
+  app still on its old version) stays under *After this run* once new
+  updates are ready, apart from what those updates will ask and with its
+  own button: restart the computer, or the app. With updates waiting the circle splits on hover: the
+  left half starts them, the right half checks again.
+  Just after a run it shows that run, with what the engine measured,
+  until the run's own edition is built, instead of the run before it for
+  a moment.
+  The projects' own notes (release notes, the commits between two git
+  builds) are fetched for what is ready to install too, and shown in full
+  for what matters most. A kernel update and new firmware each get a card
+  of their own. Projects can be marked as favourites, the shell and the
+  compositor from the start: they rank higher and carry a star, in the
+  dashboard and in the list. What the forge answered is kept (commits for
+  good, releases for a day), and a rate limit is waited out instead of
+  asked into; with the `gh` tool logged in, its login lifts GitHub's limit
+  from 60 requests an hour to 5000. The Dux icon ships with the plugin,
+  for the shell and for Dux's projects that have no icon of their own, and
+  so do niri's (CC BY-SA 4.0, tinted like any icon) and Hyprland's (its
+  trademark, shown unaltered); assets/icons/projects/README.md says whose
+  they are.
+
+  After a design review the band at the top says what an update does
+  rather than how many there are: security, what it touches on this
+  system, what follows (a restart, logging in again, the shell restarting:
+  foreseen before the run, checked after it) and its size and time; the
+  circle is the action, with Update all below as always. "In short"
+  tells each story the same way, routine commits folded away; an app
+  still on its old version can be restarted from its card; the relevance
+  chart and empty cards are gone, and the throughput is a line in its
+  figure. Two more review rounds
+  made the line beside the circle a judgement ("Nothing urgent.",
+  "Finished without errors.") rather than the figures again, gave every
+  state one order and one word for vulnerabilities, and foresee "no
+  restart of the computer needed" too. The list is a press away.
+  *Update dashboard* in the settings switches back to the list and
+  overview as they were.
+
+  The charts move at the display's frame rate: bars grow, the time axis
+  slides and the throughput line, measured four times a second and drawn
+  as a curve, advances smoothly. Colours follow the theme's accent, and
+  app icons are tinted like everywhere else when that is switched on. A run that updates the shell itself, which reloads it before
+  the run ends, still gets its edition, with the measurements taken until
+  then; the newest run without one is built from the log when it is shown.
+
 ## 2.2.0 — 2026-11-24
 
 Thanks to @Dimariqe, who wrote and tested most of this on Arch

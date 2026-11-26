@@ -44,8 +44,267 @@ FloatingWindow {
             win.widgetRoot.refreshSnaps();
     }
 
+    // ── Reclaimable space, as a card ───────────────────────────────────────
+    // Shown by the overview and by the dashboard's resting state
+    // A Dux project's package (dux-greeter, dux-qt-base, …): without an
+    // icon of its own it wears the Dux one
+    function _isDuxPkg(pkg) {
+        return !!pkg && pkg.repo !== "flatpak" && /^dux-/.test(store.stripArch(pkg.name || ""));
+    }
+
+    readonly property Component cleanupCard: cleanupCardComponent
+    Component {
+        id: cleanupCardComponent
+
+        Rectangle {
+            id: cleanupCard
+
+            readonly property var scan: win.widgetRoot ? win.widgetRoot.cleanup : null
+            readonly property real total: scan ? ((scan.unneeded.bytes || 0) + (scan.cache.bytes || 0)) : 0
+
+            // Fifty megabytes is what makes the card worth
+            // appearing. It is not what makes it worth staying:
+            // this card offers two piles, and clearing the larger
+            // one can drop the total under the bar while the other
+            // is still sitting there. The card then vanished
+            // mid-use, taking the second button with it and
+            // leaving no way back to it. So the threshold decides
+            // the first appearance only; after that the card is
+            // here until there is nothing left to offer.
+            property bool engaged: false
+            property var cleanedKinds: []
+
+            function noteCleanup(kind) {
+                engaged = true;
+                if (cleanedKinds.indexOf(kind) === -1)
+                    cleanedKinds = cleanedKinds.concat([kind]);
+            }
+
+            // A fresh visit starts fresh: the finished rows are
+            // feedback on what just happened, not a record
+            Connections {
+                target: win
+                function onVisibleChanged() {
+                    if (!win.visible) {
+                        cleanupCard.engaged = false;
+                        cleanupCard.cleanedKinds = [];
+                    }
+                }
+            }
+
+            Layout.fillWidth: true
+            // Read by whoever shows the card: the overview, or the dashboard
+        readonly property bool wanted: total > 50 * 1024 * 1024 || (engaged && (total > 0 || cleanedKinds.length > 0))
+            implicitHeight: cleanupColumn.implicitHeight + Theme.spacingM * 2
+            radius: Theme.cornerRadius
+            color: Theme.withAlpha(Ui.chipSurface, 0.45)
+
+            ColumnLayout {
+                id: cleanupColumn
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.leftMargin: Theme.spacingM
+                anchors.rightMargin: Theme.spacingM
+                spacing: Theme.spacingS
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingS
+
+                    DIcon {
+                        name: "cleaning_services"
+                        size: 18
+                        color: Theme.primary
+                    }
+
+                    StyledText {
+                        text: Tr.t("Reclaim space")
+                        font.pixelSize: Theme.fontSizeMedium
+                        font.weight: Font.DemiBold
+                        color: Theme.surfaceText
+                    }
+
+                    Item {
+                        Layout.fillWidth: true
+                    }
+
+                    StyledText {
+                        text: win.engine.formatBytes(parent.parent.parent.total)
+                        font.pixelSize: Theme.fontSizeSmall
+                        font.weight: Font.Medium
+                        color: Theme.primary
+                    }
+                }
+
+                Repeater {
+                    model: {
+                        const scan = win.widgetRoot ? win.widgetRoot.cleanup : null;
+                        if (!scan)
+                            return [];
+                        const rows = [];
+                        if (scan.unneeded.count > 0)
+                            rows.push({
+                                kind: "packages",
+                                label: Tr.t("%1 packages nothing needs any more").arg(scan.unneeded.count),
+                                bytes: scan.unneeded.bytes || 0,
+                                action: Tr.t("Remove")
+                            });
+                        if ((scan.cache.bytes || 0) > 0)
+                            rows.push({
+                                kind: "cache",
+                                label: Tr.t("Downloaded package files, already installed"),
+                                bytes: scan.cache.bytes,
+                                action: Tr.t("Empty")
+                            });
+                        // What was cleared stays on the card as a
+                        // finished row rather than disappearing.
+                        // A row that vanishes on click leaves the
+                        // reader guessing whether it worked, and
+                        // shuffles whatever was under it upward
+                        // just as they reach for it.
+                        for (const kind of cleanupCard.cleanedKinds) {
+                            if (rows.some(row => row.kind === kind))
+                                continue;
+                            rows.push({
+                                kind: kind,
+                                label: kind === "packages" ? Tr.t("Packages nothing needs any more") : Tr.t("Downloaded package files, already installed"),
+                                bytes: 0,
+                                done: true
+                            });
+                        }
+                        return rows;
+                    }
+
+                    delegate: RowLayout {
+                        required property var modelData
+
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingS
+
+                        StyledText {
+                            Layout.fillWidth: true
+                            text: modelData.done === true ? modelData.label : modelData.label + " · " + win.engine.formatBytes(modelData.bytes)
+                            font.pixelSize: Theme.fontSizeSmall - 1
+                            color: modelData.done === true ? Theme.withAlpha(Theme.surfaceVariantText, 0.7) : Theme.surfaceVariantText
+                            elide: Text.ElideRight
+                        }
+
+                        DIcon {
+                            visible: modelData.done === true
+                            name: "check"
+                            size: 14
+                            color: Theme.success
+                        }
+
+                        StyledText {
+                            visible: modelData.done === true
+                            text: Tr.t("Cleared")
+                            font.pixelSize: Theme.fontSizeSmall - 1
+                            color: Theme.success
+                        }
+
+                        Item {
+                            implicitWidth: cleanupButton.width
+                            implicitHeight: cleanupButton.height
+                            visible: modelData.done !== true
+
+                            DButton {
+                                id: cleanupButton
+                                buttonHeight: 26
+                                horizontalPadding: Theme.spacingM
+                                text: (win.widgetRoot && win.widgetRoot.cleanupBusy === modelData.kind) ? Tr.t("Working…") : modelData.action
+                                backgroundColor: Ui.buttonFill("tonal", false)
+                                textColor: Ui.buttonInk("tonal")
+                                enabled: win.widgetRoot !== null && win.widgetRoot.cleanupBusy === ""
+                                onClicked: {
+                                    cleanupCard.noteCleanup(modelData.kind);
+                                    if (modelData.kind === "packages")
+                                        win.widgetRoot.removeUnneeded();
+                                    else
+                                        win.widgetRoot.cleanCache();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // ── Run dashboard (RunDashboard.qml) ────────────────────────────────────
+    // Opens when a run starts and stays after it, until closed: what is left
+    // to do after a run is worth more than a result that clears itself. The
+    // list it replaces is a press away, and choosing it is remembered.
+    //
+    // With the setting on (the default) it is also what the tab opens on:
+    // the updates that are ready, read the way a run is, with Update All
+    // beneath it; or, when there are none, the last run. The list button
+    // and closing it show the list until the next run. With the setting off
+    // the tab is the list and overview it always was, and the dashboard
+    // opens only when asked for.
+    property bool runDashboardOpen: false
+    // A run picked in the log, shown in the dashboard until "Back to now"
+    property bool runDashboardReview: false
+    function leaveRunReview() {
+        runDashboardReview = false;
+        if (win.widgetRoot && typeof win.widgetRoot.loadLatestEdition === "function")
+            win.widgetRoot.loadLatestEdition();
+        // Opened from the log by someone who keeps the list: back to it
+        if (!runDashboardDefault)
+            runDashboardOpen = false;
+    }
     Connections {
         target: win.engine
+        function onRunningChanged() {
+            if (win.engine.running)
+                win.runDashboardReview = false;
+        }
+    }
+    property bool runDashboardClosed: false
+    readonly property bool runDashboardDefault: !(win.widgetRoot && win.widgetRoot.pluginData && win.widgetRoot.pluginData.dashboardView === false)
+    readonly property bool runDashboardByDefault: runDashboardDefault && (lastUpdateUnix > 0 || effectiveCount > 0) && !runDashboardClosed
+    readonly property bool runDashboardShown: currentTab === 0 && (runDashboardOpen || runDashboardByDefault)
+
+    function closeRunDashboard() {
+        // Closing a run that has just finished leaves what is ready to
+        // install, when there is something; anything else closes the view
+        const finishedRun = win.engine.phase !== "idle" && !win.engine.running;
+        runDashboardOpen = false;
+        runDashboardClosed = !(finishedRun && win.effectiveCount > 0 && runDashboardDefault);
+        if (finishedRun)
+            win.engine.dismiss();
+    }
+    onRunDashboardShownChanged: {
+        if (runDashboardShown && win.widgetRoot && !win.widgetRoot.latestEdition && !win.engine.running && typeof win.widgetRoot.loadLatestEdition === "function")
+            win.widgetRoot.loadLatestEdition();
+    }
+
+    function openRunDashboard() {
+        if (win.widgetRoot && !win.widgetRoot.latestEdition && !win.engine.running && typeof win.widgetRoot.loadLatestEdition === "function")
+            win.widgetRoot.loadLatestEdition();
+        runDashboardOpen = true;
+        runDashboardClosed = false;
+        openTab(0);
+    }
+
+    function showInInstalled(name) {
+        openTab(1);
+        Qt.callLater(() => {
+            if (installedLoader.item && typeof installedLoader.item.showOnly === "function")
+                installedLoader.item.showOnly(name);
+        });
+    }
+
+    Connections {
+        target: win.engine
+
+        function onRunningChanged() {
+            if (win.engine.running && win.runDashboardDefault) {
+                win.runDashboardOpen = true;
+                win.runDashboardClosed = false;
+            }
+        }
 
         function onFinished(ok) {
             if (win.engine.completedCount > 0) {
@@ -132,7 +391,7 @@ FloatingWindow {
             id: isFlatpak ? pkg.name : base,
             name: win.store.displayName(pkg),
             summary: isPlugin ? (manifest.description || "") : (isSnap ? (snapInfo.summary || "") : ((info && info.summary) || "")),
-            iconPath: isSnap ? (snapInfo.icon || "") : ((info && info.icon) || (win._isShellPkg(pkg) && win.widgetRoot ? win.widgetRoot.dankLogoPath : "")),
+            iconPath: isSnap ? (snapInfo.icon || "") : ((info && info.icon) || ((win._isShellPkg(pkg) || win._isDuxPkg(pkg)) && win.widgetRoot ? win.widgetRoot.dankLogoPath : "")),
             homepage: isSnap ? (snapInfo.website || "") : ((info && info.homepage) || ""),
             held: rowData.ignored === true || win.store.isHeld(pkg),
             holdReason: rowData.ignored === true ? Tr.t("held by you") : win.store.holdReason(pkg),
@@ -1625,6 +1884,127 @@ FloatingWindow {
                                 }
                             }
 
+                            // 5b2. The update dashboard (Middle)
+                            Rectangle {
+                                                                width: prefColumn.width
+                                height: row5d.implicitHeight + Theme.spacingM * 2
+                                readonly property bool isFirst: false
+                                readonly property bool isLast: false
+                                readonly property real outerR: Theme.cornerRadius
+                                readonly property real innerR: 4
+
+                                topLeftRadius: isFirst ? outerR : innerR
+                                topRightRadius: isFirst ? outerR : innerR
+                                bottomLeftRadius: isLast ? outerR : innerR
+                                bottomRightRadius: isLast ? outerR : innerR
+
+                                color: Theme.withAlpha(Ui.chipSurface, 0.45)
+                                border.width: 0
+
+                                RowLayout {
+                                    id: row5d
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.leftMargin: Theme.spacingM
+                                    anchors.rightMargin: Theme.spacingM
+                                    spacing: Theme.spacingM
+
+                                    DIcon {
+                                        name: "monitoring"
+                                        size: 20
+                                        color: Theme.primary
+                                    }
+
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 2
+
+                                        StyledText {
+                                            text: Tr.t("Update dashboard")
+                                            font.pixelSize: Theme.fontSizeMedium
+                                            font.weight: Font.Medium
+                                            color: Theme.surfaceText
+                                        }
+
+                                        StyledText {
+                                            Layout.fillWidth: true
+                                            text: Tr.t("Show updates as a dashboard: what is ready to install, the run as it goes, and the last run with what is left to do. Off shows the list and overview as before.")
+                                            font.pixelSize: Theme.fontSizeSmall
+                                            color: Theme.surfaceVariantText
+                                            wrapMode: Text.WordWrap
+                                        }
+                                    }
+
+                                    DToggle {
+                                        id: t5d
+                                        hideText: true
+                                        checked: !(PluginService.loadPluginData("dankSoftwareDepot", "dashboardView", true) === false)
+                                        onToggled: checked => PluginService.savePluginData("dankSoftwareDepot", "dashboardView", checked)
+                                    }
+                                }
+                            }
+                            // 5c. Release notes from the projects (Middle)
+                            Rectangle {
+                                                                width: prefColumn.width
+                                height: row5n.implicitHeight + Theme.spacingM * 2
+                                readonly property bool isFirst: false
+                                readonly property bool isLast: false
+                                readonly property real outerR: Theme.cornerRadius
+                                readonly property real innerR: 4
+
+                                topLeftRadius: isFirst ? outerR : innerR
+                                topRightRadius: isFirst ? outerR : innerR
+                                bottomLeftRadius: isLast ? outerR : innerR
+                                bottomRightRadius: isLast ? outerR : innerR
+
+                                color: Theme.withAlpha(Ui.chipSurface, 0.45)
+                                border.width: 0
+
+                                RowLayout {
+                                    id: row5n
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.leftMargin: Theme.spacingM
+                                    anchors.rightMargin: Theme.spacingM
+                                    spacing: Theme.spacingM
+
+                                    DIcon {
+                                        name: "newspaper"
+                                        size: 20
+                                        color: Theme.primary
+                                    }
+
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 2
+
+                                        StyledText {
+                                            text: Tr.t("Release notes from the projects")
+                                            font.pixelSize: Theme.fontSizeMedium
+                                            font.weight: Font.Medium
+                                            color: Theme.surfaceText
+                                        }
+
+                                        StyledText {
+                                            Layout.fillWidth: true
+                                            text: Tr.t("After an update run, fetch what the projects themselves wrote about the new versions at the top of the run, where the distribution says little: release notes on GitHub, or the commits between two git builds.")
+                                            font.pixelSize: Theme.fontSizeSmall
+                                            color: Theme.surfaceVariantText
+                                            wrapMode: Text.WordWrap
+                                        }
+                                    }
+
+                                    DToggle {
+                                        id: t5n
+                                        hideText: true
+                                        checked: !(PluginService.loadPluginData("dankSoftwareDepot", "fetchReleaseNotes", true) === false)
+                                        onToggled: checked => PluginService.savePluginData("dankSoftwareDepot", "fetchReleaseNotes", checked)
+                                    }
+                                }
+                            }
+
                             // 6. Tint app icons with the theme colour (Middle)
                             Rectangle {
                                 width: prefColumn.width
@@ -2817,6 +3197,66 @@ FloatingWindow {
     property var dashboard: null
     property double _dashFetchedAt: 0
 
+    // ── The overview's facts ──────────────────────────────────────────────
+    // Read by the overview when there is nothing to update and by the
+    // dashboard's resting state, so both say the same thing
+    function restSystemRows() {
+        const dash = win.dashboard || {};
+        return [
+            { label: "OS", value: dash.osPretty || SystemUpdateService.distroPretty || "" },
+            { label: "Host", value: dash.hostname || "" },
+            { label: "Kernel", value: dash.kernel || "" },
+            // The shell this window is a part of, as the daemon
+            // reports itself. A release build says 1.5.2; a git
+            // build says what it is, at length, and that is the
+            // honest answer rather than something tidied up
+            { label: "DMS", value: DMSService.cliVersion || "" },
+            { label: Tr.t("Uptime"), value: win.formatUptime(dash.uptimeSecs || 0) }
+        ].filter(row => row.value !== "");
+    }
+
+    function restStatusRows() {
+        const root = win.widgetRoot;
+        if (!root)
+            return [];
+        const autoLabels = {
+            "off": Tr.t("Off"),
+            "notify": Tr.t("Notify only"),
+            "auto": Tr.t("Auto-install Flatpaks")
+        };
+        return [
+            { label: Tr.t("Held"), value: String((root.heldSystemKeys || []).length + (SettingsData.updaterIgnoredPackages || []).length) },
+            { label: "End-of-life", value: String(win.eolActive.length) },
+            { label: Tr.t("Automatic updates"), value: autoLabels[root.autoUpdateMode] || Tr.t("Off") },
+            { label: "Dux Software Depot", value: win.pluginManifest.version ? "v" + win.pluginManifest.version : "" }
+        ].filter(row => row.value !== "");
+    }
+
+    function restInstalledRows() {
+        const dash = win.dashboard || {};
+        const copr = dash.coprCount || 0;
+        // Second row: COPR on Fedora, AUR/foreign on Arch,
+        // nothing comparable on Debian
+        return [
+            { label: Backend.systemRepoLabel, icon: "memory", count: Math.max(0, (dash.rpmTotal || 0) - copr) },
+            { label: Backend.backendId === "pacman" ? "AUR" : "COPR", icon: "science", count: copr },
+            { label: "Flatpak", icon: "apps", count: dash.flatpakCount || 0 },
+            { label: "AppImage", icon: "deployed_code", count: dash.appimageCount || 0 },
+            // The plugins in the shell this window runs in. Counted
+            // from the manifests PluginService has already read, so
+            // this is what is installed rather than what is enabled.
+            { label: Tr.t("DMS plugins"), icon: "extension", count: Object.keys(PluginService.availablePlugins || {}).length },
+            // Only on a machine that has brew: a row
+            // reading "Homebrew 0" on the other ones is
+            // an answer to a question nobody asked
+            { label: "Homebrew", icon: "local_drink", count: (win.widgetRoot ? (win.widgetRoot.brewInstalled || []).length : 0) },
+            // The same for snaps, counting applications only,
+            // as the Flatpak row does
+            { label: "Snap", icon: Ui.sourceIcon("snap"), count: (win.widgetRoot ? (win.widgetRoot.snapInstalled || []).filter(s => s.type === "app").length : 0) }
+        ].filter(row => row.label !== "COPR" && row.label !== "AUR" || row.count > 0 || Backend.backendId === "dnf")
+         .filter(row => (row.label !== "Homebrew" && row.label !== "Snap") || row.count > 0);
+    }
+
     function refreshDashboard() {
         const now = Date.now();
         if (now - _dashFetchedAt < 60 * 1000 || dashboardProcess.running)
@@ -3878,7 +4318,8 @@ FloatingWindow {
                         Rectangle {
                             readonly property int total: win.widgetRoot ? win.widgetRoot.securityCount : 0
                             readonly property int held: win.widgetRoot ? win.widgetRoot.heldSecurityCount : 0
-                            visible: total > 0 && win.effectiveCount > 0 && !win.engine.running && !SystemUpdateService.isChecking
+                            // The dashboard counts these in its band
+                            visible: total > 0 && win.effectiveCount > 0 && !win.engine.running && !SystemUpdateService.isChecking && !win.runDashboardShown
                             Layout.preferredHeight: 20
                             Layout.preferredWidth: securityPillRow.implicitWidth + 16
                             radius: 10
@@ -3915,6 +4356,10 @@ FloatingWindow {
                     StyledText {
                         Layout.fillWidth: true
                         text: {
+                            // On the dashboard the band says all of this; the
+                            // header keeps only when it was last looked
+                            if (win.runDashboardShown)
+                                return win.lastCheckedText();
                             let countText;
                             if (win.engine.running)
                                 countText = Tr.t("updating…");
@@ -5362,6 +5807,43 @@ FloatingWindow {
                 logger: win.widgetRoot ? win.widgetRoot.actionLogger : null
                 refreshSerial: win.softwareSerial
                 onPackageActivated: item => win.openLogPackageDetails(item)
+                editions: win.widgetRoot && win.widgetRoot.editionArchive !== undefined ? win.widgetRoot.editionArchive : []
+                requestEditions: () => {
+                    if (win.widgetRoot && typeof win.widgetRoot.loadEditionArchive === "function")
+                        win.widgetRoot.loadEditionArchive();
+                }
+                onEditionActivated: ts => {
+                    if (win.widgetRoot && typeof win.widgetRoot.showEdition === "function") {
+                        win.widgetRoot.showEdition(ts);
+                        win.runDashboardReview = true;
+                        win.openRunDashboard();
+                    }
+                }
+            }
+        }
+
+        // ── Run dashboard ────────────────────────────────────────────────────
+        Loader {
+            id: runDashboardLoader
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            active: win.runDashboardShown
+            visible: active
+            sourceComponent: RunDashboard {
+                engine: win.engine
+                widgetRoot: win.widgetRoot
+                host: win
+                store: win.store
+                showInstalled: name => win.showInInstalled(name)
+                reviewing: win.runDashboardReview
+                onBackToNow: win.leaveRunReview()
+                onCloseRequested: win.closeRunDashboard()
+                onListRequested: {
+                    // The list, for now: while a run goes it is the run's own
+                    // list, which stays until the run ends
+                    win.runDashboardOpen = false;
+                    win.runDashboardClosed = true;
+                }
             }
         }
 
@@ -5374,7 +5856,7 @@ FloatingWindow {
             // to fall through every clause here and take the stepper with it,
             // which is how a step became invisible at the moment it was the
             // one being worked on.
-            visible: win.currentTab === 0 && (win.engine.running || win.engine.phase === "verifying" || (win.engine.phase !== "idle" && win.engine.failedCount > 0) || win.engine.phase === "done")
+            visible: win.currentTab === 0 && !win.runDashboardShown && (win.engine.running || win.engine.phase === "verifying" || (win.engine.phase !== "idle" && win.engine.failedCount > 0) || win.engine.phase === "done")
             implicitHeight: progressColumn.implicitHeight + Theme.spacingM * 2
             radius: Theme.cornerRadius
             color: Ui.cardSurface
@@ -5455,6 +5937,17 @@ FloatingWindow {
                         color: win.engine.failedCount > 0 ? Ui.failColor : Theme.success
                     }
 
+                    DButton {
+                        buttonHeight: 26
+                        horizontalPadding: Theme.spacingM
+                        iconName: "monitoring"
+                        iconSize: 14
+                        text: Tr.t("Dashboard")
+                        backgroundColor: Ui.buttonFill("tonal", false)
+                        textColor: Ui.buttonInk("tonal")
+                        onClicked: win.openRunDashboard()
+                    }
+
                     // Whatever happens to this panel — dismissed, or swept
                     // away by the shell reloading — the log keeps the run
                     // Wrapper Item: DButton sizes itself through `width`, which a layout does not read
@@ -5516,7 +6009,7 @@ FloatingWindow {
             // A category is set apart by the height of its heading, not by a
             // container around it
             spacing: 2
-            visible: win.currentTab === 0 && (win.shownSections.length > 0 || win.dashboardMode)
+            visible: win.currentTab === 0 && !win.runDashboardShown && (win.shownSections.length > 0 || win.dashboardMode)
             opacity: visible ? 1.0 : 0.0
             x: visible ? 0 : win.tabEntryOffset(0)
             Behavior on opacity { NumberAnimation { duration: Theme.longDuration; easing.type: Easing.OutCubic } }
@@ -5760,11 +6253,13 @@ FloatingWindow {
                                     })
 
                                 Layout.fillWidth: true
+                                favorite: win.widgetRoot && typeof win.widgetRoot.isFavoritePackage === "function" ? win.widgetRoot.isFavoritePackage(modelData.pkg) : false
                                 active: (updatesDialog.showing && updatesDialog.rowData && updatesDialog.rowData.pkg && modelData.pkg && updatesDialog.rowData.pkg.name === modelData.pkg.name && updatesDialog.rowData.pkg.repo === modelData.pkg.repo)
                                 isSectionFirst: index === 0
                                 isSectionLast: index === ((catContainer.modelData.items || []).length - 1)
                                 showSource: catContainer.modelData.repeatsHeading !== true
-                                shellIconPath: (modelData.pkg && win._isShellPkg(modelData.pkg) && win.widgetRoot) ? win.widgetRoot.dankLogoPath : ""
+                                shellIconPath: modelData.pkg && win.widgetRoot ? ((win._isShellPkg(modelData.pkg) || win._isDuxPkg(modelData.pkg)) ? win.widgetRoot.dankLogoPath : (modelData.pkg.repo !== "flatpak" && typeof win.widgetRoot.projectIcon === "function" ? win.widgetRoot.projectIcon(win.store.stripArch(modelData.pkg.name || "")) : "")) : ""
+                                tintIcon: !modelData.pkg || !win.widgetRoot || typeof win.widgetRoot.iconTintable !== "function" || win.widgetRoot.iconTintable(win.store.stripArch(modelData.pkg.name || ""))
                                 pkg: modelData.pkg || ({ name: "", repo: "system" })
                                 info: {
                                     if (modelData.aiInfo)
@@ -6004,6 +6499,18 @@ FloatingWindow {
                                     color: Theme.surfaceVariantText
                                 }
 
+                                DButton {
+                                    visible: win.lastUpdateUnix > 0 && !win.engine.running
+                                    buttonHeight: 26
+                                    horizontalPadding: Theme.spacingM
+                                    iconName: "monitoring"
+                                    iconSize: 14
+                                    text: Tr.t("View the last run")
+                                    backgroundColor: Ui.buttonFill("tonal", false)
+                                    textColor: Ui.buttonInk("tonal")
+                                    onClicked: win.openRunDashboard()
+                                }
+
 
                             }
                         }
@@ -6053,20 +6560,7 @@ FloatingWindow {
                                 }
 
                                 Repeater {
-                                    model: {
-                                        const dash = win.dashboard || {};
-                                        return [
-                                            { label: "OS", value: dash.osPretty || SystemUpdateService.distroPretty || "" },
-                                            { label: "Host", value: dash.hostname || "" },
-                                            { label: "Kernel", value: dash.kernel || "" },
-                                            // The shell this window is a part of, as the daemon
-                                            // reports itself. A release build says 1.5.2; a git
-                                            // build says what it is, at length, and that is the
-                                            // honest answer rather than something tidied up
-                                            { label: "DMS", value: DMSService.cliVersion || "" },
-                                            { label: Tr.t("Uptime"), value: win.formatUptime(dash.uptimeSecs || 0) }
-                                        ].filter(row => row.value !== "");
-                                    }
+                                    model: win.restSystemRows()
 
                                     delegate: RowLayout {
                                         required property var modelData
@@ -6130,22 +6624,7 @@ FloatingWindow {
                                 }
 
                                 Repeater {
-                                    model: {
-                                        const root = win.widgetRoot;
-                                        if (!root)
-                                            return [];
-                                        const autoLabels = {
-                                            "off": Tr.t("Off"),
-                                            "notify": Tr.t("Notify only"),
-                                            "auto": Tr.t("Auto-install Flatpaks")
-                                        };
-                                        return [
-                                            { label: Tr.t("Held"), value: String((root.heldSystemKeys || []).length + (SettingsData.updaterIgnoredPackages || []).length) },
-                                            { label: "End-of-life", value: String(win.eolActive.length) },
-                                            { label: Tr.t("Automatic updates"), value: autoLabels[root.autoUpdateMode] || Tr.t("Off") },
-                                            { label: "Dux Software Depot", value: win.pluginManifest.version ? "v" + win.pluginManifest.version : "" }
-                                        ].filter(row => row.value !== "");
-                                    }
+                                    model: win.restStatusRows()
 
                                     delegate: RowLayout {
                                         required property var modelData
@@ -6235,30 +6714,7 @@ FloatingWindow {
                                 }
 
                                 Repeater {
-                                    model: {
-                                        const dash = win.dashboard || {};
-                                        const copr = dash.coprCount || 0;
-                                        // Second row: COPR on Fedora, AUR/foreign on Arch,
-                                        // nothing comparable on Debian
-                                        return [
-                                            { label: Backend.systemRepoLabel, icon: "memory", count: Math.max(0, (dash.rpmTotal || 0) - copr) },
-                                            { label: Backend.backendId === "pacman" ? "AUR" : "COPR", icon: "science", count: copr },
-                                            { label: "Flatpak", icon: "apps", count: dash.flatpakCount || 0 },
-                                            { label: "AppImage", icon: "deployed_code", count: dash.appimageCount || 0 },
-                                            // The plugins in the shell this window runs in. Counted
-                                            // from the manifests PluginService has already read, so
-                                            // this is what is installed rather than what is enabled.
-                                            { label: Tr.t("DMS plugins"), icon: "extension", count: Object.keys(PluginService.availablePlugins || {}).length },
-                                            // Only on a machine that has brew: a row
-                                            // reading "Homebrew 0" on the other ones is
-                                            // an answer to a question nobody asked
-                                            { label: "Homebrew", icon: "local_drink", count: (win.widgetRoot ? (win.widgetRoot.brewInstalled || []).length : 0) },
-                                            // The same for snaps, counting applications only,
-                                            // as the Flatpak row does
-                                            { label: "Snap", icon: Ui.sourceIcon("snap"), count: (win.widgetRoot ? (win.widgetRoot.snapInstalled || []).filter(s => s.type === "app").length : 0) }
-                                        ].filter(row => row.label !== "COPR" && row.label !== "AUR" || row.count > 0 || Backend.backendId === "dnf")
-                                         .filter(row => (row.label !== "Homebrew" && row.label !== "Snap") || row.count > 0);
-                                    }
+                                    model: win.restInstalledRows()
 
                                     delegate: RowLayout {
                                         required property var modelData
@@ -6427,178 +6883,10 @@ FloatingWindow {
                     // pulled in for something since removed, and the download
                     // cache. Shown with their real sizes so the offer is a
                     // fact rather than a suggestion.
-                    Rectangle {
-                        id: cleanupCard
-
-                        readonly property var scan: win.widgetRoot ? win.widgetRoot.cleanup : null
-                        readonly property real total: scan ? ((scan.unneeded.bytes || 0) + (scan.cache.bytes || 0)) : 0
-
-                        // Fifty megabytes is what makes the card worth
-                        // appearing. It is not what makes it worth staying:
-                        // this card offers two piles, and clearing the larger
-                        // one can drop the total under the bar while the other
-                        // is still sitting there. The card then vanished
-                        // mid-use, taking the second button with it and
-                        // leaving no way back to it. So the threshold decides
-                        // the first appearance only; after that the card is
-                        // here until there is nothing left to offer.
-                        property bool engaged: false
-                        property var cleanedKinds: []
-
-                        function noteCleanup(kind) {
-                            engaged = true;
-                            if (cleanedKinds.indexOf(kind) === -1)
-                                cleanedKinds = cleanedKinds.concat([kind]);
-                        }
-
-                        // A fresh visit starts fresh: the finished rows are
-                        // feedback on what just happened, not a record
-                        Connections {
-                            target: win
-                            function onVisibleChanged() {
-                                if (!win.visible) {
-                                    cleanupCard.engaged = false;
-                                    cleanupCard.cleanedKinds = [];
-                                }
-                            }
-                        }
-
+                    Loader {
                         Layout.fillWidth: true
-                        visible: total > 50 * 1024 * 1024 || (engaged && (total > 0 || cleanedKinds.length > 0))
-                        implicitHeight: cleanupColumn.implicitHeight + Theme.spacingM * 2
-                        radius: Theme.cornerRadius
-                        color: Theme.withAlpha(Ui.chipSurface, 0.45)
-
-                        ColumnLayout {
-                            id: cleanupColumn
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            anchors.verticalCenter: parent.verticalCenter
-                            anchors.leftMargin: Theme.spacingM
-                            anchors.rightMargin: Theme.spacingM
-                            spacing: Theme.spacingS
-
-                            RowLayout {
-                                Layout.fillWidth: true
-                                spacing: Theme.spacingS
-
-                                DIcon {
-                                    name: "cleaning_services"
-                                    size: 18
-                                    color: Theme.primary
-                                }
-
-                                StyledText {
-                                    text: Tr.t("Reclaim space")
-                                    font.pixelSize: Theme.fontSizeMedium
-                                    font.weight: Font.DemiBold
-                                    color: Theme.surfaceText
-                                }
-
-                                Item {
-                                    Layout.fillWidth: true
-                                }
-
-                                StyledText {
-                                    text: win.engine.formatBytes(parent.parent.parent.total)
-                                    font.pixelSize: Theme.fontSizeSmall
-                                    font.weight: Font.Medium
-                                    color: Theme.primary
-                                }
-                            }
-
-                            Repeater {
-                                model: {
-                                    const scan = win.widgetRoot ? win.widgetRoot.cleanup : null;
-                                    if (!scan)
-                                        return [];
-                                    const rows = [];
-                                    if (scan.unneeded.count > 0)
-                                        rows.push({
-                                            kind: "packages",
-                                            label: Tr.t("%1 packages nothing needs any more").arg(scan.unneeded.count),
-                                            bytes: scan.unneeded.bytes || 0,
-                                            action: Tr.t("Remove")
-                                        });
-                                    if ((scan.cache.bytes || 0) > 0)
-                                        rows.push({
-                                            kind: "cache",
-                                            label: Tr.t("Downloaded package files, already installed"),
-                                            bytes: scan.cache.bytes,
-                                            action: Tr.t("Empty")
-                                        });
-                                    // What was cleared stays on the card as a
-                                    // finished row rather than disappearing.
-                                    // A row that vanishes on click leaves the
-                                    // reader guessing whether it worked, and
-                                    // shuffles whatever was under it upward
-                                    // just as they reach for it.
-                                    for (const kind of cleanupCard.cleanedKinds) {
-                                        if (rows.some(row => row.kind === kind))
-                                            continue;
-                                        rows.push({
-                                            kind: kind,
-                                            label: kind === "packages" ? Tr.t("Packages nothing needs any more") : Tr.t("Downloaded package files, already installed"),
-                                            bytes: 0,
-                                            done: true
-                                        });
-                                    }
-                                    return rows;
-                                }
-
-                                delegate: RowLayout {
-                                    required property var modelData
-
-                                    Layout.fillWidth: true
-                                    spacing: Theme.spacingS
-
-                                    StyledText {
-                                        Layout.fillWidth: true
-                                        text: modelData.done === true ? modelData.label : modelData.label + " · " + win.engine.formatBytes(modelData.bytes)
-                                        font.pixelSize: Theme.fontSizeSmall - 1
-                                        color: modelData.done === true ? Theme.withAlpha(Theme.surfaceVariantText, 0.7) : Theme.surfaceVariantText
-                                        elide: Text.ElideRight
-                                    }
-
-                                    DIcon {
-                                        visible: modelData.done === true
-                                        name: "check"
-                                        size: 14
-                                        color: Theme.success
-                                    }
-
-                                    StyledText {
-                                        visible: modelData.done === true
-                                        text: Tr.t("Cleared")
-                                        font.pixelSize: Theme.fontSizeSmall - 1
-                                        color: Theme.success
-                                    }
-
-                                    Item {
-                                        implicitWidth: cleanupButton.width
-                                        implicitHeight: cleanupButton.height
-                                        visible: modelData.done !== true
-
-                                        DButton {
-                                            id: cleanupButton
-                                            buttonHeight: 26
-                                            horizontalPadding: Theme.spacingM
-                                            text: (win.widgetRoot && win.widgetRoot.cleanupBusy === modelData.kind) ? Tr.t("Working…") : modelData.action
-                                            backgroundColor: Ui.buttonFill("tonal", false)
-                                            textColor: Ui.buttonInk("tonal")
-                                            enabled: win.widgetRoot !== null && win.widgetRoot.cleanupBusy === ""
-                                            onClicked: {
-                                                cleanupCard.noteCleanup(modelData.kind);
-                                                if (modelData.kind === "packages")
-                                                    win.widgetRoot.removeUnneeded();
-                                                else
-                                                    win.widgetRoot.cleanCache();
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        sourceComponent: cleanupCardComponent
+                        visible: item !== null && item.wanted
                     }
 
                     // ── Support links ───────────────────────────────────────
@@ -6614,7 +6902,7 @@ FloatingWindow {
 
         StyledText {
             Layout.fillWidth: true
-            visible: win.currentTab === 0 && win.hiddenRuntimeCount > 0
+            visible: win.currentTab === 0 && win.hiddenRuntimeCount > 0 && !win.runDashboardShown
             text: (win.hiddenRuntimeCount === 1 ? Tr.t("%1 runtime component hidden (enable in plugin settings) — still included in Update All.") : Tr.t("%1 runtime components hidden (enable in plugin settings) — still included in Update All.")).arg(win.hiddenRuntimeCount)
             font.pixelSize: Theme.fontSizeSmall - 1
             color: Theme.surfaceVariantText
@@ -6623,8 +6911,23 @@ FloatingWindow {
         // ── Footer buttons (Dynamic rounded corner styling) ─────────────────
         RowLayout {
             Layout.fillWidth: true
+            // Also under the dashboard: where the button has always been
             visible: win.currentTab === 0 && win.showUpdateAll
             spacing: Theme.spacingM
+
+            // Back to the dashboard, after the list was asked for
+            DButton {
+                visible: win.runDashboardDefault && !win.runDashboardShown
+                Layout.alignment: Qt.AlignVCenter
+                buttonHeight: 36
+                horizontalPadding: Theme.spacingM
+                iconName: "monitoring"
+                iconSize: 16
+                text: Tr.t("Dashboard")
+                backgroundColor: Ui.buttonFill("tonal", false)
+                textColor: Ui.buttonInk("tonal")
+                onClicked: win.openRunDashboard()
+            }
 
             // ── What Update All would do ────────────────────────────────────
             // The resolver's answer, shown before the click rather than after the
@@ -6637,7 +6940,8 @@ FloatingWindow {
                 // the row had left empty (#47)
                 Layout.preferredHeight: Math.max(windowUpdateAllButton.height, planRow.implicitHeight + Theme.spacingS * 2)
                 readonly property var plan: win.engine.previewPlan
-                visible: !win.engine.running && plan !== null
+                // The dashboard says all of this in its own figures
+                visible: !win.engine.running && plan !== null && !win.runDashboardShown
                 radius: Theme.cornerRadius
                 color: Theme.withAlpha(plan && plan.removals > 0 ? Theme.warning : Theme.surfaceVariantText, 0.08)
 
@@ -6735,7 +7039,8 @@ FloatingWindow {
                         // The estimate only while there is no plan: beside it, the
                         // resolver's real size, and two sizes side by side
                         // that disagree (≤ 1.5 GB, 1.1 GB) read as an error
-                        text: windowUpdateAllButton.busyRun ? Tr.t("Cancel") : (Tr.t("Update All") + ((!planStrip.visible && win.widgetRoot && win.widgetRoot.updateSizeText !== "") ? " · " + win.widgetRoot.updateSizeText : ""))
+                        // Nor beside the dashboard, which has the real figure
+                        text: windowUpdateAllButton.busyRun ? Tr.t("Cancel") : (Tr.t("Update All") + ((!planStrip.visible && !win.runDashboardShown && win.widgetRoot && win.widgetRoot.updateSizeText !== "") ? " · " + win.widgetRoot.updateSizeText : ""))
                         font.pixelSize: Theme.fontSizeMedium
                         font.weight: Font.Medium
                         color: Ui.buttonInk(windowUpdateAllButton.kind)

@@ -78,6 +78,65 @@ Item {
 
     property double _runStartedAt: 0
 
+    // ── What a run looked like, for the run dashboard and its edition ────────
+    // Seconds since the run started, per item key: when its download began
+    // and ended, when its install began and ended, or — for passes that do
+    // not split the two (Flatpak, snaps, firmware, plugins…) — when the work
+    // on it began and ended. Written on state changes only, never per
+    // progress event: a run of two hundred packages sends thousands of those.
+    property var runTimeline: ({})
+    // Bytes per second, sampled every runRateStep while the run downloads
+    property var runRate: []
+    // Seconds between two runRate samples
+    readonly property real runRateStep: 0.25
+    // [phase, seconds] each time the phase changes
+    property var runPhaseLog: []
+    readonly property real runElapsed: _runClock
+    property real _runClock: 0
+    property double _rateLastBytes: 0
+
+    function _runSeconds() {
+        return _runStartedAt > 0 ? (Date.now() - _runStartedAt) / 1000 : 0;
+    }
+
+    // Sets field `f` of key's timeline entry, unless already set (`first`) —
+    // the first op-start of a download is its start, a later one is not
+    function _mark(key, f, first) {
+        if (!key || _runStartedAt <= 0)
+            return;
+        const cur = runTimeline[key];
+        if (first && cur && cur[f] !== undefined)
+            return;
+        const updated = Object.assign({}, runTimeline);
+        updated[key] = Object.assign({}, cur || {});
+        updated[key][f] = Math.round(_runSeconds() * 10) / 10;
+        runTimeline = updated;
+    }
+
+    // Every byte the run has downloaded so far, across its passes
+    function _bytesSoFar() {
+        return (_helperTransferred || 0) + (flatpakBytesDone || 0);
+    }
+
+    Timer {
+        id: rateSampler
+        interval: Math.round(engine.runRateStep * 1000)
+        repeat: true
+        running: engine.running
+        onTriggered: {
+            const now = engine._bytesSoFar();
+            const delta = Math.max(0, now - engine._rateLastBytes);
+            engine._rateLastBytes = now;
+            engine._runClock = engine._runSeconds();
+            const rate = engine.runRate.slice();
+            rate.push(Math.round(delta / engine.runRateStep));
+            // Two hours of samples at most: a run past that shows its first
+            // two hours, which is all a chart that size can tell apart anyway
+            if (rate.length <= 7200 / engine.runRateStep)
+                engine.runRate = rate;
+        }
+    }
+
     // Keys ("system/<basename>") of packages held back by dnf config
     // (versionlock/excludepkgs); they are skipped in runs. Bound by the widget.
     property var heldKeys: []
@@ -153,6 +212,11 @@ Item {
     }
 
     onPhaseChanged: {
+        if (_runStartedAt > 0) {
+            const log = runPhaseLog.slice();
+            log.push([phase, Math.round(_runSeconds() * 10) / 10]);
+            runPhaseLog = log;
+        }
         autoDismissing = phase === "done" && failedCount === 0;
         if (autoDismissing)
             autoDismissTimer.restart();
@@ -454,6 +518,8 @@ Item {
                 let extra = 0;
                 let counted = 0;
                 const removed = [];
+                // What each package downloads, after cache and deltas
+                const opBytes = {};
                 for (const op of event.ops || []) {
                     const action = op.action || "";
                     // An upgrade resolves to two operations: the new package
@@ -465,6 +531,8 @@ Item {
                     if (/replac/i.test(action))
                         continue;
                     counted++;
+                    if (op.name && !/remove|obsolet/i.test(action))
+                        opBytes[op.name] = (opBytes[op.name] || 0) + (op.downloadBytes || 0);
                     if (/remove|obsolet/i.test(action))
                         removed.push(op.name);
                     else if (!previewProcess._selected.has(op.name))
@@ -476,7 +544,8 @@ Item {
                     removals: removed.length,
                     removedNames: removed,
                     downloadBytes: event.totalDownloadBytes || 0,
-                    diskDeltaBytes: event.installDeltaBytes || 0
+                    diskDeltaBytes: event.installDeltaBytes || 0,
+                    opBytes: opBytes
                 };
             }
         }
@@ -513,6 +582,15 @@ Item {
     }
 
     function _setItem(key, patch) {
+        // The generic timeline for passes that do not report phases: first
+        // active is when the work began, done or failed when it ended
+        if (patch.status !== undefined && _runStartedAt > 0) {
+            const before = (itemStates[key] || {}).status;
+            if (patch.status === "active" && before !== "active")
+                _mark(key, "w0", true);
+            else if ((patch.status === "done" || patch.status === "error") && before !== patch.status)
+                _mark(key, "w1", false);
+        }
         const updated = Object.assign({}, itemStates);
         updated[key] = Object.assign({}, updated[key] || {
             status: "pending",
@@ -873,9 +951,14 @@ Item {
         _firmwareFraction = 0;
         _firmwareDone = 0;
 
+        runTimeline = ({});
+        runRate = [];
+        runPhaseLog = [];
+        _rateLastBytes = 0;
+        _runClock = 0;
         running = true;
-        phase = "starting";
         _runStartedAt = Date.now();
+        phase = "starting";
         etaTimer.start();
 
         if (_wantDnf) {
@@ -1504,6 +1587,7 @@ Item {
             if (!key)
                 break;
             currentItem = event.name;
+            _mark(key, event.phase === "install" || event.phase === "remove" ? "i0" : "d0", true);
             if (event.phase === "install" || event.phase === "remove") {
                 if (_dnfStage !== 2) {
                     _dnfStage = 2;
@@ -1560,6 +1644,9 @@ Item {
                 _helperTransferred = Math.max(_helperTransferred, event.totalTransferred);
             if (!key)
                 break;
+            // The first: an upgrade reports its install done, and the old
+            // version's removal later under the same name
+            _mark(key, event.phase === "install" || event.phase === "remove" ? "i1" : "d1", true);
             if (event.phase === "install" || event.phase === "remove") {
                 // rpm is finished with this package. It used to stay
                 // "active" with a full bar until the verification pass at
@@ -1944,6 +2031,7 @@ Item {
         // long that work takes; a cancelled one would drag the estimate down
         if (finalPhase !== "cancelled" && _runStartedAt > 0 && plannedCount > 0)
             runMeasured(Math.round((Date.now() - _runStartedAt) / 1000), plannedCount);
+        _runClock = _runSeconds();
         _runStartedAt = 0;
         finished(finalPhase === "done" && failedCount === 0);
     }

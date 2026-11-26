@@ -358,12 +358,21 @@ Everything else below happens because you opened, checked or pressed something.
 | the screenshot URLs in AppStream data | the screenshots themselves, cached locally for 30 days | opening an app's details |
 | `appimage.github.io`, `api.github.com` | the AppImage catalogue and the releases of an AppImage's linked project | the Install tab and AppImage updates |
 | `api.github.com` | for a package built from git, the notes of the release being installed or the commits between two snapshots | opening the details of such an update; cached a day, and a package not built from git never asks |
+| `api.github.com` | for the stories at the top of the updates that are ready and of an update run, the release notes the project published for that version, or the commits between two git builds — kept with the run in its edition | when updates are found and when a run starts or ends, at most eight requests each; commits are asked once and kept, releases kept a day, and a rate limit is waited out; *Release notes from the projects* in the settings switches it off |
 | `bodhi.fedoraproject.org` | which Fedora releases are current, for the release-upgrade notice | the upgrade check |
 | `formulae.brew.sh`, `github.com`, `ghcr.io` | Homebrew's own traffic, run by brew rather than by this plugin | only where brew is installed — the index at most every six hours, bottles only during an update you started |
 | `api.snapcraft.io` and the Snap Store's CDN | snapd's own traffic, asked for by this plugin through snapd | only where snapd is installed — which snaps have a newer revision at every check, searches when you press Search the Snap Store, downloads only during an update or install you started |
 | `archlinux.org` | the Arch news feed | on Arch only, at most every six hours while the window is open |
 | `copr.fedorainfracloud.org` | which Coprs build a package matching your search, and for which Fedora | only when you press Search Copr; cached six hours |
 | `mirrors.rpmfusion.org`, `dl.flathub.org`, `nightly.gnome.org`, `cdn.kde.org`, `registry.fedoraproject.org` | fetching a source you asked to add | only when you press Add in Software sources |
+
+When the `gh` tool is logged in to GitHub (or `GH_TOKEN`/`GITHUB_TOKEN` is set), requests to `api.github.com` carry that login, so GitHub allows 5000 an hour instead of 60. It is sent to `api.github.com` only; set `DSD_NO_GITHUB_LOGIN=1` to leave it out.
+
+
+The run dashboard reads DMS's launcher history
+(`~/.local/state/dms/appusage.json`) to tell the apps you open from the ones
+you never do, and keeps each run as an edition in
+`~/.local/share/dankSoftwareDepot/editions`. Both stay on this machine.
 
 Two details worth stating plainly, because they are the only places where
 anything about you leaves the machine:

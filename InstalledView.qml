@@ -98,6 +98,12 @@ Item {
         searchField.forceActiveFocus();
     }
 
+    // The run dashboard's "Show": the one package, found the way a search
+    // would find it
+    function showOnly(text) {
+        searchField.text = text;
+    }
+
     // ── App details popup ────────────────────────────────────────────────────
     function openDetails(rowData) {
         detailsDialog.entry = rowData;

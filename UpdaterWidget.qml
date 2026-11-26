@@ -112,8 +112,11 @@ PluginComponent {
 
     // [{key, to}] that arrived, as of `at` (ms): the end of the run, or for a
     // run that ended in the shell's reload, the moment it handed over to it
+    // Set when a run starts: whether it is a replay (see onRunningChanged)
+    property bool _runIsReplay: false
+
     function _addSucceeded(done, at) {
-        if (Backend.replaying || done.length === 0)
+        if (Backend.replaying || _runIsReplay || done.length === 0)
             return;
         const map = Object.assign({}, _succeeded);
         for (const item of done)
@@ -227,16 +230,28 @@ PluginComponent {
     // version). Dux Shell 2.0 unpacks the shell under dms-shell/, older
     // versions under danklinux-shell/ — which can linger after an upgrade
     // until the next reboot, so the current name is asked first.
-    property string dankLogoPath: ""
+    //
+    // Now the plugin carries the shell's icon itself: the shell's assets
+    // moved with each rename (dms-shell, danklinux-shell, dfiles-shell),
+    // and every move left the shell's packages without a picture. Also the
+    // picture for the Dux projects that have none of their own.
+    readonly property string dankLogoPath: Qt.resolvedUrl("assets/icons/dux-shell.svg").toString().replace("file://", "")
 
-    Process {
-        id: dankLogoProcess
-        running: true
-        command: ["sh", "-c", "for d in dms-shell danklinux-shell; do ls \"$XDG_RUNTIME_DIR\"/$d/*/assets/danklogo.svg 2>/dev/null; done | head -1"]
-
-        stdout: StdioCollector {
-            onStreamFinished: root.dankLogoPath = text.trim()
-        }
+    // Icons the plugin carries for projects that install none
+    // (assets/icons/projects/README.md says whose they are and on what
+    // terms). The Hyprland logo is a trademark shown unaltered: it is never
+    // tinted.
+    function projectIcon(base) {
+        if (/^niri$/.test(base))
+            return Qt.resolvedUrl("assets/icons/projects/niri.svg").toString().replace("file://", "");
+        if (/^hyprland$/.test(base))
+            return Qt.resolvedUrl("assets/icons/projects/hyprland.svg").toString().replace("file://", "");
+        if (/^(dms|dms-cli|quickshell|dux-.*)$/.test(base))
+            return dankLogoPath;
+        return "";
+    }
+    function iconTintable(base) {
+        return base !== "hyprland";
     }
 
     // ── Update-size estimate (upper bound; flatpak sizes are full downloads)
@@ -1639,9 +1654,429 @@ PluginComponent {
                     key: key,
                     args: [count]
                 });
+                root._resumeEdition({
+                    ts: stash.ts || 0,
+                    items: items
+                });
                 if (done > 0 && (stash.ts || 0) > (root.pluginData.lastUpdateUnix || 0))
                     PluginService.savePluginData("dankSoftwareDepot", "lastUpdateUnix", stash.ts);
                 PluginService.savePluginData("dankSoftwareDepot", "pendingShellRunLog", {});
+            }
+        }
+    }
+
+    // ── Editions: what a run did, kept (scripts/edition.py) ─────────────────
+    // Built when the run is written to the log, then filled in: what still
+    // needs doing (a reboot, a service or app still on the old version), and
+    // the notes the projects published, for the stories that have none. The
+    // dashboard in the window shows the newest; the log tab the archive.
+    readonly property string editionScript: Qt.resolvedUrl("scripts/edition.py").toString().replace("file://", "")
+    property var latestEdition: null
+    // The same, built when a run starts: what the dashboard ranks and
+    // annotates while the run goes. Not saved.
+    property var previewEdition: null
+    // When the last run started (seconds): its edition is the one with this
+    // start, and an older one on screen in the meantime would be the wrong run
+    property int runStartUnix: 0
+    Connections {
+        target: engine
+        function onRunningChanged() {
+            if (engine.running)
+                root.runStartUnix = Math.floor(Date.now() / 1000);
+        }
+    }
+    property var editionArchive: []
+    property bool editionBusy: false
+    // Notes from the projects themselves (GitHub). On unless switched off.
+    readonly property bool fetchReleaseNotes: pluginData.fetchReleaseNotes !== false
+    property var _editionSteps: []
+    property string _editionInput: ""
+    property bool _editionReplay: false
+
+    function _editionPayload() {
+        const timeline = engine.runTimeline || ({});
+        const items = (engine.runItems || []).map(ri => {
+            const st = engine.itemStates[ri.key] || {};
+            const repo = ri.pkg.repo || "";
+            const sys = repo === "" || repo === "system" || repo === "aur";
+            return {
+                key: ri.key,
+                name: sys ? store.stripArch(ri.pkg.name || "") : (ri.pkg.name || ""),
+                base: sys ? store.stripArch(ri.pkg.name || "") : "",
+                label: store.displayName(ri.pkg),
+                repo: sys ? "system" : repo,
+                from: ri.pkg.fromVersion || "",
+                to: st.landed || ri.pkg.toVersion || "",
+                status: st.status || "",
+                error: st.status === "error" ? (st.detail || "") : "",
+                bytes: (engine.packageSizes || {})[store.stripArch(ri.pkg.name || "")] || 0,
+                t: timeline[ri.key] || ({})
+            };
+        });
+        if (items.length === 0)
+            return "";
+        const advisories = {};
+        for (const it of items) {
+            const adv = root.advisories[it.name];
+            if (adv)
+                advisories[it.name] = adv;
+        }
+        const ended = Math.floor(Date.now() / 1000);
+        const duration = engine.runElapsed !== undefined ? Math.round(engine.runElapsed) : 0;
+        return JSON.stringify({
+            ts: ended - duration,
+            backend: Backend.backendId,
+            duration: duration,
+            phases: engine.runPhaseLog || [],
+            rate: engine.runRate || [],
+            rateStep: engine.runRateStep || 0.5,
+            items: items,
+            advisories: advisories,
+            replay: Backend.replaying
+        });
+    }
+
+    // ── Favourites ──
+    // Projects the user marked, kept by story id ("system/<source package>",
+    // "flatpak/<id>"). Until a list is saved, the shell and the compositor
+    // it runs on: what a session cannot do without, and what the launcher
+    // never counts because nobody opens them from it.
+    readonly property string _compositor: (Quickshell.env("XDG_CURRENT_DESKTOP") || "").toLowerCase().split(":")[0]
+    readonly property var favorites: Array.isArray(pluginData.favorites) ? pluginData.favorites : ["system/dms"].concat(_compositor ? ["system/" + _compositor] : [])
+
+    function toggleFavorite(id) {
+        const list = favorites.slice();
+        const i = list.indexOf(id);
+        if (i >= 0)
+            list.splice(i, 1);
+        else
+            list.push(id);
+        PluginService.savePluginData("dankSoftwareDepot", "favorites", list);
+    }
+
+    // A row of the update list is a package; a favourite is a project. The
+    // pending reading knows which project each package belongs to.
+    readonly property var _storyOfPackage: {
+        const out = {};
+        for (const st of (pendingEdition && pendingEdition.stories) || [])
+            for (const p of st.packages || [])
+                out[p] = st.id;
+        return out;
+    }
+    function isFavoritePackage(pkg) {
+        if (!pkg)
+            return false;
+        const key = store.keyFor(pkg);
+        const base = store.stripArch(pkg.name || "");
+        return favorites.indexOf(_storyOfPackage[base] || key) >= 0 || favorites.indexOf(key) >= 0;
+    }
+
+    // ── What is ready to install ──
+    // The same reading of the updates that are pending, for the dashboard
+    // to show before a run: what they are, which matter, what they fix.
+    // Not saved; rebuilt when the list changes.
+    property var pendingEdition: null
+    // The projects' notes are still being fetched for what is on screen
+    readonly property bool editionNotesLoading: root.fetchReleaseNotes && (editionPendingProcess.running || editionPreviewProcess.running)
+
+    function _pendingPayload() {
+        const items = [];
+        for (const pkg of pendingUpdates) {
+            if (store.isHeld(pkg))
+                continue;
+            const repo = pkg.repo || "";
+            const sys = repo !== "flatpak";
+            const base = store.stripArch(pkg.name || "");
+            items.push({
+                key: store.keyFor(pkg),
+                name: sys ? base : (pkg.name || ""),
+                base: sys ? base : "",
+                label: store.displayName(pkg),
+                repo: sys ? "system" : repo,
+                from: pkg.fromVersion || "",
+                to: pkg.toVersion || "",
+                status: "",
+                error: "",
+                bytes: ((updateSizes && updateSizes.rpmSizes) || {})[base] || 0,
+                t: {}
+            });
+        }
+        if (items.length === 0)
+            return "";
+        const advisories = {};
+        for (const it of items) {
+            const adv = root.advisories[it.name];
+            if (adv)
+                advisories[it.name] = adv;
+        }
+        return JSON.stringify({
+            ts: Math.floor(Date.now() / 1000),
+            backend: Backend.backendId,
+            items: items,
+            advisories: advisories,
+            replay: Backend.replaying || _runIsReplay
+        });
+    }
+
+    function _buildPending() {
+        const input = _pendingPayload();
+        if (input === "") {
+            pendingEdition = null;
+            return;
+        }
+        if (editionPendingProcess.running || input === editionPendingProcess._input) {
+            if (editionPendingProcess.running)
+                pendingDebounce.restart();
+            return;
+        }
+        editionPendingProcess._input = input;
+        editionPendingProcess._withNotes = false;
+        editionPendingProcess.running = true;
+    }
+
+    Timer {
+        id: pendingDebounce
+        interval: 1500
+        onTriggered: root._buildPending()
+    }
+    // The list, its advisories and its sizes each arrive on their own
+    Connections {
+        target: root
+        function onPendingUpdatesChanged() {
+            pendingDebounce.restart();
+        }
+        function onAdvisoriesChanged() {
+            pendingDebounce.restart();
+        }
+        function onUpdateSizesChanged() {
+            pendingDebounce.restart();
+        }
+    }
+
+    // Two passes: what the machine knows, at once; then, unless switched
+    // off, what the projects wrote, which takes the network
+    Process {
+        id: editionPendingProcess
+
+        property string _input: ""
+        property bool _withNotes: false
+
+        command: [Backend.python, root.editionScript, "preview"].concat(_withNotes ? ["notes"] : [])
+        stdinEnabled: true
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    const ed = JSON.parse(text || "null");
+                    if (ed && ed.stories)
+                        root.pendingEdition = ed;
+                    else if (!editionPendingProcess._withNotes)
+                        root.pendingEdition = null;
+                } catch (e) {
+                    if (!editionPendingProcess._withNotes)
+                        root.pendingEdition = null;
+                }
+            }
+        }
+        onStarted: editionPendingProcess.write(editionPendingProcess._input + "\n")
+        onExited: {
+            if (!_withNotes && root.fetchReleaseNotes && root.pendingEdition) {
+                _withNotes = true;
+                running = true;
+            }
+        }
+    }
+
+    function _buildPreview() {
+        const input = _editionPayload();
+        if (input === "" || editionPreviewProcess.running)
+            return;
+        previewEdition = null;
+        editionPreviewProcess._input = input;
+        editionPreviewProcess._withNotes = false;
+        editionPreviewProcess.running = true;
+    }
+
+    function _buildEdition(replay) {
+        const input = _editionPayload();
+        if (input === "")
+            return;
+        _editionInput = input;
+        _editionReplay = replay;
+        const steps = [["build"]];
+        if (!replay)
+            steps.push(["after", "latest"]);
+        if (root.fetchReleaseNotes)
+            steps.push(["notes", "latest"]);
+        _editionSteps = steps;
+        _nextEditionStep();
+    }
+
+    // The shell's own update reloads it before the run ends, and what the
+    // engine measured goes with it. Kept on disk at the start of that pass;
+    // the next start makes the edition from it, with the outcome the log
+    // entry settled on.
+    function _stashEdition() {
+        const input = _editionPayload();
+        if (input === "" || editionStashProcess.running)
+            return;
+        editionStashProcess._input = input;
+        editionStashProcess.running = true;
+    }
+
+    function _resumeEdition(entry) {
+        _editionInput = JSON.stringify(entry);
+        _editionReplay = false;
+        const steps = [["resume"], ["after", "latest"]];
+        if (root.fetchReleaseNotes)
+            steps.push(["notes", "latest"]);
+        _editionSteps = steps;
+        _nextEditionStep();
+    }
+
+    function _nextEditionStep() {
+        if (_editionSteps.length === 0 || editionProcess.running) {
+            editionBusy = editionProcess.running;
+            if (!editionProcess.running && !_editionReplay)
+                loadEditionArchive();
+            return;
+        }
+        const step = _editionSteps[0];
+        _editionSteps = _editionSteps.slice(1);
+        editionBusy = true;
+        editionProcess._writeInput = step[0] === "build" || step[0] === "resume";
+        editionProcess._step = step[0] + " " + (step[1] || "");
+        editionProcess.environment = _editionReplay ? ({
+                "DSD_DATA_DIR": Quickshell.env("HOME") + "/.cache/dankSoftwareDepot/replay"
+            }) : ({});
+        editionProcess.command = [Backend.python, editionScript].concat(step);
+        editionProcess.running = true;
+    }
+
+    function _keepNotes(ed, from) {
+        const byId = {};
+        for (const st of from.stories || [])
+            byId[st.id] = st;
+        for (const st of ed.stories) {
+            const old = byId[st.id];
+            if (!old || (st.notes || []).length > 0 || (old.notes || []).length === 0 || old.to !== st.to)
+                continue;
+            for (const k of ["notes", "noteLinks", "notesFrom", "notesUrl", "notesDate"])
+                if (old[k] !== undefined)
+                    st[k] = old[k];
+        }
+    }
+
+    function loadLatestEdition() {
+        showEdition("latest");
+    }
+
+    // The dashboard shows the edition loaded last: the newest after a run,
+    // or one picked in the log's archive
+    function showEdition(ts) {
+        if (editionProcess.running)
+            return;
+        _editionSteps = [["show", String(ts)]];
+        _editionReplay = false;
+        _nextEditionStep();
+    }
+
+    function loadEditionArchive() {
+        if (!editionListProcess.running)
+            editionListProcess.running = true;
+    }
+
+    Process {
+        id: editionProcess
+
+        property bool _writeInput: false
+        property string _step: ""
+
+        stdinEnabled: true
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    const ed = JSON.parse(text || "null");
+                    // The run's edition is built before its notes are
+                    // fetched; the preview of the same run has them already,
+                    // so they stay on screen instead of going and coming back
+                    if (ed && ed.stories && editionProcess._step.trim() === "build" && root.previewEdition)
+                        root._keepNotes(ed, root.previewEdition);
+                    if (ed && ed.stories)
+                        root.latestEdition = ed;
+                    // The newest run, built from the log because it left no
+                    // edition: the checks and notes a run gets are still owed
+                    if (ed && ed.stories && editionProcess._step === "show latest" && ed.after === null && !ed.replay && root._editionSteps.length === 0) {
+                        const steps = [["after", String(ed.ts)]];
+                        if (root.fetchReleaseNotes)
+                            steps.push(["notes", String(ed.ts)]);
+                        root._editionSteps = steps;
+                    }
+                } catch (e) {
+                    console.warn("dankSoftwareDepot: edition:", e);
+                }
+            }
+        }
+        onStarted: {
+            if (editionProcess._writeInput)
+                editionProcess.write(root._editionInput + "\n");
+        }
+        onExited: Qt.callLater(root._nextEditionStep)
+    }
+
+    Process {
+        id: editionStashProcess
+
+        property string _input: ""
+
+        command: [Backend.python, root.editionScript, "stash"]
+        stdinEnabled: true
+        onStarted: editionStashProcess.write(editionStashProcess._input + "\n")
+    }
+
+    Process {
+        id: editionPreviewProcess
+
+        property string _input: ""
+        property bool _withNotes: false
+
+        command: [Backend.python, root.editionScript, "preview"].concat(_withNotes ? ["notes"] : [])
+        stdinEnabled: true
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    const ed = JSON.parse(text || "null");
+                    if (ed && ed.stories)
+                        root.previewEdition = ed;
+                    else if (!editionPreviewProcess._withNotes)
+                        root.previewEdition = null;
+                } catch (e) {
+                    if (!editionPreviewProcess._withNotes)
+                        root.previewEdition = null;
+                }
+            }
+        }
+        onStarted: editionPreviewProcess.write(editionPreviewProcess._input + "\n")
+        onExited: {
+            // The notes the pending view already fetched are in the cache,
+            // so this pass is quick when the run follows that view
+            if (!_withNotes && root.fetchReleaseNotes && root.previewEdition && engine.running) {
+                _withNotes = true;
+                running = true;
+            }
+        }
+    }
+
+    Process {
+        id: editionListProcess
+
+        command: [Backend.python, root.editionScript, "list"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    root.editionArchive = JSON.parse(text || "[]") || [];
+                } catch (e) {
+                    root.editionArchive = [];
+                }
             }
         }
     }
@@ -1709,6 +2144,7 @@ PluginComponent {
         actionLog.record(type, actionLog.titleOf({
             label: label
         }), items, 0, label);
+        root._buildEdition(false);
         // The run survived to its normal logging — the stashed entry for a
         // possible shell reload is not needed anymore
         PluginService.savePluginData("dankSoftwareDepot", "pendingShellRunLog", {});
@@ -1738,11 +2174,23 @@ PluginComponent {
         // The dms pass is about to reload the shell — stash the log entry
         // and the failure reasons it would otherwise swallow
         onPhaseChanged: {
-            if (Backend.replaying)
+            if (Backend.replaying || root._runIsReplay)
                 return;
             if (phase === "dms") {
                 root._stashFromEngine();
+                root._stashEdition();
                 root._saveFailures();
+            }
+        }
+
+        onRunningChanged: {
+            // Whether this run is a replay is decided when it starts. Asked
+            // at its end instead, switching the recorder back to record
+            // during a replay made the replay's end look like a real run's:
+            // logged, archived, and the "last updated" time moved.
+            if (running) {
+                root._runIsReplay = Backend.replaying;
+                Qt.callLater(root._buildPreview);
             }
         }
 
@@ -1750,7 +2198,7 @@ PluginComponent {
             // A replay's duration is the recording's duration, possibly
             // divided by a playback speed. Letting it into the estimate would
             // teach the window that updates take four seconds.
-            if (!Backend.replaying)
+            if (!Backend.replaying && !root._runIsReplay)
                 root._recordRun(seconds, items);
         }
 
@@ -1760,8 +2208,12 @@ PluginComponent {
             // action log, the reboot notice, the failure list that survives a
             // restart, or the "last updated" time — every one of those is a
             // record of the machine, and the machine did not do this.
-            if (Backend.replaying)
+            if (Backend.replaying || root._runIsReplay) {
+                // A replay gets an edition too, for the dashboard to show,
+                // but one kept apart from the archive of this machine
+                root._buildEdition(true);
                 return;
+            }
             // The verification pass is part of the run and part of the
             // recording, so a run that ends into it is not finished being
             // recorded yet — the same reason the log entry waits.
@@ -1805,7 +2257,7 @@ PluginComponent {
         // at the next shell reload — and the entry is written now, with that
         // failure in it rather than a row saying "confirming".
         onVerified: stuck => {
-            if (Backend.replaying)
+            if (Backend.replaying || root._runIsReplay)
                 return;
             Backend.finishRecording();
             root._rememberSucceeded();

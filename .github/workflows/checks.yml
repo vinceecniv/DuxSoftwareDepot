@@ -60,6 +60,9 @@ jobs:
       - name: AUR packages without a terminal
         run: python3 scripts/test_aur_helper.py
 
+      - name: Editions for the run dashboard
+        run: python3 scripts/test_edition.py
+
       - name: An app installed under another package than its catalog names
         run: python3 scripts/test_installed_owner.py
 

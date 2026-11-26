@@ -31,6 +31,7 @@ selectable would stop being a card you can click.
 | `UpdaterWindow.qml` | Tabbed window (Updates / Installed / Install / Firmware / Log) |
 | `UpdateEngine.qml` | Run orchestration (system packages → Flatpak → AppImages → fwupd → snaps → Homebrew → plugins → AUR → DMS packages) and per-package progress |
 | `Backend.qml` | The package-backend seam: every entry point specific to the system package manager, plus how a privileged command is authorised |
+| `RunDashboard.qml` | The run dashboard: an update run live and afterwards — throughput, timeline, security, relevance, what is new, what is left to do. Window only |
 | `UpdateCard.qml` | Rich per-update card |
 | `InstalledView.qml` | Installed software browser + actions |
 | `InstallView.qml` | Storefront + cross-source search & install |
@@ -63,6 +64,7 @@ selectable would stop being a card you can click.
 | `scripts/ostree_helper.py` | rpm-ostree counterpart — atomic Fedora (layering, staged until reboot) |
 | `scripts/apt_helper.py` · `scripts/pacman_helper.py` | python-apt and pyalpm counterparts (Arch: official repos, no AUR; `sysupgrade` for the full upgrade, `--via-sudo` to run only pacman through sudo) |
 | `scripts/aur_helper.py` · `scripts/aur_sudo.sh` | AUR without a terminal (opt-in): paru or yay with no tty and their menus answered, sudo replaced by polkit — or by sudo where it would not ask, with *Authorise with sudo* on |
+| `scripts/edition.py` | Editions: a run kept as stories grouped by source package, ranked by rules (advisory, launcher use, running services, version jump, routine git builds), with notes from AppStream, the changelog and the project (GitHub releases or commits), and the checks after the run (reboot, services, replaced programs still running, apps never opened). `list` is the archive, backfilled from the action log |
 | `scripts/pkg_backend.py` | Per-distro metadata backend (search, sizes, inventory, holds, changelogs); also which packages own a launchable desktop entry |
 | `scripts/flatpak_helper.py` | libflatpak transactions with exact byte progress, end-of-life detection, and installing a `.flatpak` bundle or `.flatpakref` |
 | `scripts/fedora_upgrade.py` | The next Fedora release: what upgrading involves (libdnf5, no root), `dnf5 system-upgrade download` as events, and whether an upgrade waits for its reboot |
@@ -84,7 +86,7 @@ Everything in CI runs on any distribution, with the network and the package
 managers stubbed: `check_translations.py` (the 15 catalogs against the QML),
 `test_dep11.py`, `test_gitnotes.py`, `test_plugin_notes.py`, `test_reconcile.py`, `test_ostree_helper.py`,
 `test_arch_news.py`, `test_brew_helper.py`, `test_snap_helper.py` (against a
-stand-in snapd on a unix socket), `test_pacman_helper.py`, `test_pacman_command.py`, `test_aur_helper.py`,
+stand-in snapd on a unix socket), `test_pacman_helper.py`, `test_pacman_command.py`, `test_aur_helper.py`, `test_edition.py`,
 `test_flatpak_helper.py`, `test_fedora_upgrade.py`, `test_simulate.py`,
 `test_appimage_squashfs.py`, `test_shell_portability.py` —
 which reads every `sh -c` snippet in the QML for bash-only syntax, because

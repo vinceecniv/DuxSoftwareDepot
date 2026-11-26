@@ -24,6 +24,8 @@ Rectangle {
     property bool isIgnored: false
     property bool canHold: false
     property bool active: false
+    // Marked by the user (or one of the defaults): a star by the name
+    property bool favorite: false
     // Verbatim tool output behind the short failure reason, revealed on request
     property string errorDetail: ""
     // {type, severity, ids} from updateinfo, null when the update carries no
@@ -78,6 +80,8 @@ Rectangle {
     // icon of their own, and the generic chip glyph told you nothing about
     // what they are. The host hands over DMS's own logo for those.
     property string shellIconPath: ""
+    // False for an icon that must be shown as it is (a trademark)
+    property bool tintIcon: true
     // A snap brings its own: snapd's listing names the icon in its mount
     readonly property string iconPath: (info && info.icon) ? info.icon : ((pkg.repo === "snap" && (pkg.icon || "").startsWith("/")) ? pkg.icon : shellIconPath)
     readonly property var newReleases: {
@@ -197,7 +201,7 @@ Rectangle {
                     sourceSize.width: width
                     sourceSize.height: height
                     // Themed icons, tuned in TintedIconEffect
-                    layer.enabled: Ui.tintAppIcons
+                    layer.enabled: Ui.tintAppIcons && card.tintIcon
                     layer.effect: TintedIconEffect {}
                 }
 
@@ -219,13 +223,28 @@ Rectangle {
                 Layout.alignment: Qt.AlignVCenter
                 spacing: 2
 
-                StyledText {
+                RowLayout {
                     Layout.fillWidth: true
-                    text: card.prettyName
-                    font.pixelSize: Theme.fontSizeMedium
-                    font.weight: Font.Medium
-                    color: Theme.surfaceText
-                    elide: Text.ElideRight
+                    spacing: 4
+                    StyledText {
+                        Layout.fillWidth: true
+                        Layout.maximumWidth: implicitWidth
+                        text: card.prettyName
+                        font.pixelSize: Theme.fontSizeMedium
+                        font.weight: Font.Medium
+                        color: Theme.surfaceText
+                        elide: Text.ElideRight
+                    }
+                    DIcon {
+                        visible: card.favorite
+                        name: "star"
+                        filled: true
+                        size: 15
+                        color: Theme.primary
+                    }
+                    Item {
+                        Layout.fillWidth: true
+                    }
                 }
 
                 RowLayout {

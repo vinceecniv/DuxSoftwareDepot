@@ -41,6 +41,38 @@ Item {
     // the log is where you notice a version you did not expect, and reading
     // its changelog should not mean finding the package again by hand.
     signal packageActivated(var item)
+    // The archive of editions (scripts/edition.py list): every run, as the
+    // run dashboard tells it. An edition pressed opens in the dashboard.
+    property var editions: []
+    property var requestEditions: null
+    signal editionActivated(int ts)
+
+    function editionHeadline(e) {
+        const l = e.lead;
+        const short = v => (v || "").replace(/^\d+:/, "").replace(/-[^-]+$/, "").replace(/\.(fc|el)\d+.*$/, "");
+        if (!l)
+            return Tr.t("A quiet run: only components updated");
+        if (l.failed > 0 && l.failed >= l.packages)
+            return Tr.t("%1 could not be updated").arg(l.name);
+        if (l.role === "kernel")
+            return Tr.t("New kernel %1").arg(short(l.to));
+        if (l.severity && l.cves > 0)
+            return Tr.t("%1: %2 security fixes").arg(l.name).arg(l.cves);
+        if (l.jump === "major")
+            return Tr.t("%1 moves to version %2").arg(l.name).arg(short(l.to));
+        if (l.jump === "git" && l.commits > 0)
+            return l.commits === 1 ? Tr.t("%1: 1 new commit").arg(l.name) : Tr.t("%1: %2 new commits").arg(l.name).arg(l.commits);
+        if (l.uses > 0)
+            return Tr.t("%1, which you open often, updated to %2").arg(l.name).arg(short(l.to));
+        return Tr.t("%1 updated to %2").arg(l.name).arg(short(l.to));
+    }
+
+    function editionMatches(e, q) {
+        if (q === "")
+            return true;
+        q = q.toLowerCase();
+        return (e.names || []).some(n => n.toLowerCase().indexOf(q) !== -1);
+    }
 
     function focusSearch() {
         searchField.forceActiveFocus();
@@ -233,6 +265,8 @@ Item {
         Ui.steadyCursorFor(searchField);
         Ui.softenScrollbar(logList);
         outsideProcess.running = true;
+        if (typeof requestEditions === "function")
+            requestEditions();
     }
 
     ColumnLayout {
@@ -437,6 +471,140 @@ Item {
                             font.pixelSize: Theme.fontSizeSmall - 1
                             color: Theme.surfaceVariantText
                         }
+                    }
+                }
+            }
+        }
+
+        // ── Every run, as an edition ─────────────────────────────────────────
+        Rectangle {
+            id: archivePanel
+            Layout.fillWidth: true
+            visible: view.editions.length > 1
+            implicitHeight: archiveCol.implicitHeight + Theme.spacingM * 2
+            radius: Theme.cornerRadius
+            color: Theme.withAlpha(Ui.chipSurface, 0.45)
+            property int hovered: -1
+            readonly property var shown: view.editions.slice(-40)
+            readonly property int maxPk: Math.max(10, ...shown.map(e => e.packages || 0))
+            readonly property int matches: shown.filter(e => view.editionMatches(e, view.searchText)).length
+
+            ColumnLayout {
+                id: archiveCol
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: Theme.spacingM
+                spacing: Theme.spacingS
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    StyledText {
+                        text: Tr.t("Runs")
+                        font.pixelSize: Theme.fontSizeMedium
+                        font.weight: Font.DemiBold
+                        color: Theme.surfaceText
+                    }
+                    Item {
+                        Layout.fillWidth: true
+                    }
+                    StyledText {
+                        text: view.searchText !== "" ? Tr.t("%1 of %2 runs mention it").arg(archivePanel.matches).arg(archivePanel.shown.length) : Tr.t("%1 runs").arg(archivePanel.shown.length)
+                        font.pixelSize: Theme.fontSizeSmall - 1
+                        color: Theme.surfaceVariantText
+                    }
+                }
+
+                Row {
+                    id: bars
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 90
+                    spacing: 3
+                    readonly property real barW: Math.max(4, (width - spacing * (archivePanel.shown.length - 1)) / Math.max(1, archivePanel.shown.length))
+
+                    Repeater {
+                        model: archivePanel.shown
+                        delegate: Item {
+                            id: bar
+                            required property var modelData
+                            required property int index
+                            readonly property bool match: view.editionMatches(modelData, view.searchText)
+                            width: bars.barW
+                            height: bars.height
+                            opacity: match ? 1 : 0.2
+
+                            Rectangle {
+                                anchors.bottom: parent.bottom
+                                width: parent.width
+                                height: Math.max(3, (parent.height - 14) * (bar.modelData.packages - bar.modelData.failed) / archivePanel.maxPk)
+                                radius: 2
+                                color: archivePanel.hovered === bar.index ? Theme.primary : Theme.withAlpha(Theme.primary, 0.6)
+                            }
+                            Rectangle {
+                                visible: bar.modelData.failed > 0
+                                anchors.bottom: parent.bottom
+                                anchors.bottomMargin: Math.max(3, (parent.height - 14) * (bar.modelData.packages - bar.modelData.failed) / archivePanel.maxPk) + 1
+                                width: parent.width
+                                height: Math.max(3, (parent.height - 14) * bar.modelData.failed / archivePanel.maxPk)
+                                radius: 2
+                                color: Ui.failColor
+                            }
+                            StyledText {
+                                visible: bar.modelData.kernel
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                y: parent.height - 14 - Math.max(3, (parent.height - 14) * bar.modelData.packages / archivePanel.maxPk) - 2
+                                text: "K"
+                                font.pixelSize: 9
+                                font.weight: Font.Bold
+                                color: Theme.surfaceText
+                            }
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: bar.modelData.edition ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                onEntered: archivePanel.hovered = bar.index
+                                onExited: if (archivePanel.hovered === bar.index) archivePanel.hovered = -1
+                                onClicked: if (bar.modelData.edition) view.editionActivated(bar.modelData.ts)
+                            }
+                        }
+                    }
+                }
+
+                // The run under the pointer, or the latest
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 1
+                    readonly property var e: archivePanel.hovered >= 0 ? archivePanel.shown[archivePanel.hovered] : archivePanel.shown[archivePanel.shown.length - 1]
+                    StyledText {
+                        Layout.fillWidth: true
+                        text: parent.e ? view.editionHeadline(parent.e) : ""
+                        font.pixelSize: Theme.fontSizeSmall
+                        font.weight: Font.Medium
+                        color: Theme.surfaceText
+                        elide: Text.ElideRight
+                    }
+                    StyledText {
+                        Layout.fillWidth: true
+                        text: {
+                            const e = parent.e;
+                            if (!e)
+                                return "";
+                            const parts = [new Date(e.ts * 1000).toLocaleString(Qt.locale(), Locale.ShortFormat), e.packages === 1 ? Tr.t("1 package") : Tr.t("%1 packages").arg(e.packages)];
+                            if (e.failed > 0)
+                                parts.push(Tr.t("%1 failed").arg(e.failed));
+                            if (e.cves > 0)
+                                parts.push(Tr.t("%1 CVEs").arg(e.cves));
+                            for (const s of (e.subs || []).slice(0, 2))
+                                parts.push(view.editionHeadline({
+                                    lead: s
+                                }));
+                            if ((e.late || []).length > 0)
+                                parts.push(Tr.t("%1 retries later").arg(e.late.length));
+                            return parts.join(" · ");
+                        }
+                        font.pixelSize: Theme.fontSizeSmall - 1
+                        color: Theme.surfaceVariantText
+                        elide: Text.ElideRight
                     }
                 }
             }

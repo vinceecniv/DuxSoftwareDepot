@@ -736,6 +736,127 @@ PluginSettings {
                                     }
                                 }
     
+                                // 5b2. The update dashboard (Middle)
+                                Rectangle {
+                                                                        width: parent.width
+                                    height: row5d.implicitHeight + Theme.spacingM * 2
+                                    readonly property bool isFirst: false
+                                    readonly property bool isLast: false
+                                    readonly property real outerR: Theme.cornerRadius
+                                    readonly property real innerR: 4
+    
+                                    topLeftRadius: isFirst ? outerR : innerR
+                                    topRightRadius: isFirst ? outerR : innerR
+                                    bottomLeftRadius: isLast ? outerR : innerR
+                                    bottomRightRadius: isLast ? outerR : innerR
+    
+                                    color: Theme.withAlpha(Ui.chipSurface, 0.45)
+                                    border.width: 0
+    
+                                    RowLayout {
+                                        id: row5d
+                                        anchors.left: parent.left
+                                        anchors.right: parent.right
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        anchors.leftMargin: Theme.spacingM
+                                        anchors.rightMargin: Theme.spacingM
+                                        spacing: Theme.spacingM
+    
+                                        DIcon {
+                                            name: "monitoring"
+                                            size: 20
+                                            color: Theme.primary
+                                        }
+    
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            spacing: 2
+    
+                                            StyledText {
+                                                text: Tr.t("Update dashboard")
+                                                font.pixelSize: Theme.fontSizeMedium
+                                                font.weight: Font.Medium
+                                                color: Theme.surfaceText
+                                            }
+    
+                                            StyledText {
+                                                Layout.fillWidth: true
+                                                text: Tr.t("Show updates as a dashboard: what is ready to install, the run as it goes, and the last run with what is left to do. Off shows the list and overview as before.")
+                                                font.pixelSize: Theme.fontSizeSmall
+                                                color: Theme.surfaceVariantText
+                                                wrapMode: Text.WordWrap
+                                            }
+                                        }
+    
+                                        DToggle {
+                                            id: t5d
+                                            hideText: true
+                                            checked: !(PluginService.loadPluginData("dankSoftwareDepot", "dashboardView", true) === false)
+                                            onToggled: checked => PluginService.savePluginData("dankSoftwareDepot", "dashboardView", checked)
+                                        }
+                                    }
+                                }
+                                // 5c. Release notes from the projects (Middle)
+                                Rectangle {
+                                                                        width: parent.width
+                                    height: row5n.implicitHeight + Theme.spacingM * 2
+                                    readonly property bool isFirst: false
+                                    readonly property bool isLast: false
+                                    readonly property real outerR: Theme.cornerRadius
+                                    readonly property real innerR: 4
+    
+                                    topLeftRadius: isFirst ? outerR : innerR
+                                    topRightRadius: isFirst ? outerR : innerR
+                                    bottomLeftRadius: isLast ? outerR : innerR
+                                    bottomRightRadius: isLast ? outerR : innerR
+    
+                                    color: Theme.withAlpha(Ui.chipSurface, 0.45)
+                                    border.width: 0
+    
+                                    RowLayout {
+                                        id: row5n
+                                        anchors.left: parent.left
+                                        anchors.right: parent.right
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        anchors.leftMargin: Theme.spacingM
+                                        anchors.rightMargin: Theme.spacingM
+                                        spacing: Theme.spacingM
+    
+                                        DIcon {
+                                            name: "newspaper"
+                                            size: 20
+                                            color: Theme.primary
+                                        }
+    
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            spacing: 2
+    
+                                            StyledText {
+                                                text: Tr.t("Release notes from the projects")
+                                                font.pixelSize: Theme.fontSizeMedium
+                                                font.weight: Font.Medium
+                                                color: Theme.surfaceText
+                                            }
+    
+                                            StyledText {
+                                                Layout.fillWidth: true
+                                                text: Tr.t("After an update run, fetch what the projects themselves wrote about the new versions at the top of the run, where the distribution says little: release notes on GitHub, or the commits between two git builds.")
+                                                font.pixelSize: Theme.fontSizeSmall
+                                                color: Theme.surfaceVariantText
+                                                wrapMode: Text.WordWrap
+                                            }
+                                        }
+    
+                                        DToggle {
+                                            id: t5n
+                                            hideText: true
+                                            checked: !(PluginService.loadPluginData("dankSoftwareDepot", "fetchReleaseNotes", true) === false)
+                                            onToggled: checked => PluginService.savePluginData("dankSoftwareDepot", "fetchReleaseNotes", checked)
+                                        }
+                                    }
+                                }
+    
                                 // 6. Tint app icons with the theme colour (Middle)
                                 Rectangle {
                                     width: parent.width

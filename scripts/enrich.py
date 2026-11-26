@@ -791,12 +791,14 @@ def github_commits(repo, old, new):
     """Commits between two snapshot builds, newest first."""
     data = _http_json(f"https://api.github.com/repos/{repo}/compare/{old}...{new}", timeout=20)
     subjects = []
+    shas = []
     for commit in reversed(data.get("commits") or []):
         subject = ((commit.get("commit") or {}).get("message") or "").split("\n")[0].strip()
         # A merge commit names the pull request whose commits are listed
         # right below it — the same change, twice
         if subject and not subject.startswith("Merge "):
             subjects.append(subject)
+            shas.append(commit.get("sha") or "")
     if not subjects:
         return {"kind": "", "error": "no commits"}
     total = data.get("total_commits") or len(subjects)
@@ -811,6 +813,9 @@ def github_commits(repo, old, new):
         "commitCount": total,
         "more": max(0, total - len(shown)),
         "url": data.get("html_url") or f"https://github.com/{repo}/compare/{old}...{new}",
+        # Each listed commit, for a line that leads to it
+        "commits": [{"subject": s, "url": f"https://github.com/{repo}/commit/{h}" if h else ""}
+                    for s, h in zip(shown, shas)],
         "releases": [{
             "version": new,
             "date": date,
@@ -1861,10 +1866,38 @@ def _load_daily_cache(path):
     return {"ts": 0, "data": {}}
 
 
+_GH_TOKEN = None
+
+
+def _github_token():
+    """The user's own GitHub login, when the gh tool has one (or GH_TOKEN /
+    GITHUB_TOKEN is set): with it GitHub answers 5000 questions an hour
+    instead of 60. Sent to api.github.com only, never anywhere else.
+    DSD_NO_GITHUB_LOGIN=1 leaves it out."""
+    global _GH_TOKEN
+    if _GH_TOKEN is not None:
+        return _GH_TOKEN
+    _GH_TOKEN = ""
+    if os.environ.get("DSD_NO_GITHUB_LOGIN"):
+        return _GH_TOKEN
+    tok = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN") or ""
+    if not tok:
+        try:
+            out = subprocess.run(["gh", "auth", "token", "--hostname", "github.com"], capture_output=True, text=True, timeout=5)
+            if out.returncode == 0:
+                tok = out.stdout.strip()
+        except (OSError, subprocess.SubprocessError):
+            tok = ""
+    _GH_TOKEN = tok if re.match(r"^[A-Za-z0-9_]{20,255}$", tok or "") else ""
+    return _GH_TOKEN
+
+
 def _http_json(url, payload=None, timeout=15):
     import urllib.request
     data = json.dumps(payload).encode() if payload is not None else None
     headers = {"User-Agent": "dankSoftwareDepot/0.1"}
+    if url.startswith("https://api.github.com/") and _github_token():
+        headers["Authorization"] = "Bearer " + _github_token()
     if data is not None:
         headers["Content-Type"] = "application/json"
     req = urllib.request.Request(url, data=data, headers=headers)
